@@ -1,9 +1,11 @@
 package com.example.bitacora.ui.screens
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.speech.RecognizerIntent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
@@ -112,10 +115,36 @@ fun NoteEditorScreen(
     var colorIndex by rememberSaveable(noteId) { mutableStateOf(note?.colorIndex ?: 0) }
     var confirmExit by remember { mutableStateOf(false) }
     var showDrawing by remember { mutableStateOf(false) }
+    var dictationTarget by remember { mutableStateOf<String?>(null) }
 
     val pendingImages = remember(noteId) { mutableStateListOf<Uri>() }
     val pendingVideos = remember(noteId) { mutableStateListOf<Uri>() }
     val pendingDrawings = remember(noteId) { mutableStateListOf<Bitmap>() }
+
+    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            val text = matches?.firstOrNull()?.trim().orEmpty()
+            if (text.isNotBlank()) {
+                when (dictationTarget) {
+                    "title" -> title = if (title.isBlank()) text else title + " " + text
+                    "content" -> content = if (content.isBlank()) text else content + " " + text
+                }
+            }
+        }
+        dictationTarget = null
+    }
+
+    val dictate: (String) -> Unit = { target ->
+        dictationTarget = target
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Habla ahora…")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        runCatching { speechLauncher.launch(intent) }
+    }
 
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -257,9 +286,25 @@ fun NoteEditorScreen(
                 textStyle = MaterialTheme.typography.headlineSmall,
                 colors = transparentFieldColors,
                 maxLines = 4,
+                trailingIcon = {
+                    IconButton(onClick = { dictate("title") }) {
+                        Icon(Icons.Rounded.Mic, contentDescription = "Dictar título")
+                    }
+                },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = { dictate("content") }) {
+                    Icon(Icons.Rounded.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Dictar")
+                }
+            }
 
             TextField(
                 value = content,

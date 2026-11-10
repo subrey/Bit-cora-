@@ -2,9 +2,13 @@ package com.example.bitacora.ui
 
 import android.app.Application
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bitacora.NotasApplication
+import com.example.bitacora.data.Attachment
+import com.example.bitacora.data.AttachmentType
 import com.example.bitacora.data.Note
 import com.example.bitacora.widget.BitacoraWidgetProvider
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -13,8 +17,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -44,10 +50,23 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         _query.value = value
     }
 
-    fun saveNote(id: Long, title: String, content: String, emoji: String, colorIndex: Int) {
+    fun attachments(noteId: Long): kotlinx.coroutines.flow.Flow<List<Attachment>> =
+        if (noteId == 0L) flowOf(emptyList()) else repository.observeAttachments(noteId)
+
+    fun saveNote(
+        id: Long,
+        title: String,
+        content: String,
+        emoji: String,
+        colorIndex: Int,
+        pendingImages: List<Uri> = emptyList(),
+        pendingVideos: List<Uri> = emptyList(),
+        pendingDrawings: List<Bitmap> = emptyList(),
+        onSaved: (Long) -> Unit = {},
+    ) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
-            if (id == 0L) {
+            val savedId = if (id == 0L) {
                 repository.insert(
                     Note(
                         title = title,
@@ -59,7 +78,11 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 )
             } else {
-                val current = repository.getById(id) ?: return@launch
+                val current = repository.getById(id)
+                if (current == null) {
+                    onSaved(id)
+                    return@launch
+                }
                 repository.update(
                     current.copy(
                         title = title,
@@ -69,10 +92,27 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                         updatedAt = now,
                     )
                 )
+                id
             }
+
+            pendingImages.forEach { uri ->
+                runCatching { repository.addAttachmentFromUri(savedId, AttachmentType.IMAGE, uri) }
+            }
+            pendingVideos.forEach { uri ->
+                runCatching { repository.addAttachmentFromUri(savedId, AttachmentType.VIDEO, uri) }
+            }
+            pendingDrawings.forEach { bitmap ->
+                runCatching { repository.addDrawing(savedId, bitmap) }
+            }
+
             refreshWidget()
+            onSaved(savedId)
         }
     }
+
+    fun attachmentFile(path: String): File = repository.mediaFile(path)
+
+    fun attachmentUri(path: String): Uri = repository.mediaUri(path)
 
     fun delete(note: Note) {
         viewModelScope.launch {
@@ -84,6 +124,29 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     fun togglePin(note: Note) {
         viewModelScope.launch {
             repository.update(note.copy(pinned = !note.pinned))
+            refreshWidget()
+        }
+    }
+
+    fun addAttachmentFromUri(noteId: Long, type: String, uri: Uri, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            runCatching { repository.addAttachmentFromUri(noteId, type, uri) }
+            refreshWidget()
+            onDone()
+        }
+    }
+
+    fun addDrawing(noteId: Long, bitmap: Bitmap, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            runCatching { repository.addDrawing(noteId, bitmap) }
+            refreshWidget()
+            onDone()
+        }
+    }
+
+    fun deleteAttachment(attachment: Attachment) {
+        viewModelScope.launch {
+            repository.deleteAttachment(attachment)
             refreshWidget()
         }
     }

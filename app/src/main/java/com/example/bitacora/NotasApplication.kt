@@ -2,6 +2,7 @@ package com.example.bitacora
 
 import android.app.Application
 import com.example.bitacora.data.AppDatabase
+import com.example.bitacora.data.MediaStore
 import com.example.bitacora.data.NoteRepository
 import com.example.bitacora.data.SettingsRepository
 import com.example.bitacora.widget.BitacoraWidgetProvider
@@ -15,7 +16,10 @@ class NotasApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val database: AppDatabase by lazy { AppDatabase.get(this) }
-    val repository: NoteRepository by lazy { NoteRepository(database.noteDao()) }
+    val mediaStore: MediaStore by lazy { MediaStore(this) }
+    val repository: NoteRepository by lazy {
+        NoteRepository(database.noteDao(), database.attachmentDao(), mediaStore)
+    }
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
 
     override fun onCreate() {

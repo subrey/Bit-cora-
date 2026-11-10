@@ -1,5 +1,7 @@
 package com.example.bitacora.ui
 
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -64,8 +66,11 @@ fun BitacoraApp(
             ) { entry ->
                 val id = entry.arguments?.getLong("id") ?: 0L
                 val note = allNotes.firstOrNull { it.id == id }
+                val attachments by viewModel.attachments(id)
+                    .collectAsStateWithLifecycle(initialValue = emptyList())
                 NoteDetailScreen(
                     note = note,
+                    attachments = attachments,
                     isDark = isDark,
                     onBack = { navController.popBackStack() },
                     onEdit = { noteId -> navController.navigate("editor?id=$noteId") },
@@ -74,6 +79,8 @@ fun BitacoraApp(
                         navController.popBackStack()
                     },
                     onTogglePin = viewModel::togglePin,
+                    attachmentFile = viewModel::attachmentFile,
+                    attachmentUri = viewModel::attachmentUri,
                 )
             }
 
@@ -88,16 +95,31 @@ fun BitacoraApp(
             ) { entry ->
                 val id = entry.arguments?.getLong("id") ?: 0L
                 val note = if (id == 0L) null else allNotes.firstOrNull { it.id == id }
+                val attachments by viewModel.attachments(id)
+                    .collectAsStateWithLifecycle(initialValue = emptyList())
                 if (id != 0L && note == null) {
                     LoadingScreen()
                 } else {
                     NoteEditorScreen(
                         note = note,
+                        attachments = attachments,
                         isDark = isDark,
                         onBack = { navController.popBackStack() },
-                        onSave = { noteId, title, content, emoji, colorIndex ->
-                            viewModel.saveNote(noteId, title, content, emoji, colorIndex)
+                        onSave = { noteId, title, content, emoji, colorIndex, images, videos, drawings, onSaved ->
+                            viewModel.saveNote(
+                                noteId, title, content, emoji, colorIndex,
+                                pendingImages = images,
+                                pendingVideos = videos,
+                                pendingDrawings = drawings,
+                                onSaved = onSaved,
+                            )
                         },
+                        onAddImage = { uri -> viewModel.addAttachmentFromUri(id, "IMAGE", uri) },
+                        onAddVideo = { uri -> viewModel.addAttachmentFromUri(id, "VIDEO", uri) },
+                        onAddDrawing = { bitmap -> viewModel.addDrawing(id, bitmap) },
+                        onDeleteAttachment = viewModel::deleteAttachment,
+                        attachmentFile = viewModel::attachmentFile,
+                        attachmentUri = viewModel::attachmentUri,
                     )
                 }
             }

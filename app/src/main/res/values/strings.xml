@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Bitácora</string>
+
+    <string name="widget_name">Bitácora</string>
+    <string name="widget_description">Tu última nota, siempre a mano</string>
+    <string name="widget_new_note">Nueva nota</string>
+    <string name="widget_empty_title">Tu bitácora está vacía</string>
+    <string name="widget_empty_body">Toca + para escribir tu primera nota.</string>
+    <string name="widget_untitled">Sin título</string>
+    <string name="widget_no_content">Sin contenido</string>
+</resources>

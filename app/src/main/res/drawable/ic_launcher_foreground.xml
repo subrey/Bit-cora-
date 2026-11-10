@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Página de la libreta -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,28H70A7,7 0,0 1,77 35V73A7,7 0,0 1,70 80H38A7,7 0,0 1,31 73V35A7,7 0,0 1,38 28Z" />
+    <!-- Lomo -->
+    <path
+        android:fillColor="#D9CFFF"
+        android:pathData="M31,35A7,7 0,0 1,38 28H43V80H38A7,7 0,0 1,31 73Z" />
+    <!-- Líneas de texto -->
+    <path
+        android:fillColor="#6B4EFF"
+        android:pathData="M48,41H69V45H48Z M48,50H69V54H48Z M48,59H62V63H48Z" />
+    <path
+        android:fillColor="#B9A8FF"
+        android:pathData="M48,68H65V71H48Z" />
+</vector>

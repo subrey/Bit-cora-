@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="database" path="bitacora.db" />
+    <include domain="database" path="bitacora.db-shm" />
+    <include domain="database" path="bitacora.db-wal" />
+    <include domain="file" path="datastore/" />
+</full-backup-content>

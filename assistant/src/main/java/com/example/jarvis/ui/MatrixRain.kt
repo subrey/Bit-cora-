@@ -30,7 +30,7 @@ private class RainColumn(val seed: Int) {
     init {
         val random = Random(seed)
         speed = 28f + random.nextFloat() * 46f
-        length = 6 + random.nextInt(14)
+        length = 6 + random.nextInt(8)
         y = random.nextFloat() * 1200f
     }
 }
@@ -68,7 +68,7 @@ fun MatrixRain(modifier: Modifier = Modifier, brightness: Float = 1f) {
     LaunchedEffect(canvasSize.width, canvasSize.height) {
         if (canvasSize.width > 0) {
             columns.clear()
-            val count = (canvasSize.width / cellWidth).toInt().coerceIn(10, 70)
+            val count = (canvasSize.width / cellWidth).toInt().coerceIn(10, 40)
             for (i in 0 until count) {
                 columns.add(RainColumn(i * 7919 + 13))
             }
@@ -76,8 +76,15 @@ fun MatrixRain(modifier: Modifier = Modifier, brightness: Float = 1f) {
     }
 
     LaunchedEffect(Unit) {
+        // 24 fps en lugar de 60: deja el hilo principal libre para el audio.
+        var last = 0L
         while (true) {
-            withFrameNanos { frameNanos = it }
+            withFrameNanos { now ->
+                if (now - last >= 42_000_000L) {
+                    last = now
+                    frameNanos = now
+                }
+            }
         }
     }
 

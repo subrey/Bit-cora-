@@ -43,6 +43,7 @@ class AlwaysListeningService : Service() {
     private var consecutiveFailures = 0
     private var emptyResults = 0
     private var unheard = 0
+    private var paused = false
     private var wakeWord = "jarvis"
     private var lastStartAt = 0L
     private var onDeviceVoice = false
@@ -171,7 +172,7 @@ class AlwaysListeningService : Service() {
     }
 
     private fun startListening() {
-        if (sessionActive) return
+        if (sessionActive || paused) return
         // Enfriamiento: nunca encender el micro más de una vez cada 1,2 s.
         val since = System.currentTimeMillis() - lastStartAt
         if (since < 1_200L) {
@@ -227,6 +228,24 @@ class AlwaysListeningService : Service() {
                     if (onDevice != onDeviceVoice) {
                         onDeviceVoice = onDevice
                         handler.post { switchRecognizer(onDevice) }
+                    }
+                }
+            }
+        }
+        // Mientras Jarvis habla el micro se apaga: evita que se oiga a sí
+        // mismo y que las sesiones caduquen por saturación del hilo principal.
+        scope.launch {
+            JarvisBus.speaking.collect { speaking ->
+                handler.post {
+                    if (speaking) {
+                        paused = true
+                        handler.removeCallbacksAndMessages(null)
+                        runCatching { recognizer?.cancel() }
+                        sessionActive = false
+                        JarvisBus.listening.value = false
+                    } else {
+                        paused = false
+                        startListening()
                     }
                 }
             }

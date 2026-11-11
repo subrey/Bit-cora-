@@ -14,6 +14,7 @@ import com.example.jarvis.data.MemoryItem
 import com.example.jarvis.data.TimerItem
 import com.example.jarvis.data.TodoItem
 import com.example.jarvis.service.AlwaysListeningService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -95,7 +96,12 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             }
             runCatching { repository.addChat(response.text, fromUser = false) }
             if (response.speak && ttsEnabled.value) {
-                app.speaker.speak(response.text)
+                // Mientras Jarvis habla, el micro se pausa: así no se oye a sí
+                // mismo ni se pierde la siguiente orden.
+                JarvisBus.speaking.value = true
+                runCatching { app.speaker.speak(response.text) }
+                delay(estimateSpeechMillis(response.text))
+                JarvisBus.speaking.value = false
             }
         }
     }
@@ -218,6 +224,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     fun forwardFromBus(command: String) {
         submit(command)
     }
+
+    /** Duración aproximada de la locución, para pausar el micro ese tiempo. */
+    private fun estimateSpeechMillis(text: String): Long =
+        (text.trim().split(Regex("\\s+")).count { it.isNotBlank() } * 350L) + 600L
 
     fun speak(text: String) {
         viewModelScope.launch { app.speaker.speak(text) }

@@ -53,9 +53,14 @@ fun TerminalScreen(
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+    // Con conversaciones largas solo se pintan los últimos mensajes: el
+    // resto sigue guardado en la base de datos y no consume recursos.
+    val visible = remember(messages) { messages.takeLast(MAX_VISIBLE_MESSAGES) }
+    val hidden = messages.size - visible.size
+
+    LaunchedEffect(visible.size) {
+        if (visible.isNotEmpty()) {
+            listState.animateScrollToItem(visible.size - 1)
         }
     }
 
@@ -68,8 +73,20 @@ fun TerminalScreen(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            items(items = messages, key = { it.id }) { message ->
-                TerminalMessage(message)
+            if (hidden > 0) {
+                item(key = "hidden") {
+                    Text(
+                        text = "… $hidden mensajes anteriores (guardados en el histórico)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = JarvisColors.Outline,
+                    )
+                }
+            }
+            items(items = visible, key = { it.id }) { message ->
+                TerminalMessage(
+                    message = message,
+                    isLast = message.id == visible.lastOrNull()?.id,
+                )
             }
         }
 
@@ -131,25 +148,31 @@ fun TerminalScreen(
 }
 
 @Composable
-private fun TerminalMessage(message: ChatMessage) {
-    var revealed by remember(message.id) { mutableStateOf(if (message.fromUser) message.text.length else 0) }
+private fun TerminalMessage(message: ChatMessage, isLast: Boolean) {
+    // Solo el último mensaje se escribe letra a letra y parpadea: así el hilo
+    // principal no se satura y el reconocimiento de voz sigue respondiendo.
+    var revealed by remember(message.id) {
+        mutableStateOf(if (message.fromUser || !isLast) message.text.length else 0)
+    }
+    var cursorVisible by remember(message.id) { mutableStateOf(true) }
 
-    LaunchedEffect(message.id) {
-        if (!message.fromUser) {
+    LaunchedEffect(message.id, isLast) {
+        if (isLast && !message.fromUser) {
             var index = 0
             while (index < message.text.length) {
-                index = (index + 3).coerceAtMost(message.text.length)
+                index = (index + 4).coerceAtMost(message.text.length)
                 revealed = index
-                delay(14)
+                delay(16)
             }
         }
     }
 
-    var cursorVisible by remember(message.id) { mutableStateOf(true) }
-    LaunchedEffect(message.id) {
-        while (true) {
-            cursorVisible = !cursorVisible
-            delay(450)
+    LaunchedEffect(message.id, isLast) {
+        if (isLast) {
+            while (true) {
+                cursorVisible = !cursorVisible
+                delay(500)
+            }
         }
     }
 
@@ -164,9 +187,13 @@ private fun TerminalMessage(message: ChatMessage) {
             color = prefixColor,
         )
         Text(
-            text = message.text.take(revealed) + if (typing || cursorVisible) "▌" else "",
+            text = message.text.take(revealed) +
+                if (isLast && (typing || cursorVisible)) "▌" else "",
             style = MaterialTheme.typography.bodyMedium,
             color = if (message.fromUser) JarvisColors.Muted else JarvisColors.Green,
         )
     }
 }
+
+/** Máximo de mensajes pintados a la vez en el terminal. */
+private const val MAX_VISIBLE_MESSAGES = 120

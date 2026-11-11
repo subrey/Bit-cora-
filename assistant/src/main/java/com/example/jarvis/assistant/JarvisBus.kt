@@ -20,6 +20,9 @@ object JarvisBus {
     /** true mientras el micrófono está capturando de verdad. */
     val listening: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
+    /** true mientras Jarvis está hablando: el micro se apaga para no oírse. */
+    val speaking: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
     fun send(command: String) {
         _commands.tryEmit(command)
     }

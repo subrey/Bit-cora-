@@ -55,7 +55,11 @@ class JarvisRepository(
 
     suspend fun addChat(text: String, fromUser: Boolean) {
         chatDao.insert(ChatEntry(text = text, fromUser = fromUser))
-        chatDao.trim(MAX_CHAT_MESSAGES)
+        // Solo se recorta de vez en cuando: así el histórico largo no slows
+        // down cada mensaje nuevo.
+        if (chatDao.count() > MAX_CHAT_MESSAGES) {
+            chatDao.trim(MAX_CHAT_MESSAGES - 50)
+        }
     }
 
     suspend fun clearChat() = chatDao.clear()

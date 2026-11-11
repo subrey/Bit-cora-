@@ -247,12 +247,18 @@ class MusicPlayer(private val context: Context) {
     init {
         scope.launch {
             while (isActive) {
-                val player = mediaPlayer
-                if (player != null && player.isPlaying) {
-                    _state.value = _state.value.copy(
-                        positionMs = player.currentPosition.toLong(),
-                        durationMs = if (player.duration > 0) player.duration.toLong() else _state.value.durationMs,
-                    )
+                runCatching {
+                    val player = mediaPlayer
+                    if (player != null && player.isPlaying) {
+                        _state.value = _state.value.copy(
+                            positionMs = player.currentPosition.toLong(),
+                            durationMs = if (player.duration > 0) {
+                                player.duration.toLong()
+                            } else {
+                                _state.value.durationMs
+                            },
+                        )
+                    }
                 }
                 delay(500)
             }

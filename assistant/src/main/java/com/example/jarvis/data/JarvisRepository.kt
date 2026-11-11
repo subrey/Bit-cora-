@@ -1,6 +1,7 @@
 package com.example.jarvis.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 class JarvisRepository(
     private val todoDao: TodoDao,
@@ -36,4 +37,12 @@ class JarvisRepository(
     suspend fun markTimerFired(item: TimerItem) = timerDao.update(item.copy(fired = true))
 
     suspend fun deleteTimer(item: TimerItem) = timerDao.delete(item)
+
+    // --- Recuentos para el resumen del asistente -------------------------
+
+    suspend fun pendingTodoCount(): Int = todoDao.observePendingCount().first()
+
+    suspend fun memoryCount(): Int = memoryDao.observeAll().first().size
+
+    suspend fun activeTimerCount(): Int = timerDao.observeAll().first().count { !it.fired }
 }

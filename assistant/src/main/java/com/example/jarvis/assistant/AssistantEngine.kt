@@ -8,7 +8,6 @@ import android.os.BatteryManager
 import android.os.Environment
 import android.os.StatFs
 import com.example.jarvis.data.JarvisRepository
-import kotlinx.coroutines.flow.count
 import java.time.LocalDateTime
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -112,14 +111,13 @@ class AssistantEngine(
             }
 
             IntentKind.LIST_MEMORIES -> {
-                val memories = repository.observeMemories()
                 val latest = repository.latestMemory()
                 val info = if (latest == null) {
                     "Todavía no he memorizado nada."
                 } else {
                     "Lo último que memoricé fue: ${latest.text}"
                 }
-                AssistantResponse("$info Hay ${memories.count()} memoria(s) guardada(s).")
+                AssistantResponse("$info Hay ${repository.memoryCount()} memoria(s) guardada(s).")
             }
 
             IntentKind.BATTERY -> AssistantResponse(batteryText())
@@ -284,10 +282,9 @@ class AssistantEngine(
     }
 
     private suspend fun summary(): String {
-        val todos = repository.observeTodos()
-        val pending = todos.count { !it.done }
-        val memories = repository.observeMemories().count()
-        val timers = repository.observeTimers().count { !it.fired }
+        val pending = repository.pendingTodoCount()
+        val memories = repository.memoryCount()
+        val timers = repository.activeTimerCount()
         return buildString {
             append("Estado del sistema: ")
             append("$pending tarea(s) pendiente(s), ")

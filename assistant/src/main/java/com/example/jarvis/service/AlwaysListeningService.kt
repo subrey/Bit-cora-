@@ -21,24 +21,29 @@ import kotlinx.coroutines.launch
 
 /**
  * Servicio en primer plano que escucha de forma continua y responde a la
- * palabra clave ("Jarvis"). La orden se envía por el bus interno.
+ * palabra clave ("Jarvis").
  *
- * El reconocimiento de voz se mantiene vivo reintentando con espera
- * progresiva: si el sistema lo corta, se vuelve a escuchar al instante.
+ * Claves para que no se corte:
+ *  - la sesión de reconocimiento se mantiene abierta con silencios largos,
+ *    para que dé tiempo a hablar después de encender el micro;
+ *  - al terminar una sesión se vuelve a escuchar de inmediato, sin cancelar
+ *    antes (cancelar produce los pitidos de apagado/encendido);
+ *  - si el sistema insiste en cortar el micro, se avisa y se para en lugar
+ *    de ficar en bucle.
  */
 class AlwaysListeningService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
-    private var listening = false
+    private var sessionActive = false
     private var failures = 0
+    private var successes = 0
     private var wakeWord = "jarvis"
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
             JarvisBus.listening.value = true
-            failures = 0
         }
 
         override fun onBeginningOfSpeech() = Unit
@@ -51,25 +56,53 @@ class AlwaysListeningService : Service() {
 
         override fun onError(error: Int) {
             JarvisBus.listening.value = false
-            listening = false
-            if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
-                JarvisBus.notice(
-                    "⚠ Jarvis no puede escuchar: falta el permiso de micrófono. " +
-                        "Actívalo en los ajustes del sistema para Android."
-                )
-                stopSelf()
-                return
+            sessionActive = false
+            when (error) {
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
+                    JarvisBus.notice(
+                        "⚠ Jarvis no puede escuchar: falta el permiso de micrófono. " +
+                            "Actívalo en los ajustes del sistema para Android."
+                    )
+                    stopSelf()
+                }
+
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> scheduleRestart(delay = 700L)
+
+                else -> {
+                    failures++
+                    if (failures > 8 && successes == 0) {
+                        JarvisBus.notice(
+                            "⚠ El sistema está cortando el micrófono en segundo plano. " +
+                                "Deja la app abierta en pantalla para hablar con Jarvis, " +
+                                "o usa el botón del micrófono para darle órdenes."
+                        )
+                        stopSelf()
+                    } else {
+                        scheduleRestart()
+                    }
+                }
             }
-            scheduleRestart()
         }
 
         override fun onResults(results: Bundle?) {
+            JarvisBus.listening.value = false
+            sessionActive = false
+            failures = 0
+            successes++
             handle(results)
-            scheduleRestart()
+            scheduleRestart(delay = 400L)
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
-            handle(partialResults)
+            // Los parciales solo sirven para detección temprana de la palabra clave.
+            if (partialResults == null) return
+            val spoken = partialResults
+                .getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
+                .orEmpty()
+            if (spoken.lowercase().contains(wakeWord)) {
+                JarvisBus.listening.value = true
+            }
         }
 
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
@@ -90,43 +123,38 @@ class AlwaysListeningService : Service() {
         }
     }
 
-    /** Vuelve a escuchar tras un corte, esperando cada vez un poco más. */
-    private fun scheduleRestart() {
+    /** Vuelve a escuchar con una espera corta, sin cancelar la sesión anterior. */
+    private fun scheduleRestart(delay: Long = 600L) {
         handler.removeCallbacksAndMessages(null)
-        val wait = when {
-            failures <= 1 -> 300L
-            failures <= 3 -> 1_200L
-            else -> 2_500L
-        }
         handler.postDelayed({
-            failures++
-            listening = false
-            runCatching { recognizer?.cancel() }
             startListening()
-        }, wait)
+        }, delay)
     }
 
     private fun startListening() {
-        if (listening) return
-        listening = true
+        if (sessionActive) return
+        sessionActive = true
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
+            // Sesiones largas: da tiempo a hablar después de encender el micro.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2_500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_200L)
         }
         runCatching { recognizer?.startListening(intent) }
             .onFailure {
-                listening = false
-                handler.postDelayed({ startListening() }, 1_500L)
+                sessionActive = false
+                handler.postDelayed({ startListening() }, 900L)
             }
     }
 
     private fun stopListening() {
         handler.removeCallbacksAndMessages(null)
         runCatching { recognizer?.cancel() }
-        listening = false
+        sessionActive = false
         JarvisBus.listening.value = false
     }
 
@@ -163,7 +191,20 @@ class AlwaysListeningService : Service() {
                 }
             }
         }
-        handler.post { startListening() }
+        when (intent?.action) {
+            ACTION_REARM -> {
+                // La app vuelve al primer plano: el reconocimiento es mucho más
+                // fiable en pantalla, así que se reinicia la sesión.
+                handler.post {
+                    runCatching { recognizer?.cancel() }
+                    sessionActive = false
+                    failures = 0
+                    startListening()
+                }
+            }
+
+            else -> handler.post { startListening() }
+        }
         return START_STICKY
     }
 
@@ -186,6 +227,7 @@ class AlwaysListeningService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 42
+        const val ACTION_REARM = "com.example.jarvis.action.REARM"
 
         fun start(context: android.content.Context) {
             val intent = Intent(context, AlwaysListeningService::class.java)
@@ -201,6 +243,18 @@ class AlwaysListeningService : Service() {
         fun stop(context: android.content.Context) {
             runCatching {
                 context.stopService(Intent(context, AlwaysListeningService::class.java))
+            }
+        }
+
+        /** Relanza la escucha: útil cuando la app pasa al primer plano. */
+        fun rearm(context: android.content.Context) {
+            val intent = Intent(context, AlwaysListeningService::class.java).setAction(ACTION_REARM)
+            runCatching {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
             }
         }
     }

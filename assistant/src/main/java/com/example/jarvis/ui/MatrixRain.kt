@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
@@ -60,14 +61,14 @@ fun MatrixRain(modifier: Modifier = Modifier, brightness: Float = 1f) {
         }
     }
 
-    var size by remember { mutableStateOf(IntSize.Zero) }
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     val columns = remember { mutableStateListOf<RainColumn>() }
     var frameNanos by remember { mutableStateOf(0L) }
 
-    LaunchedEffect(size.width, size.height) {
-        if (size.width > 0) {
+    LaunchedEffect(canvasSize.width, canvasSize.height) {
+        if (canvasSize.width > 0) {
             columns.clear()
-            val count = (size.width / cellWidth).toInt().coerceIn(10, 70)
+            val count = (canvasSize.width / cellWidth).toInt().coerceIn(10, 70)
             for (i in 0 until count) {
                 columns.add(RainColumn(i * 7919 + 13))
             }
@@ -80,7 +81,11 @@ fun MatrixRain(modifier: Modifier = Modifier, brightness: Float = 1f) {
         }
     }
 
-    Canvas(modifier = modifier.fillMaxSize()) {
+    Canvas(
+        modifier = modifier
+            .fillMaxSize()
+            .onSizeChanged { canvasSize = it }
+    ) {
         paint.textSize = textSizePx
         val seconds = frameNanos / 1_000_000_000f
         val totalHeight = size.height + cellHeight * 30f

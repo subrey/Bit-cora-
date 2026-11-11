@@ -56,6 +56,14 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val accent: StateFlow<String> = settings.accent
         .stateIn(viewModelScope, SharingStarted.Eagerly, "green")
 
+    /** Voz en el dispositivo (sin pitidos) frente al motor normal. */
+    val onDeviceVoice: StateFlow<Boolean> = settings.onDeviceVoice
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setOnDeviceVoice(value: Boolean) {
+        viewModelScope.launch { settings.setOnDeviceVoice(value) }
+    }
+
     /** Histórico completo de la conversación (persistente entre sesiones). */
     val messages: StateFlow<List<ChatMessage>> = repository.observeChat()
         .map { entries -> entries.map { ChatMessage(it.id, it.text, it.fromUser) } }

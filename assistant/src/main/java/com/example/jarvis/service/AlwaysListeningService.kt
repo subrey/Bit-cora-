@@ -40,8 +40,11 @@ class AlwaysListeningService : Service() {
     private var recognizer: SpeechRecognizer? = null
     private var sessionActive = false
     private var consecutiveFailures = 0
+    private var emptyResults = 0
+    private var unheard = 0
     private var wakeWord = "jarvis"
     private var lastStartAt = 0L
+    private var onDeviceVoice = false
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
@@ -90,7 +93,27 @@ class AlwaysListeningService : Service() {
             JarvisBus.listening.value = false
             sessionActive = false
             consecutiveFailures = 0
+            val spoken = results
+                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
+                .orEmpty()
+            if (spoken.isBlank()) {
+                emptyResults++
+                if (onDeviceVoice && emptyResults == 5) {
+                    JarvisBus.notice(
+                        "⚠ El modelo de voz en el dispositivo no está disponible y no reconoce nada. " +
+                            "Desactive «Voz en el dispositivo» en Ajustes para usar el motor normal."
+                    )
+                }
+                scheduleRestart(1_800L)
+                return
+            }
+            emptyResults = 0
             val handled = handle(results)
+            if (!handled && unheard < 3) {
+                unheard++
+                JarvisBus.notice("Te he oído «$spoken», pero esperaba la palabra «$wakeWord».")
+            }
             // Tras una orden se reabre rápido; si no hubo orden, se espera más
             // para no encadenar sesiones (y por tanto pitidos).
             scheduleRestart(if (handled) 700L else 1_800L)
@@ -186,17 +209,37 @@ class AlwaysListeningService : Service() {
             }
         }
         handler.post {
-            recognizer = createRecognizer()
+            recognizer = createRecognizer(onDeviceVoice)
             startListening()
+        }
+        if (app != null) {
+            scope.launch {
+                app.settings.onDeviceVoice.collect { onDevice ->
+                    if (onDevice != onDeviceVoice) {
+                        onDeviceVoice = onDevice
+                        handler.post { switchRecognizer(onDevice) }
+                    }
+                }
+            }
         }
     }
 
+    /** Cambia entre el motor de red y el que vive en el dispositivo. */
+    private fun switchRecognizer(onDevice: Boolean) {
+        runCatching { recognizer?.cancel() }
+        runCatching { recognizer?.destroy() }
+        recognizer = createRecognizer(onDevice)
+        sessionActive = false
+        consecutiveFailures = 0
+        startListening()
+    }
+
     /**
-     * Prefiere el reconocimiento en el dispositivo: no necesita red y, en la
-     * mayoría de teléfonos, no emite los pitidos de conexión.
+     * El motor en el dispositivo no pita ni usa red, pero si el sistema no tiene
+     * el modelo de voz descargado no devuelve resultados: por eso es opcional.
      */
-    private fun createRecognizer(): SpeechRecognizer? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    private fun createRecognizer(onDevice: Boolean): SpeechRecognizer? {
+        if (onDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             runCatching {
                 SpeechRecognizer.createOnDeviceSpeechRecognizer(this).also {
                     it.setRecognitionListener(listener)

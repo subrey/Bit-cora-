@@ -35,9 +35,11 @@ fun SettingsScreen(
     ttsEnabled: Boolean,
     alwaysListening: Boolean,
     wakeWord: String,
+    onDeviceVoice: Boolean,
     onTtsChange: (Boolean) -> Unit,
     onAlwaysListeningChange: (Boolean) -> Unit,
     onWakeWordChange: (String) -> Unit,
+    onOnDeviceVoiceChange: (Boolean) -> Unit,
     onClearChat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -64,6 +66,12 @@ fun SettingsScreen(
             subtitle = "Mantiene el micrófono abierto y espera la palabra clave (pide permiso de micrófono)",
             checked = alwaysListening,
             onCheckedChange = onAlwaysListeningChange,
+        )
+        SettingSwitch(
+            title = "Voz en el dispositivo",
+            subtitle = "Sin red ni pitidos, pero necesita el modelo de voz descargado en el sistema",
+            checked = onDeviceVoice,
+            onCheckedChange = onOnDeviceVoiceChange,
         )
 
         HorizontalDivider(color = JarvisColors.Outline)

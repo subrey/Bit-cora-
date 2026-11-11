@@ -18,6 +18,7 @@ class SettingsRepository(private val context: Context) {
         val alwaysListening = booleanPreferencesKey("always_listening")
         val wakeWord = stringPreferencesKey("wake_word")
         val accent = stringPreferencesKey("accent")
+        val onDeviceVoice = booleanPreferencesKey("on_device_voice")
     }
 
     val ttsEnabled: Flow<Boolean> = context.jarvisDataStore.data.map { it[Keys.tts] ?: true }
@@ -28,6 +29,16 @@ class SettingsRepository(private val context: Context) {
     val wakeWord: Flow<String> = context.jarvisDataStore.data.map { it[Keys.wakeWord] ?: "jarvis" }
 
     val accent: Flow<String> = context.jarvisDataStore.data.map { it[Keys.accent] ?: "green" }
+
+    /**
+     * Voz en el dispositivo: no pita ni usa red, pero necesita el modelo de voz
+     * descargado en el sistema; si no está, no reconoce nada.
+     */
+    val onDeviceVoice: Flow<Boolean> = context.jarvisDataStore.data.map { it[Keys.onDeviceVoice] ?: false }
+
+    suspend fun setOnDeviceVoice(value: Boolean) {
+        context.jarvisDataStore.edit { it[Keys.onDeviceVoice] = value }
+    }
 
     suspend fun setTtsEnabled(value: Boolean) {
         context.jarvisDataStore.edit { it[Keys.tts] = value }

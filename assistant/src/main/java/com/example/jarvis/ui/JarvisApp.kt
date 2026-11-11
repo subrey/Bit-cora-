@@ -59,6 +59,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val alwaysListening by viewModel.alwaysListening.collectAsStateWithLifecycle()
     val wakeWord by viewModel.wakeWord.collectAsStateWithLifecycle()
     val capturing by JarvisBus.listening.collectAsStateWithLifecycle()
+    val onDeviceVoice by viewModel.onDeviceVoice.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
@@ -237,6 +238,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         ttsEnabled = ttsEnabled,
                         alwaysListening = alwaysListening,
                         wakeWord = wakeWord,
+                        onDeviceVoice = onDeviceVoice,
                         onTtsChange = viewModel::setTtsEnabled,
                         onAlwaysListeningChange = { enabled ->
                             if (enabled) {
@@ -246,6 +248,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                             }
                         },
                         onWakeWordChange = viewModel::setWakeWord,
+                        onOnDeviceVoiceChange = viewModel::setOnDeviceVoice,
                         onClearChat = viewModel::clearChat,
                     )
                 }

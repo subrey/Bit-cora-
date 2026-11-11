@@ -61,7 +61,7 @@ fun SettingsScreen(
         )
         SettingSwitch(
             title = "Escucha permanente",
-            subtitle = "Mantiene el micrófono abierto y espera la palabra clave",
+            subtitle = "Mantiene el micrófono abierto y espera la palabra clave (pide permiso de micrófono)",
             checked = alwaysListening,
             onCheckedChange = onAlwaysListeningChange,
         )

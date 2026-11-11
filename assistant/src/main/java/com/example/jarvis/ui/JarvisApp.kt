@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.speech.RecognizerIntent
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -57,6 +58,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val ttsEnabled by viewModel.ttsEnabled.collectAsStateWithLifecycle()
     val alwaysListening by viewModel.alwaysListening.collectAsStateWithLifecycle()
     val wakeWord by viewModel.wakeWord.collectAsStateWithLifecycle()
+    val capturing by JarvisBus.listening.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
@@ -91,9 +93,56 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
             if (granted) viewModel.scanMusic()
         }
 
+    val listenPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                viewModel.setAlwaysListening(true)
+            } else {
+                Toast.makeText(
+                    context,
+                    "Sin permiso de micrófono Jarvis no puede escuchar siempre",
+                    Toast.LENGTH_LONG,
+                ).show()
+                viewModel.setAlwaysListening(false)
+            }
+        }
+
+    val notificationPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            viewModel.setAlwaysListening(true)
+        }
+
+    fun enableAlwaysListening() {
+        val micGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!micGranted) {
+            listenPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            val notificationsGranted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!notificationsGranted) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
+        }
+        viewModel.setAlwaysListening(true)
+    }
+
     LaunchedEffect(Unit) {
         JarvisBus.commands.collect { command ->
             viewModel.forwardFromBus(command)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        JarvisBus.notices.collect { notice ->
+            viewModel.systemMessage(notice)
         }
     }
 
@@ -107,9 +156,13 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 26.dp),
+                .statusBarsPadding(),
         ) {
-            StatusBar(alwaysListening = alwaysListening, messageCount = messages.size)
+            StatusBar(
+                alwaysListening = alwaysListening,
+                capturing = capturing,
+                messageCount = messages.size,
+            )
 
             Row(
                 modifier = Modifier
@@ -185,7 +238,13 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         alwaysListening = alwaysListening,
                         wakeWord = wakeWord,
                         onTtsChange = viewModel::setTtsEnabled,
-                        onAlwaysListeningChange = viewModel::setAlwaysListening,
+                        onAlwaysListeningChange = { enabled ->
+                            if (enabled) {
+                                enableAlwaysListening()
+                            } else {
+                                viewModel.setAlwaysListening(false)
+                            }
+                        },
                         onWakeWordChange = viewModel::setWakeWord,
                         onClearChat = viewModel::clearChat,
                     )
@@ -196,7 +255,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
 }
 
 @Composable
-private fun StatusBar(alwaysListening: Boolean, messageCount: Int) {
+private fun StatusBar(alwaysListening: Boolean, capturing: Boolean, messageCount: Int) {
     val context = LocalContext.current
     val clock by produceState(initialValue = "", 0) {
         val formatter = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("es"))
@@ -238,11 +297,18 @@ private fun StatusBar(alwaysListening: Boolean, messageCount: Int) {
             color = JarvisColors.Outline,
         )
         Spacer(modifier = Modifier.width(8.dp))
-        if (alwaysListening) {
+        if (capturing) {
             Text(
                 text = "● REC",
                 style = MaterialTheme.typography.labelSmall,
                 color = JarvisColors.Amber,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        } else if (alwaysListening) {
+            Text(
+                text = "○ ESC",
+                style = MaterialTheme.typography.labelSmall,
+                color = JarvisColors.Outline,
             )
             Spacer(modifier = Modifier.width(8.dp))
         }

@@ -1,6 +1,9 @@
 package com.example.jarvis.ui
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jarvis.JarvisApplication
@@ -161,14 +164,31 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setAlwaysListening(enabled: Boolean) {
         viewModelScope.launch {
-            settings.setAlwaysListening(enabled)
             val context = getApplication<Application>()
             if (enabled) {
+                val granted = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO,
+                ) == PackageManager.PERMISSION_GRANTED
+                if (!granted) {
+                    JarvisBus.notice(
+                        "⚠ Necesito el permiso de micrófono para escuchar de forma permanente."
+                    )
+                    settings.setAlwaysListening(false)
+                    return@launch
+                }
+                settings.setAlwaysListening(true)
                 AlwaysListeningService.start(context)
             } else {
+                settings.setAlwaysListening(false)
                 AlwaysListeningService.stop(context)
             }
         }
+    }
+
+    /** Mensaje del sistema dentro de la conversación. */
+    fun systemMessage(text: String) {
+        viewModelScope.launch { repository.addChat(text, fromUser = false) }
     }
 
     fun setWakeWord(word: String) {

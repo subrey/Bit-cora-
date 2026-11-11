@@ -47,6 +47,7 @@ class AlwaysListeningService : Service() {
     private var wakeWord = "jarvis"
     private var lastStartAt = 0L
     private var onDeviceVoice = false
+    private var appRef: JarvisApplication? = null
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
@@ -102,19 +103,28 @@ class AlwaysListeningService : Service() {
             if (spoken.isBlank()) {
                 emptyResults++
                 if (onDeviceVoice && emptyResults == 5) {
+                    // El modelo local no está disponible: se vuelve al motor
+                    // normal, que sí reconoce (con su pitido).
                     JarvisBus.notice(
-                        "⚠ El modelo de voz en el dispositivo no está disponible y no reconoce nada. " +
-                            "Desactive «Voz en el dispositivo» en Ajustes para usar el motor normal."
+                        "⚠ El modelo de voz en el dispositivo no está disponible. " +
+                            "Vuelvo al motor normal; para que no suene el pitido, " +
+                            "descargue el modelo de voz en los ajustes de Google."
                     )
+                    val app = appRef
+                    if (app != null) {
+                        scope.launch { app.settings.setOnDeviceVoice(false) }
+                    }
                 }
-                scheduleRestart(1_800L)
+                // Nadie ha hablado: se espera más antes de abrir otra sesión
+                // (cada sesión es la que produce el pitido).
+                scheduleRestart(if (emptyResults > 2) 5_000L else 3_000L)
                 return
             }
             emptyResults = 0
             val handled = handle(results)
             // Tras una orden se reabre rápido; si no hubo orden, se espera más
             // para no encadenar sesiones (y por tanto pitidos).
-            scheduleRestart(if (handled) 700L else 1_800L)
+            scheduleRestart(if (handled) 700L else 4_000L)
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
@@ -211,6 +221,7 @@ class AlwaysListeningService : Service() {
         isRunning = true
         Notifications.ensureChannel(this)
         val app = applicationContext as? JarvisApplication
+        appRef = app
         if (app != null) {
             scope.launch {
                 app.settings.wakeWord.collect { word ->

@@ -300,18 +300,13 @@ private fun StatusBar(alwaysListening: Boolean, capturing: Boolean, messageCount
             color = JarvisColors.Outline,
         )
         Spacer(modifier = Modifier.width(8.dp))
-        if (capturing) {
+        if (alwaysListening) {
+            // Indicador estable: el micro se abre y se cierra por sesiones,
+            // así que parpadearía. El color indica si está capturando ahora.
             Text(
-                text = "● REC",
+                text = if (capturing) "● REC" else "● MIC",
                 style = MaterialTheme.typography.labelSmall,
-                color = JarvisColors.Amber,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        } else if (alwaysListening) {
-            Text(
-                text = "○ ESC",
-                style = MaterialTheme.typography.labelSmall,
-                color = JarvisColors.Outline,
+                color = if (capturing) JarvisColors.Amber else JarvisColors.GreenDim,
             )
             Spacer(modifier = Modifier.width(8.dp))
         }

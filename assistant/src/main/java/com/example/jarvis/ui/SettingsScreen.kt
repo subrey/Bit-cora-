@@ -69,7 +69,8 @@ fun SettingsScreen(
         )
         SettingSwitch(
             title = "Voz en el dispositivo",
-            subtitle = "Sin red ni pitidos, pero necesita el modelo de voz descargado en el sistema",
+            subtitle = "Sin red ni pitidos, pero necesita el modelo de voz descargado " +
+                "(Ajustes → Google → Búsqueda por voz → Idiomas descargados)",
             checked = onDeviceVoice,
             onCheckedChange = onOnDeviceVoiceChange,
         )

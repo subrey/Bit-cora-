@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,13 +27,11 @@ import kotlinx.coroutines.launch
  * Servicio en primer plano que escucha de forma continua y responde a la
  * palabra clave ("Jarvis").
  *
- * Claves para que no se corte:
- *  - la sesión de reconocimiento se mantiene abierta con silencios largos,
- *    para que dé tiempo a hablar después de encender el micro;
- *  - al terminar una sesión se vuelve a escuchar de inmediato, sin cancelar
- *    antes (cancelar produce los pitidos de apagado/encendido);
- *  - si el sistema insiste en cortar el micro, se avisa y se para en lugar
- *    de ficar en bucle.
+ * Para evitar el bucle de pitidos (micro que se enciende y se apaga sin parar):
+ *  - se prefiere el reconocimiento EN EL DISPOSITIVO, que no pita ni usa red;
+ *  - las sesiones se mantienen abiertas con silencios largos;
+ *  - entre sesión y sesión hay un enfriamiento mínimo, y si el sistema insiste
+ *    se va aumentando la espera.
  */
 class AlwaysListeningService : Service() {
 
@@ -40,9 +39,9 @@ class AlwaysListeningService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var sessionActive = false
-    private var failures = 0
-    private var successes = 0
+    private var consecutiveFailures = 0
     private var wakeWord = "jarvis"
+    private var lastStartAt = 0L
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
@@ -69,19 +68,19 @@ class AlwaysListeningService : Service() {
                     stopSelf()
                 }
 
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> scheduleRestart(delay = 700L)
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> scheduleRestart(900L)
 
                 else -> {
-                    failures++
-                    if (failures > 8 && successes == 0) {
+                    consecutiveFailures++
+                    if (consecutiveFailures > 10) {
                         JarvisBus.notice(
-                            "⚠ El sistema está cortando el micrófono en segundo plano. " +
+                            "⚠ El sistema sigue cortando el micrófono en segundo plano. " +
                                 "Deja la app abierta en pantalla para hablar con Jarvis, " +
                                 "o usa el botón del micrófono para darle órdenes."
                         )
                         stopSelf()
                     } else {
-                        scheduleRestart()
+                        scheduleRestart(backoff())
                     }
                 }
             }
@@ -90,14 +89,14 @@ class AlwaysListeningService : Service() {
         override fun onResults(results: Bundle?) {
             JarvisBus.listening.value = false
             sessionActive = false
-            failures = 0
-            successes++
-            handle(results)
-            scheduleRestart(delay = 400L)
+            consecutiveFailures = 0
+            val handled = handle(results)
+            // Tras una orden se reabre rápido; si no hubo orden, se espera más
+            // para no encadenar sesiones (y por tanto pitidos).
+            scheduleRestart(if (handled) 700L else 1_800L)
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
-            // Los parciales solo sirven para detección temprana de la palabra clave.
             if (partialResults == null) return
             val spoken = partialResults
                 .getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -111,46 +110,59 @@ class AlwaysListeningService : Service() {
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
     }
 
-    private fun handle(bundle: Bundle?) {
+    /** @return true si la orden se ha enviado al asistente. */
+    private fun handle(bundle: Bundle?): Boolean {
         val spoken = bundle
             ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             ?.firstOrNull()
             .orEmpty()
-        if (spoken.isBlank()) return
+        if (spoken.isBlank()) return false
         val normalized = spoken.lowercase()
         val index = normalized.indexOf(wakeWord)
-        if (index < 0) return
+        if (index < 0) return false
         val command = spoken.substring(index + wakeWord.length).trim()
-        if (command.isNotBlank()) {
-            JarvisBus.send(command)
-        }
+        if (command.isBlank()) return false
+        JarvisBus.send(command)
+        return true
     }
 
-    /** Vuelve a escuchar con una espera corta, sin cancelar la sesión anterior. */
-    private fun scheduleRestart(delay: Long = 600L) {
+    /** Espera creciente entre sesiones si el sistema corta el micrófono. */
+    private fun backoff(): Long = when {
+        consecutiveFailures <= 2 -> 1_500L
+        consecutiveFailures <= 5 -> 3_000L
+        else -> 6_000L
+    }
+
+    private fun scheduleRestart(delay: Long = 1_500L) {
         handler.removeCallbacksAndMessages(null)
-        handler.postDelayed({
-            startListening()
-        }, delay)
+        handler.postDelayed({ startListening() }, delay)
     }
 
     private fun startListening() {
         if (sessionActive) return
+        // Enfriamiento: nunca encender el micro más de una vez cada 1,2 s.
+        val since = System.currentTimeMillis() - lastStartAt
+        if (since < 1_200L) {
+            handler.postDelayed({ startListening() }, 1_200L - since)
+            return
+        }
         sessionActive = true
+        lastStartAt = System.currentTimeMillis()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            // Sesiones largas: da tiempo a hablar después de encender el micro.
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2_500L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_200L)
+            // Sesiones largas: hay tiempo de hablar después de encender el micro.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 8_000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4_000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_500L)
         }
         runCatching { recognizer?.startListening(intent) }
             .onFailure {
                 sessionActive = false
-                handler.postDelayed({ startListening() }, 900L)
+                consecutiveFailures++
+                handler.postDelayed({ startListening() }, backoff())
             }
     }
 
@@ -174,13 +186,28 @@ class AlwaysListeningService : Service() {
             }
         }
         handler.post {
-            recognizer = runCatching {
-                SpeechRecognizer.createSpeechRecognizer(this).also {
-                    it.setRecognitionListener(listener)
-                }
-            }.getOrNull()
+            recognizer = createRecognizer()
             startListening()
         }
+    }
+
+    /**
+     * Prefiere el reconocimiento en el dispositivo: no necesita red y, en la
+     * mayoría de teléfonos, no emite los pitidos de conexión.
+     */
+    private fun createRecognizer(): SpeechRecognizer? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            runCatching {
+                SpeechRecognizer.createOnDeviceSpeechRecognizer(this).also {
+                    it.setRecognitionListener(listener)
+                }
+            }.getOrNull()?.let { return it }
+        }
+        return runCatching {
+            SpeechRecognizer.createSpeechRecognizer(this).also {
+                it.setRecognitionListener(listener)
+            }
+        }.getOrNull()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -189,7 +216,6 @@ class AlwaysListeningService : Service() {
             Manifest.permission.RECORD_AUDIO,
         ) == PackageManager.PERMISSION_GRANTED
         if (!micGranted) {
-            // Sin permiso de micrófono no se puede levantar un servicio de este tipo.
             stopSelf()
             return START_NOT_STICKY
         }
@@ -214,7 +240,7 @@ class AlwaysListeningService : Service() {
                 handler.post {
                     runCatching { recognizer?.cancel() }
                     sessionActive = false
-                    failures = 0
+                    consecutiveFailures = 0
                     startListening()
                 }
             }
@@ -254,7 +280,7 @@ class AlwaysListeningService : Service() {
             if (!hasMicPermission(context)) return
             val intent = Intent(context, AlwaysListeningService::class.java)
             runCatching {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
                 } else {
                     context.startService(intent)
@@ -278,7 +304,7 @@ class AlwaysListeningService : Service() {
             if (!hasMicPermission(context)) return
             val intent = Intent(context, AlwaysListeningService::class.java).setAction(ACTION_REARM)
             runCatching {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
                 } else {
                     context.startService(intent)

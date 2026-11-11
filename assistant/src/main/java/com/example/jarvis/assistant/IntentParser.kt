@@ -23,6 +23,7 @@ enum class IntentKind {
     TODO,
     MEMORY,
     LIST_MEMORIES,
+    HISTORY,
     BATTERY,
     STORAGE,
     TORCH,
@@ -79,13 +80,17 @@ object IntentParser {
         }
 
         // --- Música ------------------------------------------------------
-        if (has("sube volumen", "sube el volumen", "volumen arriba", "mas alto")) {
+        if (has("sube volumen", "sube el volumen", "volumen arriba", "mas alto", "sube")) {
             return ParsedIntent(IntentKind.VOLUME_UP, raw = raw)
         }
-        if (has("baja volumen", "baja el volumen", "volumen abajo", "mas bajo", "silencia")) {
+        if (has(
+                "baja volumen", "baja el volumen", "volumen abajo", "mas bajo", "baja",
+                "silencia el volumen",
+            )
+        ) {
             return ParsedIntent(IntentKind.VOLUME_DOWN, raw = raw)
         }
-        if (has("pausa", "pause", "para la musica", "deten la musica", "para el canto")) {
+        if (has("pausa", "pause", "para la musica", "para la cancion", "para la canción")) {
             return ParsedIntent(IntentKind.MUSIC_PAUSE, raw = raw)
         }
         if (has("siguiente", "next", "cambia de cancion", "otra cancion", "saltar adelante")) {
@@ -97,13 +102,24 @@ object IntentParser {
         if (has("repite", "repeat", "otra vez la cancion")) {
             return ParsedIntent(IntentKind.MUSIC_REPEAT, raw = raw)
         }
-        if (has("aleatoria", "shuffle", "mezcla", "al azar")) {
+        if (has("aleatoria", "shuffle", "mezcla", "al azar", "cambia la musica")) {
             return ParsedIntent(IntentKind.MUSIC_SHUFFLE, raw = raw)
         }
-        if (has("deten", "stop", "apaga la musica", "corta la musica", "silenciar musica")) {
+        if (has(
+                "deten", "stop", "apaga la musica", "apaga el sonido", "corta la musica",
+                "quita la musica", "quitar la musica", "quita el sonido", "quitar el sonido",
+                "silencia la musica", "silenciar la musica", "silencia el sonido",
+                "no mas musica", "no quiero musica", "sin musica", "termina la musica",
+                "fin de la musica", "para la musica", "para la cancion", "apaga", "silencia",
+            )
+        ) {
             return ParsedIntent(IntentKind.MUSIC_STOP, raw = raw)
         }
-        if (has("pon musica", "ponme musica", "reproduce", "play", "pon una cancion", "musica", "cancion", "suena")) {
+        if (has(
+                "pon musica", "ponme musica", "reproduce", "play", "pon una cancion",
+                "musica", "cancion", "suena",
+            )
+        ) {
             return ParsedIntent(IntentKind.MUSIC_PLAY, raw = raw)
         }
 
@@ -125,6 +141,17 @@ object IntentParser {
         }
 
         // --- Tareas y memorias --------------------------------------------
+        if (has("que notas", "mis notas", "mis recuerdos", "que has memorizado")) {
+            return ParsedIntent(IntentKind.LIST_MEMORIES, raw = raw)
+        }
+        if (has(
+                "que dijiste", "que he dicho", "que hemos hablado", "que hablamos",
+                "historial", "nuestra conversacion", "resume la conversacion",
+                "que me dijiste",
+            )
+        ) {
+            return ParsedIntent(IntentKind.HISTORY, raw = raw)
+        }
         if (has("nueva tarea", "anade tarea", "agenda", "apunta tarea", "crea tarea", "tarea")) {
             val body = n.substringAfter("tarea", "").trim()
             return ParsedIntent(IntentKind.TODO, payload = body, raw = raw)
@@ -136,9 +163,6 @@ object IntentParser {
                 .ifBlank { n.substringAfter("apunta", "") }
                 .ifBlank { n.substringAfter("nota", "") }
             return ParsedIntent(IntentKind.MEMORY, payload = body.trim(), raw = raw)
-        }
-        if (has("que notas", "mis notas", "mis recuerdos", "que has memorizado")) {
-            return ParsedIntent(IntentKind.LIST_MEMORIES, raw = raw)
         }
 
         // --- Estado del dispositivo ---------------------------------------

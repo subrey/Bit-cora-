@@ -13,7 +13,12 @@ class JarvisApplication : Application() {
 
     val database: JarvisDatabase by lazy { JarvisDatabase.get(this) }
     val repository: JarvisRepository by lazy {
-        JarvisRepository(database.todoDao(), database.memoryDao(), database.timerDao())
+        JarvisRepository(
+            database.todoDao(),
+            database.memoryDao(),
+            database.timerDao(),
+            database.chatDao(),
+        )
     }
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
     val musicPlayer: MusicPlayer by lazy { MusicPlayer(this) }

@@ -7,6 +7,7 @@ class JarvisRepository(
     private val todoDao: TodoDao,
     private val memoryDao: MemoryDao,
     private val timerDao: TimerDao,
+    private val chatDao: ChatDao,
 ) {
 
     fun observeTodos(): Flow<List<TodoItem>> = todoDao.observeAll()
@@ -45,4 +46,25 @@ class JarvisRepository(
     suspend fun memoryCount(): Int = memoryDao.observeAll().first().size
 
     suspend fun activeTimerCount(): Int = timerDao.observeAll().first().count { !it.fired }
+
+    // --- Histórico de conversación --------------------------------------
+
+    fun observeChat(): Flow<List<ChatEntry>> = chatDao.observeAll()
+
+    suspend fun chatCount(): Int = chatDao.count()
+
+    suspend fun addChat(text: String, fromUser: Boolean) {
+        chatDao.insert(ChatEntry(text = text, fromUser = fromUser))
+        chatDao.trim(MAX_CHAT_MESSAGES)
+    }
+
+    suspend fun clearChat() = chatDao.clear()
+
+    suspend fun recentUserMessages(limit: Int): List<String> =
+        chatDao.lastUserMessages(limit).map { it.text }
+
+    companion object {
+        /** Máximo de mensajes guardados: conversación larga sin crecer sin fin. */
+        const val MAX_CHAT_MESSAGES = 400
+    }
 }

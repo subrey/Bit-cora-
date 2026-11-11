@@ -26,7 +26,8 @@ class AssistantEngine(
 
     suspend fun execute(intent: ParsedIntent): AssistantResponse {
         val now = LocalDateTime.now()
-        return when (intent.kind) {
+        val effective = resolve(intent)
+        return when (effective.kind) {
             IntentKind.GREETING -> AssistantResponse(
                 "Buenos días, señor. Jarvis en línea. Todo el sistema operativo."
             )
@@ -118,6 +119,16 @@ class AssistantEngine(
                     "Lo último que memoricé fue: ${latest.text}"
                 }
                 AssistantResponse("$info Hay ${repository.memoryCount()} memoria(s) guardada(s).")
+            }
+
+            IntentKind.HISTORY -> {
+                val recent = repository.recentUserMessages(5)
+                if (recent.isEmpty()) {
+                    AssistantResponse("Todavía no hemos hablado, señor.")
+                } else {
+                    val list = recent.joinToString(" · ") { "«$it»" }
+                    AssistantResponse("Lo último que hemos hablado: $list.")
+                }
             }
 
             IntentKind.BATTERY -> AssistantResponse(batteryText())
@@ -304,9 +315,38 @@ class AssistantEngine(
     }
 
     private fun helpText(): String =
-        "Puedo hacer esto: poner música, pausar, cambiar o repetir canción, subir o bajar el volumen, " +
-            "calcular expresiones, convertir unidades, poner temporizadores y recordatorios, añadir tareas, " +
-            "memorizar notas, decir la hora y la fecha, informar de la batería y del almacenamiento, " +
-            "encender la linterna, abrir aplicaciones, contar un chiste o darme un resumen. " +
-            "Inténtelo con: «pon música», «pon un temporizador de 10 minutos», «calcula 12 * (3 + 4)»."
+        "Puedo hacer esto: poner música, pausar, quitar la música, cambiar o repetir canción, " +
+            "subir o bajar el volumen, calcular expresiones, convertir unidades, poner temporizadores " +
+            "y recordatorios, añadir tareas, memorizar notas, decir la hora y la fecha, informar de la " +
+            "batería y del almacenamiento, encender la linterna, abrir aplicaciones, contar un chiste, " +
+            "recordar lo que hemos hablado o darme un resumen. " +
+            "Inténtelo con: «pon música», «quita la música», «pon un temporizador de 10 minutos», " +
+            "«calcula 12 * (3 + 4)»."
+
+    // --- Conversación larga: entender continuaciones ------------------------
+
+    /** Última intención resuelta, para interpretar frases como «y sube el volumen». */
+    private var lastKind: IntentKind? = null
+
+    private fun resolve(intent: ParsedIntent): ParsedIntent {
+        if (intent.kind == IntentKind.UNKNOWN && isFollowUp(intent.raw)) {
+            val previous = lastKind
+            if (previous != null && previous != IntentKind.UNKNOWN) {
+                return intent.copy(kind = previous)
+            }
+        }
+        if (intent.kind != IntentKind.UNKNOWN) {
+            lastKind = intent.kind
+        }
+        return intent
+    }
+
+    private fun isFollowUp(text: String): Boolean {
+        val n = text.lowercase(Locale.forLanguageTag("es")).trim()
+        val markers = listOf(
+            " y ", "y el", "y la", "y un", "tambien", "ahora", "otra vez", "sigue",
+            "de nuevo", " mas ", "mas el", "mas la", "un poco mas", "el mismo",
+        )
+        return markers.any { n.contains(it) } || n.startsWith("y ") || n.startsWith("y")
+    }
 }

@@ -60,3 +60,25 @@ interface TimerDao {
     @Delete
     suspend fun delete(item: TimerItem)
 }
+
+@Dao
+interface ChatDao {
+
+    @Query("SELECT * FROM chat ORDER BY id ASC")
+    fun observeAll(): Flow<List<ChatEntry>>
+
+    @Query("SELECT COUNT(*) FROM chat")
+    suspend fun count(): Int
+
+    @Query("SELECT * FROM chat WHERE fromUser = 1 ORDER BY id DESC LIMIT :limit")
+    suspend fun lastUserMessages(limit: Int): List<ChatEntry>
+
+    @Insert
+    suspend fun insert(entry: ChatEntry): Long
+
+    @Query("DELETE FROM chat")
+    suspend fun clear()
+
+    @Query("DELETE FROM chat WHERE id NOT IN (SELECT id FROM chat ORDER BY id DESC LIMIT :keep)")
+    suspend fun trim(keep: Int)
+}

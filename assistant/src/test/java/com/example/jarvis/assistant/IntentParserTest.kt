@@ -82,6 +82,24 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta quitar la musica`() {
+        assertEquals(IntentKind.MUSIC_STOP, IntentParser.parse("quita la música").kind)
+        assertEquals(IntentKind.MUSIC_STOP, IntentParser.parse("apaga el sonido").kind)
+        assertEquals(IntentKind.MUSIC_STOP, IntentParser.parse("no quiero música").kind)
+        assertEquals(IntentKind.MUSIC_STOP, IntentParser.parse("silencia la música").kind)
+    }
+
+    @Test
+    fun `detecta el historial de la conversacion`() {
+        assertEquals(IntentKind.HISTORY, IntentParser.parse("¿qué dijiste antes?").kind)
+    }
+
+    @Test
+    fun `la pausa tiene prioridad sobre el silencio`() {
+        assertEquals(IntentKind.MUSIC_PAUSE, IntentParser.parse("para la música").kind)
+    }
+
+    @Test
     fun `normaliza acentos y mayusculas`() {
         assertEquals("pon musica", IntentParser.normalize("  ¡Pon MÚSICA!  "))
     }

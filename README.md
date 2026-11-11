@@ -69,12 +69,21 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 - Barra de estado con reloj, batería y el indicador `● REC` cuando está escuchando.
 - Cuatro secciones: **TERMINAL**, **MÚSICA**, **TAREAS** y **AJUSTES**.
 
+## Conversación larga
+
+- Todo el histórico se guarda en `jarvis.db`: al cerrar y abrir la app, la conversación sigue ahí.
+- Se guardan hasta **400 mensajes**; los más antiguos se descartan solos para que no crezca sin fin.
+- Puedes retroceder en el terminal y preguntarle: «¿qué dijiste antes?».
+- Entiende **continuaciones**: tras «pon música», un «y sube el volumen» o «y ahora pausa» se interpreta como seguimiento de la orden anterior.
+- *Ajustes → Reiniciar conversación* borra el histórico.
+
 ## Tareas del asistente
 
 | Orden | Respuesta |
 |---|---|
 | «pon música» | reproduce una pista de tu biblioteca |
 | «pausa», «siguiente canción», «canción anterior» | control del reproductor |
+| «quita la música», «apaga el sonido», «no quiero música» | detiene la reproducción |
 | «sube / baja el volumen», «modo aleatorio», «repite» | control de reproducción |
 | «calcula 12 * (3 + 4)» | calculadora completa con paréntesis |
 | «convierte 10 km a millas» | conversor de unidades (longitud, masa, volumen, tiempo, temperatura) |
@@ -85,6 +94,7 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 | «batería», «almacenamiento» | estado del dispositivo |
 | «enciende la linterna» | linterna del teléfono |
 | «abre la cámara» | abre una aplicación por su nombre |
+| «qué dijiste antes?» | resumen de lo último que habéis hablado |
 | «qué sabes hacer» / «ayuda» | lista de órdenes |
 
 ## Voz

@@ -29,3 +29,12 @@ data class TimerItem(
     val createdAt: Long = System.currentTimeMillis(),
     val fired: Boolean = false,
 )
+
+/** Mensaje del histórico de conversación con el asistente. */
+@Entity(tableName = "chat")
+data class ChatEntry(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val text: String,
+    val fromUser: Boolean,
+    val createdAt: Long = System.currentTimeMillis(),
+)

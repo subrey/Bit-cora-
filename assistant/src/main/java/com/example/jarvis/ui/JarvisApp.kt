@@ -109,7 +109,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                 .fillMaxSize()
                 .padding(top = 26.dp),
         ) {
-            StatusBar(alwaysListening = alwaysListening)
+            StatusBar(alwaysListening = alwaysListening, messageCount = messages.size)
 
             Row(
                 modifier = Modifier
@@ -196,7 +196,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
 }
 
 @Composable
-private fun StatusBar(alwaysListening: Boolean) {
+private fun StatusBar(alwaysListening: Boolean, messageCount: Int) {
     val context = LocalContext.current
     val clock by produceState(initialValue = "", 0) {
         val formatter = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("es"))
@@ -232,6 +232,12 @@ private fun StatusBar(alwaysListening: Boolean) {
             color = JarvisColors.GreenDim,
         )
         Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = "MSG $messageCount",
+            style = MaterialTheme.typography.labelSmall,
+            color = JarvisColors.Outline,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
         if (alwaysListening) {
             Text(
                 text = "● REC",

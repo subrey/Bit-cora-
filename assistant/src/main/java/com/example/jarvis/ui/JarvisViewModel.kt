@@ -10,10 +10,9 @@ import com.example.jarvis.data.MemoryItem
 import com.example.jarvis.data.TimerItem
 import com.example.jarvis.data.TodoItem
 import com.example.jarvis.service.AlwaysListeningService
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -53,33 +52,32 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val accent: StateFlow<String> = settings.accent
         .stateIn(viewModelScope, SharingStarted.Eagerly, "green")
 
-    private var messageId = 0L
+    /** Histórico completo de la conversación (persistente entre sesiones). */
+    val messages: StateFlow<List<ChatMessage>> = repository.observeChat()
+        .map { entries -> entries.map { ChatMessage(it.id, it.text, it.fromUser) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val _messages = MutableStateFlow(
-        listOf(
-            ChatMessage(
-                id = nextId(),
-                text = "Buenos días, señor. Jarvis en línea. Escriba o diga una orden, por ejemplo «pon música».",
-                fromUser = false,
-            )
-        )
-    )
-    val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
-
-    private fun nextId(): Long {
-        messageId += 1
-        return messageId
+    init {
+        viewModelScope.launch {
+            if (repository.chatCount() == 0) {
+                repository.addChat(
+                    "Buenos días, señor. Jarvis en línea. Escriba o diga una orden, " +
+                        "por ejemplo «pon música».",
+                    fromUser = false,
+                )
+            }
+        }
     }
 
-    /** Envía una orden al asistente y publica la respuesta. */
+    /** Envía una orden al asistente y guarda la respuesta en el histórico. */
     fun submit(text: String) {
         val clean = text.trim()
         if (clean.isEmpty()) return
-        _messages.value = _messages.value + ChatMessage(nextId(), clean, fromUser = true)
         viewModelScope.launch {
+            repository.addChat(clean, fromUser = true)
             val intent = IntentParser.parse(clean)
             val response = engine.execute(intent)
-            _messages.value = _messages.value + ChatMessage(nextId(), response.text, fromUser = false)
+            repository.addChat(response.text, fromUser = false)
             if (response.speak && ttsEnabled.value) {
                 app.speaker.speak(response.text)
             }
@@ -87,9 +85,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun clearChat() {
-        _messages.value = listOf(
-            ChatMessage(nextId(), "Sesión reiniciada. ¿En qué puedo ayudarle?", fromUser = false)
-        )
+        viewModelScope.launch {
+            repository.clearChat()
+            repository.addChat("Sesión reiniciada. ¿En qué puedo ayudarle?", fromUser = false)
+        }
     }
 
     // --- Música ---------------------------------------------------------

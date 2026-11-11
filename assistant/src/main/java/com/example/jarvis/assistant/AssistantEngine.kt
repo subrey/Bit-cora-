@@ -131,6 +131,8 @@ class AssistantEngine(
                 }
             }
 
+            IntentKind.KNOWLEDGE -> knowledge(effective.payload.ifBlank { intent.raw })
+
             IntentKind.BATTERY -> AssistantResponse(batteryText())
 
             IntentKind.STORAGE -> AssistantResponse(storageText())
@@ -154,8 +156,32 @@ class AssistantEngine(
         }
     }
 
-    private fun playMusic(): AssistantResponse {
-        val tracks = player.scanLibrary()
+    /** Responde una pregunta: primero la base local y, si hay red, Wikipedia. */
+    private suspend fun knowledge(subject: String): AssistantResponse {
+        val clean = subject.trim()
+        if (clean.isBlank()) {
+            return AssistantResponse("Dígame sobre qué tema quiere que le informe, señor.")
+        }
+
+        val local = Knowledge.search(clean)
+        if (local != null) {
+            return AssistantResponse("${local.title}. ${local.text}")
+        }
+
+        val wiki = Wikipedia.summary(clean)
+        if (wiki != null) {
+            val short = Wikipedia.shorten(wiki)
+            return AssistantResponse("$short\n\n(Fuente: Wikipedia en español)")
+        }
+
+        return AssistantResponse(
+            "No tengo ese tema en mi base local y no he podido consultar la red, señor. " +
+                "Pruebe con: «qué sabes de la Revolución Mexicana», «quién fue Einstein» " +
+                "o «explicame el sistema solar»."
+        )
+    }
+
+    private fun playMusic(): AssistantResponse {        val tracks = player.scanLibrary()
         if (tracks.isEmpty()) {
             return AssistantResponse(
                 "No encuentro música en el dispositivo. Conceda el permiso de audio o use el tono de prueba."

@@ -24,6 +24,7 @@ enum class IntentKind {
     MEMORY,
     LIST_MEMORIES,
     HISTORY,
+    KNOWLEDGE,
     BATTERY,
     STORAGE,
     TORCH,
@@ -51,7 +52,7 @@ object IntentParser {
         val withoutAccents = Normalizer.normalize(lower, Normalizer.Form.NFD)
             .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
         return withoutAccents
-            .replace("[^\\p{L}\\p{N}\\s:,.+*/()%\\-]".toRegex(), " ")
+            .replace("[^\\p{L}\\p{N}\\s:,.+*/()%?\\-]".toRegex(), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
     }
@@ -192,6 +193,45 @@ object IntentParser {
             return ParsedIntent(IntentKind.OPEN_APP, payload = body.trim(), raw = raw)
         }
 
+        // --- Preguntas y conocimiento general ------------------------------
+        if (has(
+                "que sabes", "sabes de", "sabes sobre", "dime sobre", "dime de", "dime que",
+                "cuéntame", "cuentame", "hablame de", "hablame sobre", "explicame",
+                "informame de", "info de", "de que va", "que es", "quien es", "que significa",
+                "de donde viene", "cual es el", "cuales son", "por que", "por qué",
+            )
+        ) {
+            val subject = stripQuestion(n)
+            return ParsedIntent(IntentKind.KNOWLEDGE, payload = subject, raw = raw)
+        }
+
+        // Cualquier otra frase con interrogación se trata como pregunta.
+        if (n.contains("?") || n.startsWith("que ") || n.startsWith("quien ") ||
+            n.startsWith("cuando ") || n.startsWith("donde ") || n.startsWith("como ") ||
+            n.startsWith("cual ")
+        ) {
+            return ParsedIntent(IntentKind.KNOWLEDGE, payload = stripQuestion(n), raw = raw)
+        }
+
         return ParsedIntent(IntentKind.UNKNOWN, raw = raw)
+    }
+
+    /** Quita las frases de arranque para quedarse con el asunto de la pregunta. */
+    private fun stripQuestion(text: String): String {
+        val prefixes = listOf(
+            "dime que sabes de", "dime que sabes sobre", "que sabes de", "que sabes sobre",
+            "dime sobre", "dime de", "dime que", "dime", "sabes de", "sabes sobre",
+            "cuentame sobre", "cuentame de", "cuentame", "hablame de", "hablame sobre",
+            "hablame", "explicame", "informame de", "informame", "info de",
+            "de que va", "que es", "quien es", "que significa", "de donde viene",
+            "cual es", "cuales son", "por que", "que",
+        )
+        var result = text
+        prefixes.forEach { prefix ->
+            if (result.startsWith(prefix)) {
+                result = result.removePrefix(prefix).trim()
+            }
+        }
+        return result.trim().trimEnd('?').trim()
     }
 }

@@ -1,7 +1,9 @@
 package com.example.jarvis.service
 
+import android.Manifest
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,6 +11,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.jarvis.JarvisApplication
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.Notifications
@@ -160,6 +163,7 @@ class AlwaysListeningService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         Notifications.ensureChannel(this)
         val app = applicationContext as? JarvisApplication
         if (app != null) {
@@ -180,7 +184,19 @@ class AlwaysListeningService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification())
+        val micGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!micGranted) {
+            // Sin permiso de micrófono no se puede levantar un servicio de este tipo.
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        runCatching { startForeground(NOTIFICATION_ID, buildNotification()) }.onFailure {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val app = applicationContext as? JarvisApplication
         if (app != null) {
             scope.launch {
@@ -220,6 +236,7 @@ class AlwaysListeningService : Service() {
         stopListening()
         runCatching { recognizer?.destroy() }
         recognizer = null
+        isRunning = false
         super.onDestroy()
     }
 
@@ -229,7 +246,12 @@ class AlwaysListeningService : Service() {
         private const val NOTIFICATION_ID = 42
         const val ACTION_REARM = "com.example.jarvis.action.REARM"
 
+        /** true mientras el servicio de escucha está vivo en este proceso. */
+        @Volatile
+        var isRunning: Boolean = false
+
         fun start(context: android.content.Context) {
+            if (!hasMicPermission(context)) return
             val intent = Intent(context, AlwaysListeningService::class.java)
             runCatching {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -246,8 +268,14 @@ class AlwaysListeningService : Service() {
             }
         }
 
-        /** Relanza la escucha: útil cuando la app pasa al primer plano. */
+        /**
+         * Relanza la escucha: útil cuando la app pasa al primer plano.
+         * Solo si el servicio ya está vivo y hay permiso de micrófono,
+         * porque levantar un servicio de micrófono sin permiso revienta la app.
+         */
         fun rearm(context: android.content.Context) {
+            if (!isRunning) return
+            if (!hasMicPermission(context)) return
             val intent = Intent(context, AlwaysListeningService::class.java).setAction(ACTION_REARM)
             runCatching {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -257,5 +285,11 @@ class AlwaysListeningService : Service() {
                 }
             }
         }
+
+        private fun hasMicPermission(context: android.content.Context): Boolean =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO,
+            ) == PackageManager.PERMISSION_GRANTED
     }
 }

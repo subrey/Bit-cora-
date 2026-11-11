@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jarvis.JarvisApplication
+import com.example.jarvis.assistant.AssistantResponse
 import com.example.jarvis.assistant.IntentParser
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.data.MemoryItem
@@ -62,12 +63,14 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         viewModelScope.launch {
-            if (repository.chatCount() == 0) {
-                repository.addChat(
-                    "Buenos días, señor. Jarvis en línea. Escriba o diga una orden, " +
-                        "por ejemplo «pon música».",
-                    fromUser = false,
-                )
+            runCatching {
+                if (repository.chatCount() == 0) {
+                    repository.addChat(
+                        "Buenos días, señor. Jarvis en línea. Escriba o diga una orden, " +
+                            "por ejemplo «pon música».",
+                        fromUser = false,
+                    )
+                }
             }
         }
     }
@@ -77,10 +80,12 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         val clean = text.trim()
         if (clean.isEmpty()) return
         viewModelScope.launch {
-            repository.addChat(clean, fromUser = true)
+            runCatching { repository.addChat(clean, fromUser = true) }
             val intent = IntentParser.parse(clean)
-            val response = engine.execute(intent)
-            repository.addChat(response.text, fromUser = false)
+            val response = runCatching { engine.execute(intent) }.getOrElse {
+                AssistantResponse("Se me ha complicado la orden, señor. ¿Puede repetirla?")
+            }
+            runCatching { repository.addChat(response.text, fromUser = false) }
             if (response.speak && ttsEnabled.value) {
                 app.speaker.speak(response.text)
             }

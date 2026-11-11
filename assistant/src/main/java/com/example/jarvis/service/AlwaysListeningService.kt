@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import com.example.jarvis.JarvisApplication
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.Notifications
+import com.example.jarvis.assistant.WakeWordDetector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -110,10 +111,6 @@ class AlwaysListeningService : Service() {
             }
             emptyResults = 0
             val handled = handle(results)
-            if (!handled && unheard < 3) {
-                unheard++
-                JarvisBus.notice("Te he oído «$spoken», pero esperaba la palabra «$wakeWord».")
-            }
             // Tras una orden se reabre rápido; si no hubo orden, se espera más
             // para no encadenar sesiones (y por tanto pitidos).
             scheduleRestart(if (handled) 700L else 1_800L)
@@ -140,11 +137,23 @@ class AlwaysListeningService : Service() {
             ?.firstOrNull()
             .orEmpty()
         if (spoken.isBlank()) return false
-        val normalized = spoken.lowercase()
-        val index = normalized.indexOf(wakeWord)
-        if (index < 0) return false
-        val command = spoken.substring(index + wakeWord.length).trim()
-        if (command.isBlank()) return false
+        val command = WakeWordDetector.extractCommand(spoken, wakeWord)
+        if (command == null) {
+            if (unheard < 3) {
+                unheard++
+                if (WakeWordDetector.containsWakeWord(spoken, wakeWord)) {
+                    JarvisBus.notice(
+                        "Te he oído la palabra clave, pero no distingo la orden. " +
+                            "Diga por ejemplo: «Jarvis, pon música»."
+                    )
+                } else {
+                    JarvisBus.notice(
+                        "Te he oído «$spoken», pero esperaba la palabra «$wakeWord»."
+                    )
+                }
+            }
+            return false
+        }
         JarvisBus.send(command)
         return true
     }

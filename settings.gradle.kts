@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Bitacora"
 include(":app")
+include(":assistant")

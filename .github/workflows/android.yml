@@ -39,10 +39,18 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug testDebugUnitTest --stacktrace
 
-      - name: Publicar APK
+      - name: Publicar APK de Bitácora
         uses: actions/upload-artifact@v4
         with:
           name: bitacora-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publicar APK de Jarvis
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-debug-apk
+          path: assistant/build/outputs/apk/debug/assistant-debug.apk
           if-no-files-found: error
           retention-days: 30

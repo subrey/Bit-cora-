@@ -61,7 +61,8 @@ class WakeWordDetectorTest {
     @Test
     fun `la distancia de levenshtein funciona`() {
         assertEquals(0, WakeWordDetector.distance("jarvis", "jarvis"))
-        assertEquals(1, WakeWordDetector.distance("jarvis", "halvis"))
-        assertEquals(2, WakeWordDetector.distance("jarvis", "halvas"))
+        assertEquals(2, WakeWordDetector.distance("jarvis", "halvis"))
+        assertEquals(3, WakeWordDetector.distance("jarvis", "halvas"))
+        assertEquals(2, WakeWordDetector.distance("jarvis", "jardin"))
     }
 }

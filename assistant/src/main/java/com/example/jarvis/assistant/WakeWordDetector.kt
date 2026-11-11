@@ -21,9 +21,14 @@ object WakeWordDetector {
         val target = clean(wakeWord)
         if (candidate.isBlank() || target.isBlank()) return false
         if (candidate == target) return true
-        if (candidate.length < 4) return false
-        // Tolerancia de un error: cambios de una letra, o falta de una.
-        return distance(candidate, target) <= 1
+        if (candidate.length < 5) return false
+
+        val diff = distance(candidate, target)
+        if (diff == 1) return true
+        // Con ruido el motor suele cambiar la primera letra («halvis» por
+        // «jarvis»): dos diferencias valen si el final sigue sonando igual.
+        if (diff == 2 && candidate.endsWith(target.takeLast(2))) return true
+        return false
     }
 
     /**

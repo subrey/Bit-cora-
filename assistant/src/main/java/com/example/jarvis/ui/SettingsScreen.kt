@@ -249,7 +249,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · asistente local · v2.0-fase4.1",
+            text = "JARVIS · asistente local · v2.0-fase4.2",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

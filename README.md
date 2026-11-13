@@ -143,6 +143,16 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 - **Respuestas habladas** con el sintetizador de voz del sistema (se puede
   desactivar).
 
+## Música y escucha permanente
+
+- La biblioteca se recorre **en segundo plano**: pedir «pon música» ya no
+  bloquea la app ni provoca el aviso «JARVIS AI no responde».
+- Con música sonando, al detectar «Jarvis» la música **baja al 12 %** para oír
+  la orden y vuelve sola a su volumen al terminar. También baja mientras JARVIS
+  responde, para que se entienda la respuesta.
+- Mientras hay música, el servicio espera más entre sesiones de escucha y no
+  llena el chat con avisos de «te he oído» cuando el micrófono capta la letra.
+
 ## Estructura
 
 ```

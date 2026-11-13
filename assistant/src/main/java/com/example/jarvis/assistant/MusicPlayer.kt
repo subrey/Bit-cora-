@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class Track(
     val id: Long,
@@ -56,6 +57,14 @@ class MusicPlayer(private val context: Context) {
     private var playlist: List<Track> = emptyList()
     private var index = 0
     private var toneGenerator: ToneGenerator? = null
+
+    /** true mientras la música está bajada para escuchar una orden. */
+    private var ducked = false
+
+    private companion object {
+        /** Volumen mientras se escucha una orden: 12 %. */
+        const val DUCK_VOLUME = 0.12f
+    }
 
     fun hasAudioPermission(): Boolean {
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -118,6 +127,10 @@ class MusicPlayer(private val context: Context) {
         return runCatching {
             val player = MediaPlayer().apply {
                 setDataSource(context, track.uri)
+                // Si la música está bajada para escuchar una orden, la nueva
+                // pista también empieza bajada.
+                val startVolume = if (ducked) DUCK_VOLUME else _state.value.volume
+                setVolume(startVolume, startVolume)
                 setOnPreparedListener { prepared ->
                     prepared.start()
                     _state.value = _state.value.copy(
@@ -155,10 +168,16 @@ class MusicPlayer(private val context: Context) {
     }
 
     fun playRandom(): Boolean {
-        val tracks = if (playlist.isEmpty()) scanLibrary() else playlist
-        if (tracks.isEmpty()) return false
-        val target = tracks.random()
-        return play(target)
+        val tracks = playlist
+        if (tracks.isEmpty()) {
+            // La consulta de MediaStore puede tardar: fuera del hilo principal.
+            scope.launch {
+                val scanned = withContext(Dispatchers.IO) { scanLibrary() }
+                if (scanned.isNotEmpty()) play(scanned.random())
+            }
+            return false
+        }
+        return play(tracks.random())
     }
 
     fun next(): Boolean {
@@ -210,13 +229,29 @@ class MusicPlayer(private val context: Context) {
 
     fun stop() {
         releasePlayer()
+        ducked = false
         _state.value = _state.value.copy(isPlaying = false, positionMs = 0)
     }
 
     fun setVolume(value: Float) {
         val volume = value.coerceIn(0f, 1f)
-        mediaPlayer?.setVolume(volume, volume)
+        if (!ducked) mediaPlayer?.setVolume(volume, volume)
         _state.value = _state.value.copy(volume = volume)
+    }
+
+    /** Baja la música mientras se escucha una orden, sin perder el volumen elegido. */
+    fun duckForWakeWord() {
+        if (ducked) return
+        ducked = true
+        mediaPlayer?.setVolume(DUCK_VOLUME, DUCK_VOLUME)
+    }
+
+    /** Devuelve la música al volumen que eligió el usuario. */
+    fun restoreAfterWakeWord() {
+        if (!ducked) return
+        ducked = false
+        val volume = _state.value.volume
+        mediaPlayer?.setVolume(volume, volume)
     }
 
     fun setShuffle(enabled: Boolean) {

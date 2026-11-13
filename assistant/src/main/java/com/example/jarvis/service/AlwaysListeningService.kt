@@ -66,6 +66,7 @@ class AlwaysListeningService : Service() {
         override fun onError(error: Int) {
             JarvisBus.listening.value = false
             sessionActive = false
+            restoreMusic()
             when (error) {
                 SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
                     JarvisBus.notice(
@@ -97,6 +98,7 @@ class AlwaysListeningService : Service() {
             JarvisBus.listening.value = false
             sessionActive = false
             consecutiveFailures = 0
+            restoreMusic()
             val spoken = results
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
@@ -124,8 +126,15 @@ class AlwaysListeningService : Service() {
             emptyResults = 0
             val handled = handle(results)
             // Tras una orden se reabre rápido; si no hubo orden, se espera más
-            // para no encadenar sesiones (y por tanto pitidos).
-            scheduleRestart(if (handled) 700L else 4_000L)
+            // para no encadenar sesiones (y por tanto pitidos). Con música de
+            // fondo se espera aún más: el micrófono solo oiría la canción.
+            scheduleRestart(
+                when {
+                    handled -> 700L
+                    isMusicPlaying() -> 8_000L
+                    else -> 4_000L
+                },
+            )
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
@@ -136,6 +145,8 @@ class AlwaysListeningService : Service() {
                 .orEmpty()
             if (spoken.lowercase().contains(wakeWord)) {
                 JarvisBus.listening.value = true
+                // La música baja para que se entienda la orden que viene.
+                duckMusic()
             }
         }
 
@@ -151,7 +162,9 @@ class AlwaysListeningService : Service() {
         if (spoken.isBlank()) return false
         val command = WakeWordDetector.extractCommand(spoken, wakeWord)
         if (command == null) {
-            if (unheard < 3) {
+            // Con música sonando el reconocedor oye la letra: no llenar el chat
+            // de avisos falsos.
+            if (!isMusicPlaying() && unheard < 3) {
                 unheard++
                 if (WakeWordDetector.containsWakeWord(spoken, wakeWord)) {
                     JarvisBus.notice(
@@ -175,6 +188,19 @@ class AlwaysListeningService : Service() {
         consecutiveFailures <= 2 -> 1_500L
         consecutiveFailures <= 5 -> 3_000L
         else -> 6_000L
+    }
+
+    private fun isMusicPlaying(): Boolean =
+        appRef?.musicPlayer?.state?.value?.isPlaying == true
+
+    /** Baja la música mientras se escucha una orden. */
+    private fun duckMusic() {
+        appRef?.musicPlayer?.duckForWakeWord()
+    }
+
+    /** Devuelve la música a su volumen normal. */
+    private fun restoreMusic() {
+        appRef?.musicPlayer?.restoreAfterWakeWord()
     }
 
     private fun scheduleRestart(delay: Long = 1_500L) {
@@ -215,6 +241,7 @@ class AlwaysListeningService : Service() {
         runCatching { recognizer?.cancel() }
         sessionActive = false
         JarvisBus.listening.value = false
+        restoreMusic()
     }
 
     override fun onCreate() {
@@ -255,9 +282,14 @@ class AlwaysListeningService : Service() {
                         runCatching { recognizer?.cancel() }
                         sessionActive = false
                         JarvisBus.listening.value = false
+                        // La respuesta de JARVIS se oye mejor con la música baja.
+                        duckMusic()
                     } else {
                         paused = false
-                        if (!JarvisBus.appMic.value) startListening()
+                        if (!JarvisBus.appMic.value) {
+                            restoreMusic()
+                            startListening()
+                        }
                     }
                 }
             }

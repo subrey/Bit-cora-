@@ -65,6 +65,18 @@ data/SecureSettings.kt clave y modelo cifrados con EncryptedSharedPreferences
   envían a Gemini los últimos turnos y los recuerdos; el resto no.
 - Se puede borrar la clave desde Ajustes sin borrar la conversación.
 
+## Correcciones de la fase 4.2
+
+- **ANR al poner música.** `MediaStore` se consultaba en el hilo principal. Con
+  una biblioteca grande, Android mostraba «JARVIS AI no responde» y el servicio
+  de escucha dejaba de procesar órdenes. Ahora el escaneo se hace en
+  `Dispatchers.IO` desde el motor, la pantalla de música y el reproductor.
+- **Órdenes con música de fondo.** Al detectar la palabra clave, la música baja
+  al 12 % para escuchar la orden y se restaura al terminar. También baja durante
+  la respuesta hablada de JARVIS. El volumen elegido por el usuario no cambia.
+- **Menos ruido en el chat.** Con música sonando no se muestran avisos de «te he
+  oído» cuando el reconocedor capta la letra, y se espera más entre sesiones.
+
 ## Pruebas
 
 - `AiPromptTest` cubre el recorte del historial, la deduplicación del mensaje

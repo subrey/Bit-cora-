@@ -14,7 +14,9 @@ import com.example.jarvis.ai.AiResult
 import com.example.jarvis.ai.AiTurn
 import com.example.jarvis.data.JarvisRepository
 import com.example.jarvis.domain.model.JarvisPersona
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -233,7 +235,10 @@ class AssistantEngine(
         }
     }
 
-    private fun playMusic(): AssistantResponse {        val tracks = player.scanLibrary()
+    private suspend fun playMusic(): AssistantResponse {
+        // La consulta de MediaStore puede tardar segundos con una biblioteca
+        // grande: nunca en el hilo principal, o Android muestra "no responde".
+        val tracks = withContext(Dispatchers.IO) { player.scanLibrary() }
         if (tracks.isEmpty()) {
             return AssistantResponse(
                 "No encuentro música en el dispositivo. Conceda el permiso de audio o use el tono de prueba."

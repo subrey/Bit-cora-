@@ -22,6 +22,7 @@ import com.example.jarvis.data.TodoItem
 import com.example.jarvis.domain.model.AssistantState
 import com.example.jarvis.domain.model.ChatMessage
 import com.example.jarvis.service.AlwaysListeningService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class JarvisViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -203,6 +205,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     fun submit(text: String, fromVoice: Boolean = false) {
         val clean = text.trim()
         if (clean.isEmpty()) return
+        // Si la música se bajó para escuchar la orden, vuelve a su volumen
+        // mientras se procesa; si JARVIS responde, se bajará otra vez.
+        app.musicPlayer.restoreAfterWakeWord()
         val currentTurn = ++turnId
         viewModelScope.launch {
             interrupted = false
@@ -222,7 +227,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                     // sí mismo ni se pierde la siguiente orden.
                     _state.value = AssistantState.SPEAKING
                     JarvisBus.speaking.value = true
+                    app.musicPlayer.duckForWakeWord()
                     runCatching { app.speaker.speak(response.text) }
+                    app.musicPlayer.restoreAfterWakeWord()
                 }
             } finally {
                 // Un turno viejo no debe pisar el estado del turno actual.
@@ -316,6 +323,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     fun stopVoice() {
         recognizer?.stop()
         _liveTranscript.value = ""
+        app.musicPlayer.restoreAfterWakeWord()
         if (_state.value == AssistantState.LISTENING) {
             _state.value = AssistantState.IDLE
         }
@@ -371,6 +379,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                     interrupted = true
                     app.speaker.stop()
                 }
+                // Con música de fondo, bajarla al empezar a hablar facilita
+                // que el reconocedor entienda la orden.
+                app.musicPlayer.duckForWakeWord()
             },
             onPartial = { text -> _liveTranscript.value = text },
             onResult = { text ->
@@ -387,6 +398,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun handleVoiceError(error: Int) {
         _liveTranscript.value = ""
+        app.musicPlayer.restoreAfterWakeWord()
         if (VoicePolicy.isTransientError(error) &&
             !retriedBusy &&
             _state.value == AssistantState.LISTENING
@@ -445,6 +457,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     /** Devuelve el micrófono al servicio de palabra clave si lo tenía prestado. */
     private fun releaseServiceMic() {
         if (_state.value == AssistantState.LISTENING) return
+        app.musicPlayer.restoreAfterWakeWord()
         // La conversación ha terminado: el servicio puede volver a escuchar.
         JarvisBus.appMic.value = false
         if (!micBorrowedFromService) return
@@ -470,7 +483,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun scanMusic() {
-        app.musicPlayer.scanLibrary()
+        // La biblioteca puede ser grande: el escaneo va fuera del hilo principal.
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { app.musicPlayer.scanLibrary() }
+        }
     }
 
     fun setVolume(value: Float) {
@@ -578,6 +594,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         recognizer?.destroy()
         recognizer = null
+        app.musicPlayer.restoreAfterWakeWord()
         // Si la app muere con el micrófono en la mano, el servicio debe poder
         // recuperarlo en el siguiente arranque.
         JarvisBus.appMic.value = false

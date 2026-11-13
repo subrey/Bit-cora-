@@ -1,14 +1,17 @@
 package com.example.jarvis.data
 
+import com.example.jarvis.domain.model.ChatMessage
+import com.example.jarvis.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 class JarvisRepository(
     private val todoDao: TodoDao,
     private val memoryDao: MemoryDao,
     private val timerDao: TimerDao,
     private val chatDao: ChatDao,
-) {
+) : ChatRepository {
 
     fun observeTodos(): Flow<List<TodoItem>> = todoDao.observeAll()
 
@@ -49,11 +52,12 @@ class JarvisRepository(
 
     // --- Histórico de conversación --------------------------------------
 
-    fun observeChat(): Flow<List<ChatEntry>> = chatDao.observeAll()
+    override fun observeChat(): Flow<List<ChatMessage>> =
+        chatDao.observeAll().map { entries -> entries.map { it.toDomain() } }
 
-    suspend fun chatCount(): Int = chatDao.count()
+    override suspend fun chatCount(): Int = chatDao.count()
 
-    suspend fun addChat(text: String, fromUser: Boolean) {
+    override suspend fun addChat(text: String, fromUser: Boolean) {
         chatDao.insert(ChatEntry(text = text, fromUser = fromUser))
         // Solo se recorta de vez en cuando: así el histórico largo no slows
         // down cada mensaje nuevo.
@@ -62,10 +66,17 @@ class JarvisRepository(
         }
     }
 
-    suspend fun clearChat() = chatDao.clear()
+    override suspend fun clearChat() = chatDao.clear()
 
-    suspend fun recentUserMessages(limit: Int): List<String> =
+    override suspend fun recentUserMessages(limit: Int): List<String> =
         chatDao.lastUserMessages(limit).map { it.text }
+
+    private fun ChatEntry.toDomain() = ChatMessage(
+        id = id,
+        text = text,
+        fromUser = fromUser,
+        createdAt = createdAt,
+    )
 
     companion object {
         /** Máximo de mensajes guardados: conversación larga sin crecer sin fin. */

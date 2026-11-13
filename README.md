@@ -5,9 +5,14 @@ Este repositorio contiene **dos apps nativas de Android**, ambas en **Kotlin + J
 | Módulo | Paquete | Qué es |
 |---|---|---|
 | `app/` | `com.example.bitacora` | **Bitácora**: un blog privado de notas. |
-| `assistant/` | `com.example.jarvis` | **JARVIS**: asistente personal tipo Alexa con interfaz Matrix. |
+| `assistant/` | `com.example.jarvis` | **JARVIS AI**: asistente personal con voz, órdenes del teléfono y memoria. |
 
 Se compilan por separado, generan **dos APK** y pueden instalarse los dos en el mismo teléfono.
+
+> **Estado de JARVIS AI**: Fase 1 completada (estructura, capas y navegación).
+> Consulta [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) y
+> [`docs/FASE-1.md`](docs/FASE-1.md). Las siguientes fases añaden la interfaz
+> holográfica, la IA conversacional y el resto de funciones.
 
 ---
 
@@ -61,7 +66,7 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 
 ---
 
-# 2 · JARVIS (asistente personal)
+# 2 · JARVIS AI (asistente personal)
 
 ## Interfaz
 
@@ -109,6 +114,9 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 assistant/src/main/java/com/example/jarvis/
 ├── MainActivity.kt
 ├── JarvisApplication.kt
+├── domain/
+│   ├── model/               # ChatMessage, AssistantState, JarvisPersona
+│   └── repository/          # ChatRepository (contratos)
 ├── assistant/
 │   ├── IntentParser.kt      # entiende frases en español → intención
 │   ├── AssistantEngine.kt   # ejecuta la intención y responde
@@ -124,12 +132,13 @@ assistant/src/main/java/com/example/jarvis/
 ├── receiver/
 │   └── JarvisReceiver.kt    # alarma de los temporizadores
 └── ui/
-    ├── JarvisApp.kt         # raíz, pestañas y barra de estado
+    ├── JarvisApp.kt         # raíz, navegación y barra de estado
+    ├── navigation/          # rutas de Navigation Compose
     ├── TerminalScreen.kt    # terminal con efecto de escritura
     ├── MusicScreen.kt       # reproductor
     ├── TasksScreen.kt       # tareas, temporizadores y memorias
     ├── SettingsScreen.kt
-    ├── MatrixRain.kt        # lluvia de caracteres estilo Matrix
+    ├── MatrixRain.kt        # lluvia de caracteres (sustituida en la Fase 2)
     └── JarvisTheme.kt
 ```
 

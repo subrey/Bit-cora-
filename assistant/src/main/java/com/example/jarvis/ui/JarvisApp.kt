@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -25,10 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,14 +35,18 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.jarvis.assistant.JarvisBus
+import com.example.jarvis.domain.model.AssistantState
+import com.example.jarvis.ui.navigation.JarvisDestination
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
-private val tabs = listOf("TERMINAL", "MÚSICA", "TAREAS", "AJUSTES")
 
 @Composable
 fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
@@ -60,8 +60,21 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val wakeWord by viewModel.wakeWord.collectAsStateWithLifecycle()
     val capturing by JarvisBus.listening.collectAsStateWithLifecycle()
     val onDeviceVoice by viewModel.onDeviceVoice.collectAsStateWithLifecycle()
+    val assistantState by viewModel.assistantState.collectAsStateWithLifecycle()
 
-    var tab by rememberSaveable { mutableStateOf(0) }
+    // El micrófono del servicio manda mientras captura; después, el estado
+    // que marca el motor (procesando / hablando / en espera).
+    val visualState = when {
+        assistantState == AssistantState.THINKING -> AssistantState.THINKING
+        assistantState == AssistantState.SPEAKING -> AssistantState.SPEAKING
+        capturing -> AssistantState.LISTENING
+        else -> AssistantState.IDLE
+    }
+
+    val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentTab = JarvisDestination.fromRoute(backStackEntry?.destination?.route)
+
     val context = LocalContext.current
 
     val speechLauncher =
@@ -160,8 +173,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                 .statusBarsPadding(),
         ) {
             StatusBar(
-                alwaysListening = alwaysListening,
-                capturing = capturing,
+                state = visualState,
                 messageCount = messages.size,
             )
 
@@ -170,22 +182,39 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             ) {
-                tabs.forEachIndexed { index, label ->
+                JarvisDestination.entries.forEach { destination ->
+                    val selected = destination == currentTab
                     Text(
-                        text = label,
+                        text = destination.label,
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (index == tab) FontWeight.Bold else FontWeight.Normal,
-                        color = if (index == tab) JarvisColors.Green else JarvisColors.Outline,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selected) JarvisColors.Green else JarvisColors.Outline,
                         modifier = Modifier
-                            .clickable { tab = index }
+                            .clickable {
+                                if (!selected) {
+                                    navController.navigate(destination.route) {
+                                        // Una sola copia de cada pestaña y su
+                                        // estado (borrador, scroll) se conserva.
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            }
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                     )
                 }
             }
 
-            Box(modifier = Modifier.weight(1f)) {
-                when (tab) {
-                    0 -> TerminalScreen(
+            NavHost(
+                navController = navController,
+                startDestination = JarvisDestination.start.route,
+                modifier = Modifier.weight(1f),
+            ) {
+                composable(JarvisDestination.TERMINAL.route) {
+                    TerminalScreen(
                         messages = messages,
                         listening = alwaysListening,
                         onSend = viewModel::submit,
@@ -201,8 +230,10 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                             }
                         },
                     )
+                }
 
-                    1 -> MusicScreen(
+                composable(JarvisDestination.MUSIC.route) {
+                    MusicScreen(
                         state = playerState,
                         onToggle = { viewModel.togglePlayback() },
                         onNext = { viewModel.submit("siguiente canción") },
@@ -221,8 +252,10 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                             audioPermissionLauncher.launch(permission)
                         },
                     )
+                }
 
-                    2 -> TasksScreen(
+                composable(JarvisDestination.TASKS.route) {
+                    TasksScreen(
                         todos = todos,
                         memories = memories,
                         timers = timers,
@@ -233,8 +266,10 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         onDeleteMemory = viewModel::deleteMemory,
                         onDeleteTimer = viewModel::deleteTimer,
                     )
+                }
 
-                    else -> SettingsScreen(
+                composable(JarvisDestination.SETTINGS.route) {
+                    SettingsScreen(
                         ttsEnabled = ttsEnabled,
                         alwaysListening = alwaysListening,
                         wakeWord = wakeWord,
@@ -258,7 +293,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
 }
 
 @Composable
-private fun StatusBar(alwaysListening: Boolean, capturing: Boolean, messageCount: Int) {
+private fun StatusBar(state: AssistantState, messageCount: Int) {
     val context = LocalContext.current
     val clock by produceState(initialValue = "", 0) {
         val formatter = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("es"))
@@ -288,10 +323,17 @@ private fun StatusBar(alwaysListening: Boolean, capturing: Boolean, messageCount
             fontWeight = FontWeight.Bold,
         )
         Spacer(modifier = Modifier.width(8.dp))
+        // El estado siempre visible: es la señal de que el núcleo responde.
         Text(
-            text = "SISTEMA ONLINE",
+            text = "● ${state.label}",
             style = MaterialTheme.typography.labelSmall,
-            color = JarvisColors.GreenDim,
+            color = when (state) {
+                AssistantState.IDLE -> JarvisColors.GreenDim
+                AssistantState.LISTENING -> JarvisColors.Amber
+                AssistantState.THINKING -> JarvisColors.Cyan
+                AssistantState.SPEAKING -> JarvisColors.Green
+                AssistantState.ERROR -> JarvisColors.Red
+            },
         )
         Spacer(modifier = Modifier.weight(1f))
         Text(
@@ -300,16 +342,6 @@ private fun StatusBar(alwaysListening: Boolean, capturing: Boolean, messageCount
             color = JarvisColors.Outline,
         )
         Spacer(modifier = Modifier.width(8.dp))
-        if (alwaysListening) {
-            // Indicador estable: el micro se abre y se cierra por sesiones,
-            // así que parpadearía. El color indica si está capturando ahora.
-            Text(
-                text = if (capturing) "● REC" else "● MIC",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (capturing) JarvisColors.Amber else JarvisColors.GreenDim,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        }
         if (battery >= 0) {
             Text(
                 text = "BAT $battery%",

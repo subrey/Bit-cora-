@@ -13,19 +13,16 @@ import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.data.MemoryItem
 import com.example.jarvis.data.TimerItem
 import com.example.jarvis.data.TodoItem
+import com.example.jarvis.domain.model.AssistantState
+import com.example.jarvis.domain.model.ChatMessage
 import com.example.jarvis.service.AlwaysListeningService
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-data class ChatMessage(
-    val id: Long,
-    val text: String,
-    val fromUser: Boolean,
-)
 
 class JarvisViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -67,8 +64,12 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Histórico completo de la conversación (persistente entre sesiones). */
     val messages: StateFlow<List<ChatMessage>> = repository.observeChat()
-        .map { entries -> entries.map { ChatMessage(it.id, it.text, it.fromUser) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _state = MutableStateFlow(AssistantState.IDLE)
+
+    /** Estado del núcleo: en espera, escuchando, procesando o hablando. */
+    val assistantState: StateFlow<AssistantState> = _state.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -89,19 +90,25 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         val clean = text.trim()
         if (clean.isEmpty()) return
         viewModelScope.launch {
-            runCatching { repository.addChat(clean, fromUser = true) }
-            val intent = IntentParser.parse(clean)
-            val response = runCatching { engine.execute(intent) }.getOrElse {
-                AssistantResponse("Se me ha complicado la orden, señor. ¿Puede repetirla?")
-            }
-            runCatching { repository.addChat(response.text, fromUser = false) }
-            if (response.speak && ttsEnabled.value) {
-                // Mientras Jarvis habla, el micro se pausa: así no se oye a sí
-                // mismo ni se pierde la siguiente orden.
-                JarvisBus.speaking.value = true
-                runCatching { app.speaker.speak(response.text) }
-                delay(estimateSpeechMillis(response.text))
+            _state.value = AssistantState.THINKING
+            try {
+                runCatching { repository.addChat(clean, fromUser = true) }
+                val intent = IntentParser.parse(clean)
+                val response = runCatching { engine.execute(intent) }.getOrElse {
+                    AssistantResponse("Se me ha complicado la orden, señor. ¿Puede repetirla?")
+                }
+                runCatching { repository.addChat(response.text, fromUser = false) }
+                if (response.speak && ttsEnabled.value) {
+                    // Mientras Jarvis habla, el micro se pausa: así no se oye a
+                    // sí mismo ni se pierde la siguiente orden.
+                    _state.value = AssistantState.SPEAKING
+                    JarvisBus.speaking.value = true
+                    runCatching { app.speaker.speak(response.text) }
+                    delay(estimateSpeechMillis(response.text))
+                }
+            } finally {
                 JarvisBus.speaking.value = false
+                _state.value = AssistantState.IDLE
             }
         }
     }

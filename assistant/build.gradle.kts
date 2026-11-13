@@ -72,7 +72,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Fase 4: clave de la IA cifrada con el Keystore del teléfono.
-    implementation("androidx.security:security-crypto:1.0.0")
+    implementation("androidx.security:security-crypto:1.1.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 

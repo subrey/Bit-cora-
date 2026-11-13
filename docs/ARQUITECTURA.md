@@ -59,7 +59,7 @@ incremental a propósito: cada fase deja la app compilando y funcionando.
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Proyecto, capas, navegación, estado del núcleo | Hecha |
-| 2 | Interfaz holográfica (núcleo animado, ondas, paneles) | Pendiente |
+| 2 | Interfaz holográfica (núcleo animado, ondas, paneles) | Hecha |
 | 3 | Voz continua e interrumpible | Pendiente |
 | 4 | IA conversacional con API gratuita + clave cifrada | Pendiente |
 | 5 | Control del teléfono (apps, llamadas, alarmas) | Pendiente |

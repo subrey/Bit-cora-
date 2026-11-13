@@ -9,10 +9,11 @@ Este repositorio contiene **dos apps nativas de Android**, ambas en **Kotlin + J
 
 Se compilan por separado, generan **dos APK** y pueden instalarse los dos en el mismo teléfono.
 
-> **Estado de JARVIS AI**: Fase 1 completada (estructura, capas y navegación).
-> Consulta [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) y
-> [`docs/FASE-1.md`](docs/FASE-1.md). Las siguientes fases añaden la interfaz
-> holográfica, la IA conversacional y el resto de funciones.
+> **Estado de JARVIS AI**: Fases 1 y 2 completadas (estructura por capas y
+> nueva interfaz holográfica). Consulta [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md),
+> [`docs/FASE-1.md`](docs/FASE-1.md) y [`docs/FASE-2.md`](docs/FASE-2.md).
+> Las siguientes fases añaden la voz continua, la IA conversacional y el resto
+> de funciones.
 
 ---
 
@@ -70,9 +71,15 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 
 ## Interfaz
 
-- Estética **tipo Matrix**: fondo negro, texto verde monoespaciado, **lluvia de caracteres animada** y efecto de escritura letra a letra con cursor parpadeante.
-- Barra de estado con reloj, batería y el indicador `● REC` cuando está escuchando.
-- Cuatro secciones: **TERMINAL**, **MÚSICA**, **TAREAS** y **AJUSTES**.
+- Estética **holográfica**: fondo azul casi negro, rejilla tenue, azul
+  eléctrico y cian.
+- **Núcleo animado** en el centro: late en reposo, emite ondas al escuchar,
+  gira como un radar al procesar y muestra un ecualizador circular al hablar.
+- Pantalla de inicio con estado del asistente, botón de micrófono, campo de
+  texto, resumen de la conversación y accesos a historial y ajustes.
+- Barra inferior con cinco secciones: **Inicio**, **Historial**, **Música**,
+  **Tareas** y **Ajustes**.
+- Barra superior con reloj, batería y estado del núcleo.
 
 ## Conversación larga
 
@@ -132,13 +139,17 @@ assistant/src/main/java/com/example/jarvis/
 ├── receiver/
 │   └── JarvisReceiver.kt    # alarma de los temporizadores
 └── ui/
-    ├── JarvisApp.kt         # raíz, navegación y barra de estado
+    ├── JarvisApp.kt         # raíz, barra superior, navegación y dock
+    ├── HomeScreen.kt        # núcleo, voz, texto y resumen
+    ├── components/
+    │   ├── JarvisCore.kt    # núcleo animado (Canvas)
+    │   ├── HoloBackground.kt
+    │   └── HoloPanel.kt
     ├── navigation/          # rutas de Navigation Compose
-    ├── TerminalScreen.kt    # terminal con efecto de escritura
+    ├── TerminalScreen.kt    # historial de conversación
     ├── MusicScreen.kt       # reproductor
     ├── TasksScreen.kt       # tareas, temporizadores y memorias
     ├── SettingsScreen.kt
-    ├── MatrixRain.kt        # lluvia de caracteres (sustituida en la Fase 2)
     └── JarvisTheme.kt
 ```
 

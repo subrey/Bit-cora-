@@ -73,6 +73,9 @@ interface ChatDao {
     @Query("SELECT * FROM chat WHERE fromUser = 1 ORDER BY id DESC LIMIT :limit")
     suspend fun lastUserMessages(limit: Int): List<ChatEntry>
 
+    @Query("SELECT * FROM chat ORDER BY id DESC LIMIT :limit")
+    suspend fun lastMessages(limit: Int): List<ChatEntry>
+
     @Insert
     suspend fun insert(entry: ChatEntry): Long
 

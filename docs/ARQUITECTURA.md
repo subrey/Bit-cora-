@@ -19,7 +19,7 @@ data/          Implementaciones: Room, DataStore, MediaStore…
 assistant/     Motor de órdenes y utilidades del dispositivo
 ├── IntentParser, AssistantEngine, MusicPlayer, Speaker…
 
-ai/            (Fase 4) proveedores de modelos de lenguaje
+ai/            proveedores de modelos de lenguaje (Gemini, clave cifrada)
 service/       escucha permanente en primer plano
 receiver/      alarmas y recordatorios
 ```
@@ -27,15 +27,17 @@ receiver/      alarmas y recordatorios
 Regla de dependencias: `ui → domain ← data`. El dominio no importa nada de
 Android, Room ni OkHttp, así que se puede probar con JUnit normal.
 
-## Estado actual (Fases 1–3)
+## Estado actual (Fases 1–4)
 
 - El histórico ya está desacoplado: `JarvisRepository` implementa
   `ChatRepository` y traduce `ChatEntry` (Room) a `ChatMessage` (dominio).
 - La UI usa `AssistantState` como única fuente de verdad del núcleo
   (en espera, escuchando, procesando, hablando, error).
 - Navegación con Navigation Compose y estado por pestaña.
-- `JarvisPersona` centraliza la personalidad que se enviará al modelo en la
-  Fase 4.
+- `JarvisPersona` centraliza la personalidad que se envía al modelo.
+- La IA conversacional vive en `ai/`: `AssistantEngine` resuelve primero la
+  intención local y, solo si no puede, llama a `AiProvider` (Gemini). La clave
+  se guarda cifrada con `SecureSettings` y el contexto se limita en `AiPrompt`.
 - El micrófono de la app usa `SpeechRecognizer` directamente
   (`assistant/voice/VoiceRecognizer.kt`): sin diálogo del sistema, con
   resultados parciales y conversación continua. `Speaker` suspende la corrutina
@@ -68,7 +70,7 @@ incremental a propósito: cada fase deja la app compilando y funcionando.
 | 1 | Proyecto, capas, navegación, estado del núcleo | Hecha |
 | 2 | Interfaz holográfica (núcleo animado, ondas, paneles) | Hecha |
 | 3 | Voz continua e interrumpible | Hecha |
-| 4 | IA conversacional con API gratuita + clave cifrada | Pendiente |
+| 4 | IA conversacional con API gratuita + clave cifrada | Hecha |
 | 5 | Control del teléfono (apps, llamadas, alarmas) | Pendiente |
 | 6 | Música integrada | Pendiente |
 | 7 | Memoria e historial inteligente | Pendiente |

@@ -25,8 +25,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -36,20 +38,30 @@ fun SettingsScreen(
     continuousVoice: Boolean,
     wakeWord: String,
     onDeviceVoice: Boolean,
+    aiConfigured: Boolean,
+    aiModel: String,
+    aiStatus: String?,
     onTtsChange: (Boolean) -> Unit,
     onAlwaysListeningChange: (Boolean) -> Unit,
     onContinuousVoiceChange: (Boolean) -> Unit,
     onWakeWordChange: (String) -> Unit,
     onOnDeviceVoiceChange: (Boolean) -> Unit,
+    onSaveAiKey: (String) -> Unit,
+    onClearAiKey: () -> Unit,
+    onSaveAiModel: (String) -> Unit,
+    onTestAi: () -> Unit,
     onClearChat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var wordInput by remember(wakeWord) { mutableStateOf(wakeWord) }
+    var keyInput by remember { mutableStateOf("") }
+    var modelInput by remember(aiModel) { mutableStateOf(aiModel) }
+    val uriHandler = LocalUriHandler.current
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            
+
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 14.dp),
     ) {
@@ -97,21 +109,102 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             textStyle = TextStyle(fontFamily = FontFamily.Monospace, color = JarvisColors.Green),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = JarvisColors.Green,
-                unfocusedBorderColor = JarvisColors.Outline,
-                focusedTextColor = JarvisColors.Green,
-                unfocusedTextColor = JarvisColors.Green,
-                cursorColor = JarvisColors.Green,
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-            ),
+            colors = fieldColors(),
         )
         TextButton(onClick = {
             val clean = wordInput.trim()
             if (clean.isNotEmpty()) onWakeWordChange(clean)
         }) {
             Text("Guardar palabra clave", color = JarvisColors.Green)
+        }
+
+        HorizontalDivider(color = JarvisColors.Outline)
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "INTELIGENCIA ARTIFICIAL",
+            style = MaterialTheme.typography.labelMedium,
+            color = JarvisColors.GreenDim,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Conecte una clave gratuita de Google Gemini para conversar, explicar temas y " +
+                "responder preguntas abiertas. La clave se guarda cifrada en este teléfono y solo " +
+                "se envía a Google al hacer una consulta.",
+            style = MaterialTheme.typography.bodySmall,
+            color = JarvisColors.Muted,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = if (aiConfigured) "✓ Clave configurada" else "Sin clave configurada",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (aiConfigured) JarvisColors.Green else JarvisColors.Amber,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = keyInput,
+            onValueChange = { keyInput = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Clave de API de Gemini") },
+            placeholder = {
+                Text(if (aiConfigured) "•••••••• (guardada)" else "AIza…")
+            },
+            visualTransformation = PasswordVisualTransformation(),
+            textStyle = TextStyle(fontFamily = FontFamily.Monospace, color = JarvisColors.Green),
+            colors = fieldColors(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(
+                onClick = {
+                    if (keyInput.isNotBlank()) {
+                        onSaveAiKey(keyInput)
+                        keyInput = ""
+                    }
+                },
+            ) {
+                Text("Guardar clave", color = JarvisColors.Green)
+            }
+            if (aiConfigured) {
+                TextButton(onClick = onClearAiKey) {
+                    Text("Borrar", color = JarvisColors.Amber)
+                }
+            }
+        }
+        OutlinedTextField(
+            value = modelInput,
+            onValueChange = { modelInput = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Modelo") },
+            placeholder = { Text("gemini-2.5-flash") },
+            textStyle = TextStyle(fontFamily = FontFamily.Monospace, color = JarvisColors.Green),
+            colors = fieldColors(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { onSaveAiModel(modelInput) }) {
+                Text("Guardar modelo", color = JarvisColors.Green)
+            }
+            TextButton(onClick = onTestAi) {
+                Text("Probar conexión", color = JarvisColors.Green)
+            }
+        }
+        aiStatus?.let { status ->
+            val isProblem = status.startsWith("Error") || status.startsWith("No ") ||
+                status.startsWith("Pegue") || status.startsWith("Configure") ||
+                status.startsWith("El ")
+            Text(
+                text = status,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isProblem) JarvisColors.Amber else JarvisColors.Green,
+            )
+        }
+        TextButton(
+            onClick = {
+                runCatching { uriHandler.openUri("https://aistudio.google.com/apikey") }
+            },
+        ) {
+            Text("Obtener una clave gratuita", color = JarvisColors.Green)
         }
 
         HorizontalDivider(color = JarvisColors.Outline)
@@ -127,6 +220,7 @@ fun SettingsScreen(
                 • «añade tarea comprar leche», «memoriza el número del hotel»
                 • «qué hora es», «qué día es», «batería», «almacenamiento»
                 • «enciende la linterna», «abre la cámara», «resumen», «ayuda»
+                • «explícame la fotosíntesis», «tengo una idea para un proyecto»
             """.trimIndent(),
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Muted,
@@ -141,13 +235,28 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · asistente local · v2.0-fase3",
+            text = "JARVIS · asistente local · v2.0-fase4",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )
         Spacer(modifier = Modifier.height(20.dp))
     }
 }
+
+@Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = JarvisColors.Green,
+    unfocusedBorderColor = JarvisColors.Outline,
+    focusedTextColor = JarvisColors.Green,
+    unfocusedTextColor = JarvisColors.Green,
+    cursorColor = JarvisColors.Green,
+    focusedContainerColor = Color.Transparent,
+    unfocusedContainerColor = Color.Transparent,
+    focusedLabelColor = JarvisColors.Green,
+    unfocusedLabelColor = JarvisColors.Muted,
+    focusedPlaceholderColor = JarvisColors.Outline,
+    unfocusedPlaceholderColor = JarvisColors.Outline,
+)
 
 @Composable
 private fun SettingSwitch(

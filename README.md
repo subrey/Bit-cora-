@@ -9,12 +9,13 @@ Este repositorio contiene **dos apps nativas de Android**, ambas en **Kotlin + J
 
 Se compilan por separado, generan **dos APK** y pueden instalarse los dos en el mismo teléfono.
 
-> **Estado de JARVIS AI**: Fases 1, 2 y 3 completadas (estructura por capas,
-> interfaz holográfica y voz continua e interrumpible). Consulta
+> **Estado de JARVIS AI**: Fases 1, 2, 3 y 4 completadas (estructura por capas,
+> interfaz holográfica, voz continua e interrumpible e IA conversacional con
+> clave cifrada). Consulta
 > [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md),
-> [`docs/FASE-1.md`](docs/FASE-1.md), [`docs/FASE-2.md`](docs/FASE-2.md) y
-> [`docs/FASE-3.md`](docs/FASE-3.md).
-> Las siguientes fases añaden la IA conversacional y el resto de funciones.
+> [`docs/FASE-1.md`](docs/FASE-1.md), [`docs/FASE-2.md`](docs/FASE-2.md),
+> [`docs/FASE-3.md`](docs/FASE-3.md) y [`docs/FASE-4.md`](docs/FASE-4.md).
+> Las siguientes fases añaden el control del teléfono y el resto de funciones.
 
 ---
 
@@ -90,6 +91,21 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 - Entiende **continuaciones**: tras «pon música», un «y sube el volumen» o «y ahora pausa» se interpreta como seguimiento de la orden anterior.
 - *Ajustes → Reiniciar conversación* borra el histórico.
 
+## IA conversacional
+
+- **Conversación libre** con Google Gemini (nivel gratuito): preguntas abiertas,
+  explicaciones y charla, además de las órdenes del teléfono.
+- **Clave cifrada**: se guarda con el Keystore de Android y se puede borrar desde
+  Ajustes. Nunca se escribe en el historial ni en git.
+- **Contexto**: la IA recibe la personalidad de JARVIS, los últimos 12 turnos y
+  hasta 10 recuerdos guardados con «memoriza…».
+- **Prioridad local**: música, tareas, temporizadores, hora, batería, linterna…
+  se resuelven sin red; la IA solo entra cuando hace falta.
+- **Configuración**: Ajustes → Inteligencia artificial → pegar la clave gratuita
+  de `aistudio.google.com/apikey` → Probar conexión.
+- Si no hay clave o se alcanza el límite gratuito, JARVIS lo explica y las
+  órdenes locales siguen funcionando.
+
 ## Tareas del asistente
 
 | Orden | Respuesta |
@@ -131,6 +147,11 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 assistant/src/main/java/com/example/jarvis/
 ├── MainActivity.kt
 ├── JarvisApplication.kt
+├── ai/                      # Fase 4: IA conversacional
+│   ├── AiProvider.kt        # interfaz, petición y resultado
+│   ├── AiPrompt.kt          # personalidad + recuerdos + historial
+│   ├── GeminiJson.kt        # JSON de Gemini (puro, testeable)
+│   └── GeminiProvider.kt    # cliente OkHttp y errores legibles
 ├── domain/
 │   ├── model/               # ChatMessage, AssistantState, JarvisPersona
 │   └── repository/          # ChatRepository (contratos)
@@ -146,7 +167,7 @@ assistant/src/main/java/com/example/jarvis/
 │   ├── TimerScheduler.kt    # temporizadores con AlarmManager
 │   ├── Notifications.kt
 │   └── JarvisBus.kt         # bus interno servicio ↔ interfaz
-├── data/                    # Room: tareas, memorias, temporizadores + ajustes
+├── data/                    # Room, ajustes y SecureSettings (clave cifrada)
 ├── service/
 │   └── AlwaysListeningService.kt   # escucha permanente y palabra clave
 ├── receiver/

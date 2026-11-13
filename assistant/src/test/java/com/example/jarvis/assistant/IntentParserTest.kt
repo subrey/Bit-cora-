@@ -77,6 +77,12 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta conversacion libre`() {
+        assertEquals(IntentKind.CHAT, IntentParser.parse("¿cómo estás?").kind)
+        assertEquals(IntentKind.CHAT, IntentParser.parse("hablemos un rato").kind)
+    }
+
+    @Test
     fun `detecta ayuda`() {
         assertEquals(IntentKind.HELP, IntentParser.parse("¿qué sabes hacer?").kind)
     }

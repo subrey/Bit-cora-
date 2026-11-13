@@ -8,6 +8,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jarvis.JarvisApplication
+import com.example.jarvis.ai.AiResult
+import com.example.jarvis.ai.GeminiProvider
 import com.example.jarvis.assistant.AssistantResponse
 import com.example.jarvis.assistant.CrashReporter
 import com.example.jarvis.assistant.IntentParser
@@ -72,6 +74,79 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setContinuousVoice(value: Boolean) {
         viewModelScope.launch { settings.setContinuousVoice(value) }
+    }
+
+    // --- IA conversacional (Fase 4) --------------------------------------
+
+    private val secure = app.secureSettings
+
+    /** ¿Hay una clave de Gemini guardada de forma cifrada? */
+    private val _aiConfigured = MutableStateFlow(secure.hasKey())
+    val aiConfigured: StateFlow<Boolean> = _aiConfigured.asStateFlow()
+
+    /** Modelo configurado, o el gratuito por defecto. */
+    private val _aiModel = MutableStateFlow(
+        secure.model().ifBlank { GeminiProvider.DEFAULT_MODEL },
+    )
+    val aiModel: StateFlow<String> = _aiModel.asStateFlow()
+
+    /** Resultado legible del último guardado o prueba de conexión. */
+    private val _aiStatus = MutableStateFlow<String?>(null)
+    val aiStatus: StateFlow<String?> = _aiStatus.asStateFlow()
+
+    fun saveAiKey(key: String) {
+        val clean = key.trim()
+        if (clean.isBlank()) {
+            _aiStatus.value = "Pegue una clave de API válida."
+            return
+        }
+        if (!secure.available) {
+            _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
+            return
+        }
+        viewModelScope.launch {
+            runCatching { secure.setApiKey(clean) }
+                .onSuccess {
+                    _aiConfigured.value = true
+                    _aiStatus.value = "Clave guardada de forma cifrada."
+                }
+                .onFailure {
+                    _aiStatus.value = "No se pudo guardar la clave de forma cifrada."
+                }
+        }
+    }
+
+    fun clearAiKey() {
+        viewModelScope.launch {
+            runCatching { secure.setApiKey("") }
+            _aiConfigured.value = false
+            _aiStatus.value = "Clave de IA borrada."
+        }
+    }
+
+    fun saveAiModel(value: String) {
+        val clean = value.trim().ifBlank { GeminiProvider.DEFAULT_MODEL }
+        viewModelScope.launch {
+            runCatching { secure.setModel(clean) }
+            _aiModel.value = clean
+            _aiStatus.value = "Modelo guardado: $clean."
+        }
+    }
+
+    fun testAi() {
+        if (!secure.hasKey()) {
+            _aiStatus.value = "Configure primero la clave de IA."
+            return
+        }
+        viewModelScope.launch {
+            _aiStatus.value = "Probando conexión con la IA…"
+            val result = runCatching { app.aiProvider.test() }
+                .getOrElse { AiResult.Failure("Error inesperado al probar la IA.") }
+            _aiStatus.value = when (result) {
+                is AiResult.Success -> "Conexión correcta: la IA ha respondido."
+                is AiResult.Failure -> "Error: ${result.message}"
+            }
+        }
     }
 
     /** Histórico completo de la conversación (persistente entre sesiones). */

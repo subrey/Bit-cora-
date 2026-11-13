@@ -7,7 +7,14 @@ import android.hardware.camera2.CameraManager
 import android.os.BatteryManager
 import android.os.Environment
 import android.os.StatFs
+import com.example.jarvis.ai.AiPrompt
+import com.example.jarvis.ai.AiProvider
+import com.example.jarvis.ai.AiRequest
+import com.example.jarvis.ai.AiResult
+import com.example.jarvis.ai.AiTurn
 import com.example.jarvis.data.JarvisRepository
+import com.example.jarvis.domain.model.JarvisPersona
+import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -22,6 +29,7 @@ class AssistantEngine(
     private val repository: JarvisRepository,
     private val player: MusicPlayer,
     private val scheduler: TimerScheduler,
+    private val ai: AiProvider,
 ) {
 
     suspend fun execute(intent: ParsedIntent): AssistantResponse {
@@ -31,6 +39,8 @@ class AssistantEngine(
             IntentKind.GREETING -> AssistantResponse(
                 "Buenos días, señor. Jarvis en línea. Todo el sistema operativo."
             )
+
+            IntentKind.CHAT -> chat(intent.raw)
 
             IntentKind.HELP -> AssistantResponse(helpText())
 
@@ -131,7 +141,10 @@ class AssistantEngine(
                 }
             }
 
-            IntentKind.KNOWLEDGE -> knowledge(effective.payload.ifBlank { intent.raw })
+            IntentKind.KNOWLEDGE -> knowledge(
+                effective.payload.ifBlank { intent.raw },
+                intent.raw,
+            )
 
             IntentKind.BATTERY -> AssistantResponse(batteryText())
 
@@ -156,8 +169,11 @@ class AssistantEngine(
         }
     }
 
-    /** Responde una pregunta: primero la base local y, si hay red, Wikipedia. */
-    private suspend fun knowledge(subject: String): AssistantResponse {
+    /**
+     * Responde una pregunta: primero la base local, después Wikipedia y, si no
+     * hay resultado, la IA conversacional con la pregunta original completa.
+     */
+    private suspend fun knowledge(subject: String, raw: String): AssistantResponse {
         val clean = subject.trim()
         if (clean.isBlank()) {
             return AssistantResponse("Dígame sobre qué tema quiere que le informe, señor.")
@@ -174,11 +190,47 @@ class AssistantEngine(
             return AssistantResponse("$short\n\n(Fuente: Wikipedia en español)")
         }
 
+        if (ai.isConfigured()) return chat(raw)
+
         return AssistantResponse(
             "No tengo ese tema en mi base local y no he podido consultar la red, señor. " +
                 "Pruebe con: «qué sabes de la Revolución Mexicana», «quién fue Einstein» " +
                 "o «explicame el sistema solar»."
         )
+    }
+
+    /**
+     * Conversación libre con el modelo de lenguaje. Se envía la personalidad,
+     * los recuerdos guardados y los últimos turnos; si no hay clave, se explica
+     * cómo configurarla sin romper el resto del asistente.
+     */
+    private suspend fun chat(text: String): AssistantResponse {
+        val clean = text.trim()
+        if (clean.isBlank()) {
+            return AssistantResponse("Dígame qué quiere que le responda, señor.")
+        }
+        if (!ai.isConfigured()) {
+            return AssistantResponse(
+                "Puedo conversar libremente si configura una clave gratuita de Google Gemini " +
+                    "en Ajustes → Inteligencia artificial. Mientras tanto, «ayuda» muestra " +
+                    "las órdenes que entiendo."
+            )
+        }
+
+        val history = runCatching { repository.recentMessages(AiPrompt.MAX_TURNS) }
+            .getOrDefault(emptyList())
+            .map { AiTurn(fromUser = it.fromUser, text = it.text) }
+        val memories = runCatching { repository.observeMemories().first().map { it.text } }
+            .getOrDefault(emptyList())
+        val request = AiRequest(
+            systemPrompt = AiPrompt.systemPrompt(JarvisPersona.systemPromptForToday(), memories),
+            turns = AiPrompt.turns(history, clean),
+        )
+
+        return when (val result = ai.complete(request)) {
+            is AiResult.Success -> AssistantResponse(result.text)
+            is AiResult.Failure -> AssistantResponse("No he podido consultar la IA. ${result.message}")
+        }
     }
 
     private fun playMusic(): AssistantResponse {        val tracks = player.scanLibrary()
@@ -346,8 +398,10 @@ class AssistantEngine(
             "y recordatorios, añadir tareas, memorizar notas, decir la hora y la fecha, informar de la " +
             "batería y del almacenamiento, encender la linterna, abrir aplicaciones, contar un chiste, " +
             "recordar lo que hemos hablado o darme un resumen. " +
+            "Si configura una clave gratuita de Gemini en Ajustes, también puedo conversar, explicar " +
+            "temas y responder preguntas abiertas. " +
             "Inténtelo con: «pon música», «quita la música», «pon un temporizador de 10 minutos», " +
-            "«calcula 12 * (3 + 4)»."
+            "«calcula 12 * (3 + 4)» o «explícame la fotosíntesis»."
 
     // --- Conversación larga: entender continuaciones ------------------------
 
@@ -369,6 +423,15 @@ class AssistantEngine(
 
     private fun isFollowUp(text: String): Boolean {
         val n = text.lowercase(Locale.forLanguageTag("es")).trim()
+        // Una pregunta o una petición de explicación nunca es una continuación
+        // de la orden anterior: debe llegar a la IA.
+        if (n.contains("?") ||
+            n.startsWith("que ") || n.startsWith("quien ") || n.startsWith("cuando ") ||
+            n.startsWith("donde ") || n.startsWith("como ") || n.startsWith("cual ") ||
+            n.startsWith("explica") || n.startsWith("cuentame") || n.startsWith("hablame")
+        ) {
+            return false
+        }
         val markers = listOf(
             " y ", "y el", "y la", "y un", "tambien", "ahora", "otra vez", "sigue",
             "de nuevo", " mas ", "mas el", "mas la", "un poco mas", "el mismo",

@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.jarvis"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "2.0-fase3.1"
+        versionCode = 6
+        versionName = "2.0-fase4"
     }
 
     buildTypes {
@@ -70,6 +70,9 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Fase 4: clave de la IA cifrada con el Keystore del teléfono.
+    implementation("androidx.security:security-crypto:1.0.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 

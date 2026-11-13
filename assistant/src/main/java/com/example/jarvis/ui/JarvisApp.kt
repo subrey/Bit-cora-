@@ -76,6 +76,9 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val capturing by JarvisBus.listening.collectAsStateWithLifecycle()
     val onDeviceVoice by viewModel.onDeviceVoice.collectAsStateWithLifecycle()
     val continuousVoice by viewModel.continuousVoice.collectAsStateWithLifecycle()
+    val aiConfigured by viewModel.aiConfigured.collectAsStateWithLifecycle()
+    val aiModel by viewModel.aiModel.collectAsStateWithLifecycle()
+    val aiStatus by viewModel.aiStatus.collectAsStateWithLifecycle()
     val liveTranscript by viewModel.liveTranscript.collectAsStateWithLifecycle()
     val assistantState by viewModel.assistantState.collectAsStateWithLifecycle()
 
@@ -269,6 +272,9 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         continuousVoice = continuousVoice,
                         wakeWord = wakeWord,
                         onDeviceVoice = onDeviceVoice,
+                        aiConfigured = aiConfigured,
+                        aiModel = aiModel,
+                        aiStatus = aiStatus,
                         onTtsChange = viewModel::setTtsEnabled,
                         onAlwaysListeningChange = { enabled ->
                             if (enabled) {
@@ -280,6 +286,10 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         onContinuousVoiceChange = viewModel::setContinuousVoice,
                         onWakeWordChange = viewModel::setWakeWord,
                         onOnDeviceVoiceChange = viewModel::setOnDeviceVoice,
+                        onSaveAiKey = viewModel::saveAiKey,
+                        onClearAiKey = viewModel::clearAiKey,
+                        onSaveAiModel = viewModel::saveAiModel,
+                        onTestAi = viewModel::testAi,
                         onClearChat = viewModel::clearChat,
                     )
                 }

@@ -5,6 +5,7 @@ import java.text.Normalizer
 /** Intención detectada en una frase del usuario. */
 enum class IntentKind {
     GREETING,
+    CHAT,
     HELP,
     TIME,
     DATE,
@@ -70,6 +71,13 @@ object IntentParser {
         }
         if (n == "hola" || n.startsWith("hola ") || has("buenos dias", "buenas tardes", "buenas noches", "hey jarvis")) {
             return ParsedIntent(IntentKind.GREETING, raw = raw)
+        }
+        if (has(
+                "como estas", "que tal estas", "como te va", "que haces",
+                "en que piensas", "hablemos", "conversemos",
+            )
+        ) {
+            return ParsedIntent(IntentKind.CHAT, raw = raw)
         }
 
         // --- Reloj -------------------------------------------------------
@@ -179,7 +187,7 @@ object IntentParser {
         if (has("clima", "que tiempo hace", "temperatura exterior", "el tiempo")) {
             return ParsedIntent(IntentKind.WEATHER, raw = raw)
         }
-        if (has("resumen", "estado general", "como estas", "informe")) {
+        if (has("resumen", "estado general", "informe")) {
             return ParsedIntent(IntentKind.SUMMARY, raw = raw)
         }
         if (has("chiste", "cuenta un chiste", "algo gracioso", "entreteneme")) {

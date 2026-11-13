@@ -71,6 +71,9 @@ class JarvisRepository(
     override suspend fun recentUserMessages(limit: Int): List<String> =
         chatDao.lastUserMessages(limit).map { it.text }
 
+    override suspend fun recentMessages(limit: Int): List<ChatMessage> =
+        chatDao.lastMessages(limit).map { it.toDomain() }.reversed()
+
     private fun ChatEntry.toDomain() = ChatMessage(
         id = id,
         text = text,

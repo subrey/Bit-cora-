@@ -1,6 +1,8 @@
 package com.example.jarvis
 
 import android.app.Application
+import com.example.jarvis.ai.AiProvider
+import com.example.jarvis.ai.GeminiProvider
 import com.example.jarvis.assistant.AssistantEngine
 import com.example.jarvis.assistant.CrashReporter
 import com.example.jarvis.assistant.MusicPlayer
@@ -8,6 +10,7 @@ import com.example.jarvis.assistant.Speaker
 import com.example.jarvis.assistant.TimerScheduler
 import com.example.jarvis.data.JarvisDatabase
 import com.example.jarvis.data.JarvisRepository
+import com.example.jarvis.data.SecureSettings
 import com.example.jarvis.data.SettingsRepository
 
 class JarvisApplication : Application() {
@@ -28,10 +31,17 @@ class JarvisApplication : Application() {
         )
     }
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
+    val secureSettings: SecureSettings by lazy { SecureSettings(this) }
+    val aiProvider: AiProvider by lazy {
+        GeminiProvider(
+            apiKey = { secureSettings.apiKey() },
+            model = { secureSettings.model() },
+        )
+    }
     val musicPlayer: MusicPlayer by lazy { MusicPlayer(this) }
     val speaker: Speaker by lazy { Speaker(this) }
     val scheduler: TimerScheduler by lazy { TimerScheduler(this) }
     val engine: AssistantEngine by lazy {
-        AssistantEngine(this, repository, musicPlayer, scheduler)
+        AssistantEngine(this, repository, musicPlayer, scheduler, aiProvider)
     }
 }

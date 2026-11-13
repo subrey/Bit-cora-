@@ -26,4 +26,7 @@ interface ChatRepository {
 
     /** Últimos mensajes escritos por el usuario (contexto para la IA). */
     suspend fun recentUserMessages(limit: Int): List<String>
+
+    /** Últimos mensajes completos (usuario y asistente) en orden cronológico. */
+    suspend fun recentMessages(limit: Int): List<ChatMessage>
 }

@@ -49,9 +49,17 @@ MainActivity.kt                     avisa al ViewModel si la app está visible
   y cae al motor normal si el modelo local no existe. También se recupera de
   `ERROR_RECOGNIZER_BUSY` con un reintento silencioso.
 - **Un solo micrófono.** Android no permite dos reconocedores escuchando a la
-  vez. Cuando la app abre su micrófono, el servicio de palabra clave se
-  detiene; al terminar la conversación se vuelve a levantar si la escucha
-  permanente está activada.
+  vez. Cuando la app abre su micrófono, marca `JarvisBus.appMic`, el servicio de
+  palabra clave se aparta y la app **espera a que el servicio esté realmente
+  detenido** antes de abrir el reconocedor; al terminar la conversación se vuelve
+  a levantar si la escucha permanente está activada. Antes había una carrera
+  entre los dos reconocedores que cerraba la aplicación justo al reabrir el
+  micrófono.
+- El manifiesto declara `<queries>` para `android.speech.RecognitionService`:
+  sin esa visibilidad, Android 11+ puede no ver el motor de voz del teléfono.
+- El motor en el dispositivo solo se crea si
+  `SpeechRecognizer.isOnDeviceRecognitionAvailable()` lo confirma, para no
+  arrancar un motor roto en teléfonos sin el modelo descargado.
 - El estado del núcleo refleja el reconocedor real: escuchando, procesando,
   hablando o en espera. La barra superior y el núcleo animado usan ese estado.
 
@@ -81,3 +89,19 @@ MainActivity.kt                     avisa al ViewModel si la app está visible
   hay ninguno instalado, la app lo avisa y se puede seguir usando por texto.
 - El servicio de palabra clave se reinicia tras cada conversación para liberar
   el micrófono; es normal ver su notificación aparecer y desaparecer.
+
+## Diagnóstico de cierres
+
+Como aquí no hay acceso a `logcat`, la app guarda su propio rastro y lo muestra
+en el chat al volver a abrirla:
+
+- `assistant/CrashReporter.kt` captura las excepciones no controladas en
+  `last_crash.txt` y los fallos de voz capturados en `last_error.txt`.
+- Si la app murió mientras activaba el micrófono sin dejar excepción de Java
+  (cierre nativo o del sistema), lo indica con la marca `mic_open`.
+- Los callbacks del reconocedor van envueltos en `runCatching`: un fallo ahí se
+  anota en vez de cerrar la aplicación.
+
+Si tras instalar esta versión la app se vuelve a cerrar, al abrirla de nuevo el
+chat mostrará el motivo (tipo de excepción y dispositivo), que se puede
+reenviar para afinarlo.

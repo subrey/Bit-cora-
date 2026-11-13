@@ -2,6 +2,7 @@ package com.example.jarvis
 
 import android.app.Application
 import com.example.jarvis.assistant.AssistantEngine
+import com.example.jarvis.assistant.CrashReporter
 import com.example.jarvis.assistant.MusicPlayer
 import com.example.jarvis.assistant.Speaker
 import com.example.jarvis.assistant.TimerScheduler
@@ -10,6 +11,12 @@ import com.example.jarvis.data.JarvisRepository
 import com.example.jarvis.data.SettingsRepository
 
 class JarvisApplication : Application() {
+
+    override fun onCreate() {
+        super.onCreate()
+        // Captura los cierres para poder explicarlos en el chat al reabrir.
+        CrashReporter.install(this)
+    }
 
     val database: JarvisDatabase by lazy { JarvisDatabase.get(this) }
     val repository: JarvisRepository by lazy {

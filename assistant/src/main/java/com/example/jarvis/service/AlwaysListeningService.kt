@@ -20,6 +20,7 @@ import com.example.jarvis.assistant.WakeWordDetector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -182,7 +183,7 @@ class AlwaysListeningService : Service() {
     }
 
     private fun startListening() {
-        if (sessionActive || paused) return
+        if (sessionActive || paused || JarvisBus.appMic.value) return
         // Enfriamiento: nunca encender el micro más de una vez cada 1,2 s.
         val since = System.currentTimeMillis() - lastStartAt
         if (since < 1_200L) {
@@ -255,6 +256,23 @@ class AlwaysListeningService : Service() {
                         sessionActive = false
                         JarvisBus.listening.value = false
                     } else {
+                        paused = false
+                        if (!JarvisBus.appMic.value) startListening()
+                    }
+                }
+            }
+        }
+        // Si la app toma el micrófono, el servicio se aparta de inmediato.
+        scope.launch {
+            JarvisBus.appMic.collect { active ->
+                handler.post {
+                    if (active) {
+                        paused = true
+                        handler.removeCallbacksAndMessages(null)
+                        runCatching { recognizer?.cancel() }
+                        sessionActive = false
+                        JarvisBus.listening.value = false
+                    } else if (!JarvisBus.speaking.value) {
                         paused = false
                         startListening()
                     }
@@ -345,6 +363,8 @@ class AlwaysListeningService : Service() {
         runCatching { recognizer?.destroy() }
         recognizer = null
         isRunning = false
+        // Los colectores del bus no deben sobrevivir al servicio.
+        scope.cancel()
         super.onDestroy()
     }
 

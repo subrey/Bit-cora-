@@ -22,6 +22,10 @@
         android:required="false" />
 
     <queries>
+        <!-- SpeechRecognizer directo: sin esto Android 11+ no ve el motor de voz. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

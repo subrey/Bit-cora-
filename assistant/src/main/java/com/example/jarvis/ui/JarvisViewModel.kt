@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jarvis.JarvisApplication
 import com.example.jarvis.assistant.AssistantResponse
+import com.example.jarvis.assistant.CrashReporter
 import com.example.jarvis.assistant.IntentParser
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.VoicePolicy
@@ -109,6 +110,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                         fromUser = false,
                     )
                 }
+                // Si la sesión anterior terminó con un cierre, se explica aquí.
+                CrashReporter.consume(getApplication<Application>())?.let { report ->
+                    repository.addChat(report, fromUser = false)
+                }
             }
         }
     }
@@ -164,7 +169,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                             interrupted = interrupted,
                         )
                     ) {
-                        startVoice()
+                        // Pequeña pausa: deja que el motor de voz y el altavoz
+                        // se liberen antes de reabrir el micrófono.
+                        startVoice(delayMillis = 500)
                     } else {
                         releaseServiceMic()
                     }
@@ -176,7 +183,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     // --- Voz ------------------------------------------------------------
 
     /** Abre el micrófono de la app (sin el diálogo ni los pitidos del sistema). */
-    fun startVoice() {
+    fun startVoice(delayMillis: Long = 0L) {
         val context = getApplication<Application>()
         if (ContextCompat.checkSelfPermission(
                 context,
@@ -201,6 +208,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         _liveTranscript.value = ""
         _state.value = AssistantState.LISTENING
 
+        // La app pasa a ser la dueña del micrófono: el servicio de palabra
+        // clave no debe reabrirlo por su cuenta mientras dure la conversación.
+        JarvisBus.appMic.value = true
+
         // Dos reconocedores no pueden usar el micrófono a la vez: se aparta
         // el servicio de palabra clave mientras dure esta conversación.
         val justStoppedService = AlwaysListeningService.isRunning
@@ -210,9 +221,19 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         viewModelScope.launch {
-            if (justStoppedService) delay(350)
+            if (delayMillis > 0) delay(delayMillis)
+            if (justStoppedService) {
+                // Se espera a que el servicio suelte el micrófono de verdad:
+                // arrancar el reconocedor antes de tiempo cierra la app.
+                var waited = 0L
+                while (AlwaysListeningService.isRunning && waited < 2_000L) {
+                    delay(100)
+                    waited += 100
+                }
+                delay(250)
+            }
             if (_state.value == AssistantState.LISTENING) {
-                ensureRecognizer().start(onDeviceVoice.value)
+                beginListening()
             }
         }
     }
@@ -252,6 +273,18 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Arranca el reconocedor sin que ningún fallo inesperado pueda cerrar la
+     * app: si algo va mal, se anota y se trata como un error de voz normal.
+     */
+    private fun beginListening() {
+        runCatching { ensureRecognizer().start(onDeviceVoice.value) }
+            .onFailure {
+                CrashReporter.note(getApplication<Application>(), "Abrir micrófono", it)
+                handleVoiceError(SpeechRecognizer.ERROR_CLIENT)
+            }
+    }
+
     private fun ensureRecognizer(): VoiceRecognizer {
         recognizer?.let { return it }
         val created = VoiceRecognizer(
@@ -288,7 +321,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             viewModelScope.launch {
                 delay(650)
                 if (_state.value == AssistantState.LISTENING) {
-                    ensureRecognizer().start(onDeviceVoice.value)
+                    beginListening()
                 }
             }
             return
@@ -322,6 +355,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE,
             SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT ->
                 if (onDeviceVoice.value) {
+                    // El modelo local no sirve en este teléfono: se apaga para
+                    // que la próxima orden use el motor normal.
+                    viewModelScope.launch { settings.setOnDeviceVoice(false) }
                     JarvisBus.notice(
                         "⚠ El modelo de voz en el dispositivo no está disponible. " +
                             "Descárguelo en los ajustes de Google o desactive " +
@@ -333,8 +369,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Devuelve el micrófono al servicio de palabra clave si lo tenía prestado. */
     private fun releaseServiceMic() {
-        if (!micBorrowedFromService) return
         if (_state.value == AssistantState.LISTENING) return
+        // La conversación ha terminado: el servicio puede volver a escuchar.
+        JarvisBus.appMic.value = false
+        if (!micBorrowedFromService) return
         micBorrowedFromService = false
         if (alwaysListening.value) AlwaysListeningService.start(getApplication<Application>())
     }
@@ -465,6 +503,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         recognizer?.destroy()
         recognizer = null
+        // Si la app muere con el micrófono en la mano, el servicio debe poder
+        // recuperarlo en el siguiente arranque.
+        JarvisBus.appMic.value = false
         super.onCleared()
     }
 

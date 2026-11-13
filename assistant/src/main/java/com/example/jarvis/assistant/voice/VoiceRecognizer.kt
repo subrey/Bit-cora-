@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import com.example.jarvis.assistant.CrashReporter
 
 /**
  * Micrófono del asistente dentro de la app.
@@ -38,14 +39,14 @@ class VoiceRecognizer(
     fun start(preferOnDevice: Boolean) {
         if (listening) return
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            onError(ERROR_UNAVAILABLE)
+            safe("Comprobar motor de voz") { onError(ERROR_UNAVAILABLE) }
             return
         }
         if (recognizer == null || preferOnDevice != onDevice) {
             create(preferOnDevice)
         }
         val engine = recognizer ?: run {
-            onError(ERROR_UNAVAILABLE)
+            safe("Crear motor de voz") { onError(ERROR_UNAVAILABLE) }
             return
         }
 
@@ -64,15 +65,20 @@ class VoiceRecognizer(
         }
 
         listening = true
+        // Deja marcado que el micrófono se estaba abriendo: si la app muere
+        // justo ahora, el próximo arranque podrá explicarlo.
+        CrashReporter.markMicOpen(context)
         runCatching { engine.startListening(intent) }
             .onFailure {
                 listening = false
-                onError(SpeechRecognizer.ERROR_CLIENT)
+                CrashReporter.markMicReady(context)
+                safe("Iniciar escucha") { onError(SpeechRecognizer.ERROR_CLIENT) }
             }
     }
 
     fun stop() {
         listening = false
+        CrashReporter.markMicReady(context)
         runCatching { recognizer?.cancel() }
     }
 
@@ -85,9 +91,13 @@ class VoiceRecognizer(
     private fun create(preferOnDevice: Boolean) {
         runCatching { recognizer?.destroy() }
         onDevice = preferOnDevice
-        // Si el modelo local no está disponible se cae al motor normal en
-        // lugar de dejar al usuario sin micrófono.
-        val engine = if (preferOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        // El motor en el dispositivo solo se intenta si el sistema dice que
+        // está disponible: en algunos teléfonos crearlo revienta la app.
+        val onDeviceAvailable = preferOnDevice &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(context) }
+                .getOrDefault(false)
+        val engine = if (onDeviceAvailable) {
             runCatching { SpeechRecognizer.createOnDeviceSpeechRecognizer(context) }
                 .getOrElse { runCatching { SpeechRecognizer.createSpeechRecognizer(context) }.getOrNull() }
         } else {
@@ -99,11 +109,12 @@ class VoiceRecognizer(
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
-            onReady()
+            CrashReporter.markMicReady(context)
+            safe("Callback onReady") { onReady() }
         }
 
         override fun onBeginningOfSpeech() {
-            onSpeechStart()
+            safe("Callback onSpeechStart") { onSpeechStart() }
         }
 
         override fun onRmsChanged(rmsdB: Float) = Unit
@@ -114,17 +125,22 @@ class VoiceRecognizer(
 
         override fun onError(error: Int) {
             listening = false
-            onError(error)
+            CrashReporter.markMicReady(context)
+            safe("Callback onError") { onError(error) }
         }
 
         override fun onResults(results: Bundle?) {
             listening = false
-            onResult(firstResult(results))
+            CrashReporter.markMicReady(context)
+            val text = firstResult(results)
+            safe("Callback onResults") { onResult(text) }
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
             val text = firstResult(partialResults)
-            if (text.isNotBlank()) onPartial(text)
+            if (text.isNotBlank()) {
+                safe("Callback onPartial") { onPartial(text) }
+            }
         }
 
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
@@ -134,6 +150,14 @@ class VoiceRecognizer(
         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
         ?.firstOrNull()
         .orEmpty()
+
+    /**
+     * Un fallo dentro de un callback no debe cerrar la app: se anota y se
+     * sigue. El diagnóstico aparecerá en el chat en el próximo arranque.
+     */
+    private inline fun safe(tag: String, block: () -> Unit) {
+        runCatching(block).onFailure { CrashReporter.note(context, tag, it) }
+    }
 
     companion object {
         /** No hay ningún motor de reconocimiento instalado en el teléfono. */

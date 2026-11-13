@@ -28,6 +28,15 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # La clave de depuración del runner es efímera: sin esto, cada compilación
+      # firma el APK con una clave distinta y Android obliga a desinstalar para
+      # actualizar. La caché conserva la misma clave entre ejecuciones.
+      - name: Conservar clave de firma de depuración
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: jarvis-debug-keystore-v1
+
       - name: Instalar Android SDK 35
         run: |
           SDKMANAGER="$(command -v sdkmanager || echo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager")"

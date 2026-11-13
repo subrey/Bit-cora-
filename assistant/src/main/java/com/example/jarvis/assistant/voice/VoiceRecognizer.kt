@@ -12,8 +12,10 @@ import android.speech.SpeechRecognizer
  * Micrófono del asistente dentro de la app.
  *
  * Usa [SpeechRecognizer] directamente en vez del diálogo del sistema: así no
- * hay pitidos, se pueden mostrar resultados parciales y JARVIS puede encadenar
- * una conversación sin que el usuario toque nada entre turnos.
+ * hay ventana emergente, se pueden mostrar resultados parciales y JARVIS puede
+ * encadenar una conversación sin que el usuario toque nada entre turnos.
+ * Los pitidos de inicio dependen del motor de voz; el motor en el dispositivo
+ * no los reproduce.
  *
  * Todos los métodos deben llamarse desde el hilo principal.
  */

@@ -6,7 +6,8 @@ poder cortar una respuesta para tomar la palabra.
 ## Qué cambia para el usuario
 
 - **Micrófono dentro de la app.** El botón del micrófono (y el núcleo) abre el
-  reconocedor directamente. Ya no aparece el diálogo de Google ni sus pitidos.
+  reconocedor directamente. Ya no aparece el diálogo de Google. Los pitidos de
+  inicio dependen del motor de voz: con **Voz en el dispositivo** no suenan.
 - **Conversación continua.** Después de responder a una orden hablada, JARVIS
   vuelve a escuchar solo. Puede seguir hablando sin tocar nada.
   Se desactiva en **Ajustes → Conversación continua**.

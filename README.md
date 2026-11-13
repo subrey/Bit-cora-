@@ -113,7 +113,8 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 ## Voz
 
 - **Micrófono** en la app: pulsa y habla. Usa el reconocedor directamente, sin
-  el diálogo del sistema, con transcripción en vivo.
+  el diálogo del sistema, con transcripción en vivo. Con «Voz en el
+  dispositivo» tampoco suenan los pitidos del motor.
 - **Conversación continua**: tras una orden hablada, JARVIS vuelve a escuchar
   solo cuando termina de responder. Se activa o desactiva en Ajustes.
 - **Interrupción**: pulsa el micrófono mientras habla para callarlo y tomar la

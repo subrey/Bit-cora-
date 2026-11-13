@@ -103,6 +103,8 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
   se resuelven sin red; la IA solo entra cuando hace falta.
 - **Configuración**: Ajustes → Inteligencia artificial → pegar la clave gratuita
   de `aistudio.google.com/apikey` → Probar conexión.
+- **Modelo**: `gemini-3.5-flash-lite` por defecto (más cuota diaria);
+  `gemini-3.8-flash` para más calidad. Se cambia en Ajustes con un toque.
 - Si no hay clave o se alcanza el límite gratuito, JARVIS lo explica y las
   órdenes locales siguen funcionando.
 

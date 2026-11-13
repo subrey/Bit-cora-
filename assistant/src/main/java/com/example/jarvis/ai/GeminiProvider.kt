@@ -40,7 +40,7 @@ class GeminiProvider(
             )
         }
 
-        val modelName = model().trim().ifBlank { DEFAULT_MODEL }
+        val modelName = effectiveModel(model())
         val body = GeminiJson.requestBody(request).toString()
         val httpRequest = Request.Builder()
             .url("$BASE_URL/models/$modelName:generateContent")
@@ -73,7 +73,8 @@ class GeminiProvider(
                     400, 401, 403 ->
                         "La clave de IA no es válida o no tiene permisos. Revísela en Ajustes."
                     404 ->
-                        "El modelo «$modelName» no existe. Cambie el modelo en Ajustes."
+                        "El modelo «$modelName» no existe o ya no está disponible. " +
+                            "Use «$DEFAULT_MODEL» en Ajustes."
                     429 ->
                         "He alcanzado el límite gratuito de la IA. Espere un minuto y vuelva a intentarlo."
                     in 500..599 ->
@@ -109,8 +110,33 @@ class GeminiProvider(
     }
 
     companion object {
-        /** Modelo gratuito por defecto. Se puede cambiar en Ajustes. */
-        const val DEFAULT_MODEL = "gemini-2.5-flash"
+        /**
+         * Modelo gratuito por defecto. Flash-Lite tiene más cuota diaria en el
+         * nivel gratuito que Flash; se puede cambiar en Ajustes.
+         */
+        const val DEFAULT_MODEL = "gemini-3.5-flash-lite"
+
+        /** Modelos que Google ya no sirve a claves nuevas: se migran solos. */
+        private val RETIRED_MODELS = setOf(
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-pro",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-3.1-flash-lite-preview",
+            "gemini-3-pro-preview",
+        )
+
+        /**
+         * Devuelve el modelo que se usará de verdad: respeta el elegido por el
+         * usuario salvo que esté vacío o sea uno de los retirados.
+         */
+        fun effectiveModel(value: String): String {
+            val clean = value.trim()
+            return if (clean.isBlank() || clean in RETIRED_MODELS) DEFAULT_MODEL else clean
+        }
 
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
         private val JSON = "application/json; charset=utf-8".toMediaType()

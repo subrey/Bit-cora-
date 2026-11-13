@@ -18,7 +18,8 @@ forma segura en el teléfono.
   (`EncryptedSharedPreferences`), no en texto plano. Se puede borrar en
   cualquier momento desde Ajustes.
 - **Proveedor gratuito.** Se usa **Google Gemini** por su nivel gratuito. El
-  modelo se puede cambiar en Ajustes (`gemini-2.5-flash` por defecto).
+  modelo se puede cambiar en Ajustes (`gemini-3.5-flash-lite` por defecto, con más
+  cuota diaria; `gemini-3.8-flash` para más calidad).
 
 ## Cómo activarlo
 

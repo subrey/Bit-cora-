@@ -177,10 +177,24 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             label = { Text("Modelo") },
-            placeholder = { Text("gemini-2.5-flash") },
+            placeholder = { Text("gemini-3.5-flash-lite") },
             textStyle = TextStyle(fontFamily = FontFamily.Monospace, color = JarvisColors.Green),
             colors = fieldColors(),
         )
+        Text(
+            text = "Gratuitos actuales: «gemini-3.5-flash-lite» (más cuota diaria) y " +
+                "«gemini-3.8-flash» (mejor calidad).",
+            style = MaterialTheme.typography.bodySmall,
+            color = JarvisColors.Muted,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { onSaveAiModel("gemini-3.5-flash-lite") }) {
+                Text("Flash-Lite", color = JarvisColors.Green)
+            }
+            TextButton(onClick = { onSaveAiModel("gemini-3.8-flash") }) {
+                Text("Flash 3.8", color = JarvisColors.Green)
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { onSaveAiModel(modelInput) }) {
                 Text("Guardar modelo", color = JarvisColors.Green)
@@ -235,7 +249,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · asistente local · v2.0-fase4",
+            text = "JARVIS · asistente local · v2.0-fase4.1",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

@@ -86,7 +86,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Modelo configurado, o el gratuito por defecto. */
     private val _aiModel = MutableStateFlow(
-        secure.model().ifBlank { GeminiProvider.DEFAULT_MODEL },
+        GeminiProvider.effectiveModel(secure.model()),
     )
     val aiModel: StateFlow<String> = _aiModel.asStateFlow()
 
@@ -125,7 +125,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun saveAiModel(value: String) {
-        val clean = value.trim().ifBlank { GeminiProvider.DEFAULT_MODEL }
+        val clean = GeminiProvider.effectiveModel(value)
         viewModelScope.launch {
             runCatching { secure.setModel(clean) }
             _aiModel.value = clean

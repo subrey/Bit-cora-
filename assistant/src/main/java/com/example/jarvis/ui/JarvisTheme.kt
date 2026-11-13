@@ -10,45 +10,115 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+/**
+ * Paleta holográfica de JARVIS AI.
+ *
+ * Azul eléctrico y cian sobre azul casi negro. Los nombres antiguos
+ * (`Green`, `GreenDim`) se conservan como alias para las pantallas que ya
+ * existían: así toda la app cambia de identidad sin reescribir cada línea.
+ */
 object JarvisColors {
-    val Green = Color(0xFF00FF41)
-    val GreenDim = Color(0xFF00B020)
-    val Cyan = Color(0xFF00E5FF)
-    val Amber = Color(0xFFFFC107)
-    val Red = Color(0xFFFF5252)
-    val Background = Color(0xFF000000)
-    val Panel = Color(0xFF03150A)
-    val Outline = Color(0xFF124A26)
-    val Muted = Color(0xFF7CFF9E)
+    // Fondos
+    val Background = Color(0xFF04070F)
+    val BackgroundTop = Color(0xFF071322)
+    val Panel = Color(0xFF081A2C)
+    val PanelHigh = Color(0xFF0B2439)
+
+    // Acentos
+    val Primary = Color(0xFF3BA7FF)
+    val PrimaryDim = Color(0xFF1B6E9E)
+    val Cyan = Color(0xFF22E3F5)
+    val Ice = Color(0xFFBDEFFF)
+
+    // Texto
+    val Text = Color(0xFFD3ECFA)
+    val Muted = Color(0xFF7B9BB3)
+    val Outline = Color(0xFF16425F)
+
+    // Avisos
+    val Amber = Color(0xFFF2C14E)
+    val Red = Color(0xFFFF5D7A)
+
+    /** Alias heredados de la etapa Matrix. */
+    val Green = Primary
+    val GreenDim = PrimaryDim
 }
 
+private val sans = FontFamily.SansSerif
 private val mono = FontFamily.Monospace
 
 private val jarvisTypography = Typography(
-    bodyLarge = TextStyle(fontFamily = mono, fontSize = 14.sp, lineHeight = 20.sp),
-    bodyMedium = TextStyle(fontFamily = mono, fontSize = 13.sp, lineHeight = 18.sp),
-    bodySmall = TextStyle(fontFamily = mono, fontSize = 11.sp, lineHeight = 16.sp),
-    labelLarge = TextStyle(fontFamily = mono, fontSize = 13.sp, fontWeight = FontWeight.Bold),
-    labelMedium = TextStyle(fontFamily = mono, fontSize = 12.sp),
-    labelSmall = TextStyle(fontFamily = mono, fontSize = 10.sp),
-    titleLarge = TextStyle(fontFamily = mono, fontSize = 18.sp, fontWeight = FontWeight.Bold),
-    titleMedium = TextStyle(fontFamily = mono, fontSize = 15.sp, fontWeight = FontWeight.Bold),
-    titleSmall = TextStyle(fontFamily = mono, fontSize = 13.sp, fontWeight = FontWeight.Bold),
+    displaySmall = TextStyle(
+        fontFamily = sans,
+        fontWeight = FontWeight.Light,
+        fontSize = 32.sp,
+        letterSpacing = 6.sp,
+    ),
+    titleLarge = TextStyle(
+        fontFamily = sans,
+        fontWeight = FontWeight.Medium,
+        fontSize = 20.sp,
+        letterSpacing = 2.sp,
+    ),
+    titleMedium = TextStyle(
+        fontFamily = sans,
+        fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        letterSpacing = 1.sp,
+    ),
+    titleSmall = TextStyle(
+        fontFamily = sans,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        letterSpacing = 0.8.sp,
+    ),
+    bodyLarge = TextStyle(
+        fontFamily = sans,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = sans,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+    ),
+    bodySmall = TextStyle(
+        fontFamily = sans,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
+    ),
+    labelLarge = TextStyle(
+        fontFamily = mono,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 12.sp,
+        letterSpacing = 1.2.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = mono,
+        fontSize = 10.sp,
+        letterSpacing = 1.4.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = mono,
+        fontSize = 9.sp,
+        letterSpacing = 1.1.sp,
+    ),
 )
 
 @Composable
 fun JarvisTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = JarvisColors.Green,
-            onPrimary = Color.Black,
+            primary = JarvisColors.Primary,
+            onPrimary = JarvisColors.Background,
             secondary = JarvisColors.Cyan,
-            onSecondary = Color.Black,
+            onSecondary = JarvisColors.Background,
+            tertiary = JarvisColors.Ice,
             background = JarvisColors.Background,
-            onBackground = JarvisColors.Green,
+            onBackground = JarvisColors.Text,
             surface = JarvisColors.Panel,
-            onSurface = JarvisColors.Green,
-            surfaceVariant = JarvisColors.Panel,
+            onSurface = JarvisColors.Text,
+            surfaceVariant = JarvisColors.PanelHigh,
             onSurfaceVariant = JarvisColors.Muted,
             outline = JarvisColors.Outline,
             outlineVariant = JarvisColors.Outline,

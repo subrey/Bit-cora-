@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -66,6 +65,12 @@ fun TerminalScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
+        Text(
+            text = "HISTORIAL DE CONVERSACIÓN",
+            style = MaterialTheme.typography.labelSmall,
+            color = JarvisColors.Muted,
+            modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 2.dp),
+        )
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -96,7 +101,7 @@ fun TerminalScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
+                
                 .imePadding()
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,

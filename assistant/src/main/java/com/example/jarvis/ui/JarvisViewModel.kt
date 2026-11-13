@@ -71,6 +71,20 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     /** Estado del núcleo: en espera, escuchando, procesando o hablando. */
     val assistantState: StateFlow<AssistantState> = _state.asStateFlow()
 
+    /** El usuario ha abierto el micrófono del sistema. */
+    fun markListening() {
+        if (_state.value == AssistantState.IDLE) {
+            _state.value = AssistantState.LISTENING
+        }
+    }
+
+    /** El diálogo de voz se cerró sin una orden. */
+    fun markIdle() {
+        if (_state.value == AssistantState.LISTENING) {
+            _state.value = AssistantState.IDLE
+        }
+    }
+
     init {
         viewModelScope.launch {
             runCatching {

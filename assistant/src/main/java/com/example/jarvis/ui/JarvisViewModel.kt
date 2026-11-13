@@ -23,6 +23,7 @@ import com.example.jarvis.domain.model.AssistantState
 import com.example.jarvis.domain.model.ChatMessage
 import com.example.jarvis.service.AlwaysListeningService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -167,12 +168,14 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     private var recognizer: VoiceRecognizer? = null
     private var appVisible = false
 
-    /** El micrófono de la app ha apartado temporalmente al servicio de escucha. */
-    private var micBorrowedFromService = false
-
     /** El usuario ha cortado una respuesta de JARVIS. */
     private var interrupted = false
-    private var retriedBusy = false
+
+    /** Reintentos silenciosos cuando el micrófono aún está ocupado. */
+    private var busyRetries = 0
+
+    /** Evita cerrar el micro por un onStop pasajero (permiso, overlay…). */
+    private var visibilityJob: Job? = null
 
     /** Identifica el turno actual: un envío nuevo invalida los avisos del anterior. */
     private var turnId = 0
@@ -286,34 +289,29 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         if (_state.value == AssistantState.LISTENING) return
 
         interrupted = false
-        retriedBusy = false
+        busyRetries = 0
         _liveTranscript.value = ""
         _state.value = AssistantState.LISTENING
 
         // La app pasa a ser la dueña del micrófono: el servicio de palabra
-        // clave no debe reabrirlo por su cuenta mientras dure la conversación.
+        // clave se pausa al ver esta señal y destruye su reconocedor.
         JarvisBus.appMic.value = true
-
-        // Dos reconocedores no pueden usar el micrófono a la vez: se aparta
-        // el servicio de palabra clave mientras dure esta conversación.
-        val justStoppedService = AlwaysListeningService.isRunning
-        if (justStoppedService) {
-            micBorrowedFromService = true
-            AlwaysListeningService.stop(context)
-        }
 
         viewModelScope.launch {
             if (delayMillis > 0) delay(delayMillis)
-            if (justStoppedService) {
-                // Se espera a que el servicio suelte el micrófono de verdad:
-                // arrancar el reconocedor antes de tiempo cierra la app.
-                var waited = 0L
-                while (AlwaysListeningService.isRunning && waited < 2_000L) {
-                    delay(100)
-                    waited += 100
-                }
-                delay(250)
+            // El servicio se pausa solo al ver appMic y destruye su
+            // reconocedor. Se espera a que lo suelte; si no está corriendo,
+            // no hay nada que esperar.
+            var waited = 0L
+            while (AlwaysListeningService.isRunning &&
+                !AlwaysListeningService.micReleased &&
+                waited < 1_500L
+            ) {
+                delay(50)
+                waited += 50
             }
+            // Pequeño margen para que el sistema cierre la sesión anterior.
+            delay(300)
             if (_state.value == AssistantState.LISTENING) {
                 beginListening()
             }
@@ -350,9 +348,20 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     /** La app pasa a primer plano o se oculta. */
     fun setAppVisible(visible: Boolean) {
         appVisible = visible
+        visibilityJob?.cancel()
+        visibilityJob = null
         if (!visible) {
-            stopVoice()
-            if (alwaysListening.value) AlwaysListeningService.start(getApplication<Application>())
+            // Un onStop pasajero (permiso, overlay del reconocedor…) no debe
+            // cerrar el micrófono nada más abrirlo. Se espera un poco.
+            visibilityJob = viewModelScope.launch {
+                delay(700)
+                if (!appVisible) {
+                    stopVoice()
+                    if (alwaysListening.value) {
+                        AlwaysListeningService.start(getApplication<Application>())
+                    }
+                }
+            }
         }
     }
 
@@ -385,6 +394,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             },
             onPartial = { text -> _liveTranscript.value = text },
             onResult = { text ->
+                busyRetries = 0
                 _liveTranscript.value = ""
                 if (_state.value == AssistantState.LISTENING) {
                     if (text.isBlank()) stopVoice() else submit(text, fromVoice = true)
@@ -400,17 +410,27 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         _liveTranscript.value = ""
         app.musicPlayer.restoreAfterWakeWord()
         if (VoicePolicy.isTransientError(error) &&
-            !retriedBusy &&
-            _state.value == AssistantState.LISTENING
+            _state.value == AssistantState.LISTENING &&
+            busyRetries < 4
         ) {
-            // El micrófono aún se estaba liberando: un reintento silencioso.
-            retriedBusy = true
+            // El micrófono aún se estaba liberando: reintentos silenciosos.
+            // Cada intento crea un reconocedor nuevo si el anterior falló.
+            busyRetries++
+            val wait = 500L * busyRetries
             viewModelScope.launch {
-                delay(650)
+                delay(wait)
                 if (_state.value == AssistantState.LISTENING) {
                     beginListening()
                 }
             }
+            return
+        }
+        if (VoicePolicy.isTransientError(error)) {
+            stopVoice()
+            JarvisBus.notice(
+                "⚠ El micrófono sigue ocupado (código $error). " +
+                    "Espere un momento y vuelva a intentarlo."
+            )
             return
         }
         if (VoicePolicy.isSilenceError(error)) {
@@ -458,11 +478,16 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     private fun releaseServiceMic() {
         if (_state.value == AssistantState.LISTENING) return
         app.musicPlayer.restoreAfterWakeWord()
+        // Suelta el reconocedor de la app antes de devolver el micrófono:
+        // así el servicio no se encuentra una instancia a medias.
+        recognizer?.release()
         // La conversación ha terminado: el servicio puede volver a escuchar.
         JarvisBus.appMic.value = false
-        if (!micBorrowedFromService) return
-        micBorrowedFromService = false
-        if (alwaysListening.value) AlwaysListeningService.start(getApplication<Application>())
+        if (alwaysListening.value) {
+            // También cubre el caso de que el servicio estuviera apagándose:
+            // startService lo relanza si hace falta.
+            AlwaysListeningService.start(getApplication<Application>())
+        }
     }
 
     fun clearChat() {
@@ -598,6 +623,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         // Si la app muere con el micrófono en la mano, el servicio debe poder
         // recuperarlo en el siguiente arranque.
         JarvisBus.appMic.value = false
+        if (alwaysListening.value) {
+            AlwaysListeningService.start(getApplication<Application>())
+        }
         super.onCleared()
     }
 

@@ -33,6 +33,12 @@ class VoiceRecognizer(
     private var onDevice = false
     private var listening = false
 
+    /**
+     * Un reconocedor que ha fallado puede quedarse «colgado» y no volver a
+     * escuchar. En ese caso se destruye y se crea uno nuevo al reintentar.
+     */
+    private var needsRecreate = false
+
     val isListening: Boolean
         get() = listening
 
@@ -42,7 +48,7 @@ class VoiceRecognizer(
             safe("Comprobar motor de voz") { onError(ERROR_UNAVAILABLE) }
             return
         }
-        if (recognizer == null || preferOnDevice != onDevice) {
+        if (recognizer == null || preferOnDevice != onDevice || needsRecreate) {
             create(preferOnDevice)
         }
         val engine = recognizer ?: run {
@@ -56,12 +62,14 @@ class VoiceRecognizer(
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             // Respuesta rápida: al callar, la orden se cierra en ~2 s.
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2_200L)
+            // Margen suficiente para empezar a hablar sin que la sesión se
+            // cierre sola antes de que el usuario diga la orden.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4_000L)
             putExtra(
                 RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
-                1_200L,
+                2_000L,
             )
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 800L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_000L)
         }
 
         listening = true
@@ -71,6 +79,7 @@ class VoiceRecognizer(
         runCatching { engine.startListening(intent) }
             .onFailure {
                 listening = false
+                needsRecreate = true
                 CrashReporter.markMicReady(context)
                 safe("Iniciar escucha") { onError(SpeechRecognizer.ERROR_CLIENT) }
             }
@@ -80,6 +89,18 @@ class VoiceRecognizer(
         listening = false
         CrashReporter.markMicReady(context)
         runCatching { recognizer?.cancel() }
+    }
+
+    /**
+     * Suelta el reconocedor por completo. Se usa al devolver el micrófono al
+     * servicio de escucha permanente: así no queda una instancia a medias
+     * reteniendo el micrófono.
+     */
+    fun release() {
+        stop()
+        runCatching { recognizer?.destroy() }
+        recognizer = null
+        needsRecreate = true
     }
 
     fun destroy() {
@@ -105,10 +126,12 @@ class VoiceRecognizer(
         }
         engine?.setRecognitionListener(listener)
         recognizer = engine
+        needsRecreate = engine == null
     }
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
+            needsRecreate = false
             CrashReporter.markMicReady(context)
             safe("Callback onReady") { onReady() }
         }
@@ -125,12 +148,14 @@ class VoiceRecognizer(
 
         override fun onError(error: Int) {
             listening = false
+            needsRecreate = true
             CrashReporter.markMicReady(context)
             safe("Callback onError") { onError(error) }
         }
 
         override fun onResults(results: Bundle?) {
             listening = false
+            needsRecreate = false
             CrashReporter.markMicReady(context)
             val text = firstResult(results)
             safe("Callback onResults") { onResult(text) }

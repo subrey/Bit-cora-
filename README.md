@@ -140,6 +140,9 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 - **Escucha permanente**: servicio en primer plano que espera la palabra clave
   (por defecto «Jarvis») y ejecuta la orden. Se aparta mientras la app usa el
   micrófono.
+- **Cambio de micrófono fiable**: al abrir el micrófono de la app, el servicio
+  suelta su reconocedor y se espera a que el sistema libere el micrófono. Si
+  aún está ocupado, se reintenta sin cerrar la escucha.
 - **Respuestas habladas** con el sintetizador de voz del sistema (se puede
   desactivar).
 

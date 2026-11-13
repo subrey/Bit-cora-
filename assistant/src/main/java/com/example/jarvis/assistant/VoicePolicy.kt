@@ -25,7 +25,7 @@ object VoicePolicy {
      * o el motor se reinició por su cuenta.
      */
     fun isTransientError(error: Int): Boolean =
-        error == ERROR_CLIENT || error == ERROR_RECOGNIZER_BUSY
+        error == ERROR_AUDIO || error == ERROR_CLIENT || error == ERROR_RECOGNIZER_BUSY
 
     /**
      * Errores normales cuando el usuario no dice nada: no hay que alarmarle,
@@ -36,6 +36,7 @@ object VoicePolicy {
 
     // Copias de las constantes de SpeechRecognizer para no depender del SDK
     // de Android en las pruebas unitarias.
+    private const val ERROR_AUDIO = 3
     private const val ERROR_CLIENT = 5
     private const val ERROR_SPEECH_TIMEOUT = 6
     private const val ERROR_NO_MATCH = 7

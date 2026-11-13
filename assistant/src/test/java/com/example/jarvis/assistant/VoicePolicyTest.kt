@@ -68,6 +68,7 @@ class VoicePolicyTest {
 
     @Test
     fun `clasifica errores transitorios y de silencio`() {
+        assertTrue(VoicePolicy.isTransientError(3)) // ERROR_AUDIO
         assertTrue(VoicePolicy.isTransientError(5)) // ERROR_CLIENT
         assertTrue(VoicePolicy.isTransientError(8)) // ERROR_RECOGNIZER_BUSY
         assertFalse(VoicePolicy.isTransientError(7)) // ERROR_NO_MATCH

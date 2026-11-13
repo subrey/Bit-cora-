@@ -75,7 +75,24 @@ data/SecureSettings.kt clave y modelo cifrados con EncryptedSharedPreferences
   al 12 % para escuchar la orden y se restaura al terminar. También baja durante
   la respuesta hablada de JARVIS. El volumen elegido por el usuario no cambia.
 - **Menos ruido en el chat.** Con música sonando no se muestran avisos de «te he
-  oído» cuando el reconocedor capta la letra, y se espera más entre sesiones.
+  oído» cuando el reconocedor capta la letra.
+
+## Correcciones de la fase 4.3
+
+- **Micrófono de la app con escucha permanente.** Al abrir el micrófono, la app
+  pausa el servicio, destruye su reconocedor y espera a que el sistema libere
+  el micrófono antes de abrir el suyo. Antes se esperaba a que el servicio
+  terminara de apagarse, y a veces el micrófono seguía ocupado: la escucha se
+  abría y se cerraba sin oír la orden.
+- **Reintentos si el micrófono está ocupado.** Los errores de audio, cliente y
+  reconocedor ocupado ya no cierran la escucha al primer intento: se recrea el
+  reconocedor y se reintenta hasta cuatro veces con esperas crecientes.
+- **Más margen para hablar.** La sesión de la app espera hasta 4 segundos de
+  silencio antes de cerrarse (antes 2,2), así no se corta si el usuario tarda
+  un instante en empezar.
+- **`onStop` pasajero.** Si la app pierde el foco un momento (permiso, overlay
+  del reconocedor), el micrófono ya no se cierra al instante: se espera 700 ms
+  y solo se cierra si la app sigue fuera de pantalla.
 
 ## Pruebas
 

@@ -66,7 +66,14 @@ class AlwaysListeningService : Service() {
         override fun onError(error: Int) {
             JarvisBus.listening.value = false
             sessionActive = false
+            micReleased = true
             restoreMusic()
+            if (consecutiveFailures >= 3) {
+                // Un reconocedor que falla varias veces puede quedarse colgado:
+                // se destruye para que la siguiente sesión use uno limpio.
+                runCatching { recognizer?.destroy() }
+                recognizer = null
+            }
             when (error) {
                 SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
                     JarvisBus.notice(
@@ -76,7 +83,16 @@ class AlwaysListeningService : Service() {
                     stopSelf()
                 }
 
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> scheduleRestart(900L)
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
+                    consecutiveFailures++
+                    if (consecutiveFailures >= 3) {
+                        // Un reconocedor ocupado varias veces puede quedarse
+                        // bloqueado: se recrea en la siguiente sesión.
+                        runCatching { recognizer?.destroy() }
+                        recognizer = null
+                    }
+                    scheduleRestart(900L)
+                }
 
                 else -> {
                     consecutiveFailures++
@@ -98,6 +114,7 @@ class AlwaysListeningService : Service() {
             JarvisBus.listening.value = false
             sessionActive = false
             consecutiveFailures = 0
+            micReleased = true
             restoreMusic()
             val spoken = results
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -125,16 +142,9 @@ class AlwaysListeningService : Service() {
             }
             emptyResults = 0
             val handled = handle(results)
-            // Tras una orden se reabre rápido; si no hubo orden, se espera más
-            // para no encadenar sesiones (y por tanto pitidos). Con música de
-            // fondo se espera aún más: el micrófono solo oiría la canción.
-            scheduleRestart(
-                when {
-                    handled -> 700L
-                    isMusicPlaying() -> 8_000L
-                    else -> 4_000L
-                },
-            )
+            // Tras una orden se reabre rápido; si no hubo orden, se espera
+            // para no encadenar sesiones (y por tanto pitidos).
+            scheduleRestart(if (handled) 700L else 4_000L)
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
@@ -143,7 +153,7 @@ class AlwaysListeningService : Service() {
                 .getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 .orEmpty()
-            if (spoken.lowercase().contains(wakeWord)) {
+            if (WakeWordDetector.containsWakeWord(spoken, wakeWord)) {
                 JarvisBus.listening.value = true
                 // La música baja para que se entienda la orden que viene.
                 duckMusic()
@@ -216,7 +226,16 @@ class AlwaysListeningService : Service() {
             handler.postDelayed({ startListening() }, 1_200L - since)
             return
         }
+        val engine = recognizer ?: createRecognizer(onDeviceVoice).also { recognizer = it }
+        if (engine == null) {
+            sessionActive = false
+            micReleased = true
+            consecutiveFailures++
+            handler.postDelayed({ startListening() }, backoff())
+            return
+        }
         sessionActive = true
+        micReleased = false
         lastStartAt = System.currentTimeMillis()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -228,9 +247,10 @@ class AlwaysListeningService : Service() {
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4_000L)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_500L)
         }
-        runCatching { recognizer?.startListening(intent) }
+        runCatching { engine.startListening(intent) }
             .onFailure {
                 sessionActive = false
+                micReleased = true
                 consecutiveFailures++
                 handler.postDelayed({ startListening() }, backoff())
             }
@@ -241,12 +261,14 @@ class AlwaysListeningService : Service() {
         runCatching { recognizer?.cancel() }
         sessionActive = false
         JarvisBus.listening.value = false
+        micReleased = true
         restoreMusic()
     }
 
     override fun onCreate() {
         super.onCreate()
         isRunning = true
+        micReleased = true
         Notifications.ensureChannel(this)
         val app = applicationContext as? JarvisApplication
         appRef = app
@@ -280,14 +302,18 @@ class AlwaysListeningService : Service() {
                         paused = true
                         handler.removeCallbacksAndMessages(null)
                         runCatching { recognizer?.cancel() }
+                        runCatching { recognizer?.destroy() }
+                        recognizer = null
                         sessionActive = false
                         JarvisBus.listening.value = false
+                        micReleased = true
                         // La respuesta de JARVIS se oye mejor con la música baja.
                         duckMusic()
                     } else {
-                        paused = false
                         if (!JarvisBus.appMic.value) {
+                            paused = false
                             restoreMusic()
+                            if (recognizer == null) recognizer = createRecognizer(onDeviceVoice)
                             startListening()
                         }
                     }
@@ -302,10 +328,14 @@ class AlwaysListeningService : Service() {
                         paused = true
                         handler.removeCallbacksAndMessages(null)
                         runCatching { recognizer?.cancel() }
+                        runCatching { recognizer?.destroy() }
+                        recognizer = null
                         sessionActive = false
                         JarvisBus.listening.value = false
+                        micReleased = true
                     } else if (!JarvisBus.speaking.value) {
                         paused = false
+                        if (recognizer == null) recognizer = createRecognizer(onDeviceVoice)
                         startListening()
                     }
                 }
@@ -320,6 +350,7 @@ class AlwaysListeningService : Service() {
         recognizer = createRecognizer(onDevice)
         sessionActive = false
         consecutiveFailures = 0
+        micReleased = true
         startListening()
     }
 
@@ -394,6 +425,7 @@ class AlwaysListeningService : Service() {
         stopListening()
         runCatching { recognizer?.destroy() }
         recognizer = null
+        micReleased = true
         isRunning = false
         // Los colectores del bus no deben sobrevivir al servicio.
         scope.cancel()
@@ -409,6 +441,13 @@ class AlwaysListeningService : Service() {
         /** true mientras el servicio de escucha está vivo en este proceso. */
         @Volatile
         var isRunning: Boolean = false
+
+        /**
+         * true cuando el servicio ha soltado el micrófono (o no lo estaba
+         * usando). La app espera esta señal antes de abrir su propio micro.
+         */
+        @Volatile
+        var micReleased: Boolean = true
 
         fun start(context: android.content.Context) {
             if (!hasMicPermission(context)) return
@@ -435,6 +474,7 @@ class AlwaysListeningService : Service() {
          */
         fun rearm(context: android.content.Context) {
             if (!isRunning) return
+            if (JarvisBus.appMic.value) return
             if (!hasMicPermission(context)) return
             val intent = Intent(context, AlwaysListeningService::class.java).setAction(ACTION_REARM)
             runCatching {

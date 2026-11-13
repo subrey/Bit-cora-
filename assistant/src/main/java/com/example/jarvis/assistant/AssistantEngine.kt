@@ -211,9 +211,9 @@ class AssistantEngine(
         }
         if (!ai.isConfigured()) {
             return AssistantResponse(
-                "Puedo conversar libremente si configura una clave gratuita de Google Gemini " +
-                    "en Ajustes → Inteligencia artificial. Mientras tanto, «ayuda» muestra " +
-                    "las órdenes que entiendo."
+                "Estoy en línea y funcionando, señor. Para conversar libremente, configure una " +
+                    "clave gratuita de Google Gemini en Ajustes → Inteligencia artificial. " +
+                    "Mientras tanto, «ayuda» muestra las órdenes que entiendo."
             )
         }
 
@@ -428,7 +428,7 @@ class AssistantEngine(
         if (n.contains("?") ||
             n.startsWith("que ") || n.startsWith("quien ") || n.startsWith("cuando ") ||
             n.startsWith("donde ") || n.startsWith("como ") || n.startsWith("cual ") ||
-            n.startsWith("explica") || n.startsWith("cuentame") || n.startsWith("hablame")
+            n.contains("explica") || n.contains("cuentame") || n.contains("hablame")
         ) {
             return false
         }

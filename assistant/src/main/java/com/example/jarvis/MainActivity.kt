@@ -6,11 +6,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import com.example.jarvis.service.AlwaysListeningService
 import com.example.jarvis.ui.JarvisApp
 import com.example.jarvis.ui.JarvisTheme
+import com.example.jarvis.ui.JarvisViewModel
 
 class MainActivity : ComponentActivity() {
+
+    private val viewModel: JarvisViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,9 +25,20 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             JarvisTheme {
-                JarvisApp()
+                JarvisApp(viewModel)
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // La conversación continua solo encadena turnos con la app a la vista.
+        viewModel.setAppVisible(true)
+    }
+
+    override fun onStop() {
+        viewModel.setAppVisible(false)
+        super.onStop()
     }
 
     override fun onResume() {

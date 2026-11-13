@@ -33,10 +33,12 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(
     ttsEnabled: Boolean,
     alwaysListening: Boolean,
+    continuousVoice: Boolean,
     wakeWord: String,
     onDeviceVoice: Boolean,
     onTtsChange: (Boolean) -> Unit,
     onAlwaysListeningChange: (Boolean) -> Unit,
+    onContinuousVoiceChange: (Boolean) -> Unit,
     onWakeWordChange: (String) -> Unit,
     onOnDeviceVoiceChange: (Boolean) -> Unit,
     onClearChat: () -> Unit,
@@ -65,6 +67,12 @@ fun SettingsScreen(
             subtitle = "Mantiene el micrófono abierto y espera la palabra clave (pide permiso de micrófono)",
             checked = alwaysListening,
             onCheckedChange = onAlwaysListeningChange,
+        )
+        SettingSwitch(
+            title = "Conversación continua",
+            subtitle = "Tras responder a una orden hablada vuelve a escuchar para que siga hablando",
+            checked = continuousVoice,
+            onCheckedChange = onContinuousVoiceChange,
         )
         SettingSwitch(
             title = "Voz en el dispositivo",
@@ -133,7 +141,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · asistente local · v1.0",
+            text = "JARVIS · asistente local · v2.0-fase3",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

@@ -9,11 +9,12 @@ Este repositorio contiene **dos apps nativas de Android**, ambas en **Kotlin + J
 
 Se compilan por separado, generan **dos APK** y pueden instalarse los dos en el mismo teléfono.
 
-> **Estado de JARVIS AI**: Fases 1 y 2 completadas (estructura por capas y
-> nueva interfaz holográfica). Consulta [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md),
-> [`docs/FASE-1.md`](docs/FASE-1.md) y [`docs/FASE-2.md`](docs/FASE-2.md).
-> Las siguientes fases añaden la voz continua, la IA conversacional y el resto
-> de funciones.
+> **Estado de JARVIS AI**: Fases 1, 2 y 3 completadas (estructura por capas,
+> interfaz holográfica y voz continua e interrumpible). Consulta
+> [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md),
+> [`docs/FASE-1.md`](docs/FASE-1.md), [`docs/FASE-2.md`](docs/FASE-2.md) y
+> [`docs/FASE-3.md`](docs/FASE-3.md).
+> Las siguientes fases añaden la IA conversacional y el resto de funciones.
 
 ---
 
@@ -111,9 +112,17 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 
 ## Voz
 
-- **Micrófono** en el terminal: pulsa y habla (reconocimiento de voz del sistema, en español).
-- **Escucha permanente**: servicio en primer plano que espera la palabra clave (por defecto «Jarvis») y ejecuta la orden.
-- **Respuestas habladas** con el sintetizador de voz del sistema (se puede desactivar).
+- **Micrófono** en la app: pulsa y habla. Usa el reconocedor directamente, sin
+  el diálogo del sistema, con transcripción en vivo.
+- **Conversación continua**: tras una orden hablada, JARVIS vuelve a escuchar
+  solo cuando termina de responder. Se activa o desactiva en Ajustes.
+- **Interrupción**: pulsa el micrófono mientras habla para callarlo y tomar la
+  palabra.
+- **Escucha permanente**: servicio en primer plano que espera la palabra clave
+  (por defecto «Jarvis») y ejecuta la orden. Se aparta mientras la app usa el
+  micrófono.
+- **Respuestas habladas** con el sintetizador de voz del sistema (se puede
+  desactivar).
 
 ## Estructura
 
@@ -130,6 +139,9 @@ assistant/src/main/java/com/example/jarvis/
 │   ├── Tools.kt             # calculadora, conversor y formatos (puro, testeable)
 │   ├── MusicPlayer.kt       # reproductor con MediaStore + MediaPlayer
 │   ├── Speaker.kt           # respuestas habladas (TextToSpeech)
+│   ├── VoicePolicy.kt       # reglas puras de la conversación continua
+│   ├── voice/
+│   │   └── VoiceRecognizer.kt  # micrófono de la app (SpeechRecognizer directo)
 │   ├── TimerScheduler.kt    # temporizadores con AlarmManager
 │   ├── Notifications.kt
 │   └── JarvisBus.kt         # bus interno servicio ↔ interfaz

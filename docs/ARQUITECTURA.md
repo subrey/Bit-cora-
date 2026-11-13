@@ -27,7 +27,7 @@ receiver/      alarmas y recordatorios
 Regla de dependencias: `ui → domain ← data`. El dominio no importa nada de
 Android, Room ni OkHttp, así que se puede probar con JUnit normal.
 
-## Estado actual (Fase 1)
+## Estado actual (Fases 1–3)
 
 - El histórico ya está desacoplado: `JarvisRepository` implementa
   `ChatRepository` y traduce `ChatEntry` (Room) a `ChatMessage` (dominio).
@@ -36,6 +36,13 @@ Android, Room ni OkHttp, así que se puede probar con JUnit normal.
 - Navegación con Navigation Compose y estado por pestaña.
 - `JarvisPersona` centraliza la personalidad que se enviará al modelo en la
   Fase 4.
+- El micrófono de la app usa `SpeechRecognizer` directamente
+  (`assistant/voice/VoiceRecognizer.kt`): sin diálogo del sistema, con
+  resultados parciales y conversación continua. `Speaker` suspende la corrutina
+  hasta que termina la locución, y `VoicePolicy` decide (con reglas puras y
+  testeadas) cuándo se reabre el micrófono.
+- El servicio de palabra clave y el micrófono de la app se coordinan: mientras
+  la app escucha o habla, el servicio se aparta para no pelear por el micrófono.
 
 Las entidades de tareas, memorias y temporizadores siguen en `data/` y se
 migrarán al dominio cuando se toquen en las fases 7 y 8. Es una migración
@@ -60,7 +67,7 @@ incremental a propósito: cada fase deja la app compilando y funcionando.
 |---|---|---|
 | 1 | Proyecto, capas, navegación, estado del núcleo | Hecha |
 | 2 | Interfaz holográfica (núcleo animado, ondas, paneles) | Hecha |
-| 3 | Voz continua e interrumpible | Pendiente |
+| 3 | Voz continua e interrumpible | Hecha |
 | 4 | IA conversacional con API gratuita + clave cifrada | Pendiente |
 | 5 | Control del teléfono (apps, llamadas, alarmas) | Pendiente |
 | 6 | Música integrada | Pendiente |

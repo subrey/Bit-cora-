@@ -19,6 +19,7 @@ class SettingsRepository(private val context: Context) {
         val wakeWord = stringPreferencesKey("wake_word")
         val accent = stringPreferencesKey("accent")
         val onDeviceVoice = booleanPreferencesKey("on_device_voice")
+        val continuousVoice = booleanPreferencesKey("continuous_voice")
     }
 
     val ttsEnabled: Flow<Boolean> = context.jarvisDataStore.data.map { it[Keys.tts] ?: true }
@@ -36,8 +37,19 @@ class SettingsRepository(private val context: Context) {
      */
     val onDeviceVoice: Flow<Boolean> = context.jarvisDataStore.data.map { it[Keys.onDeviceVoice] ?: false }
 
+    /**
+     * Conversación continua: tras responder a una orden hablada, el micrófono
+     * se vuelve a abrir solo para que el usuario pueda seguir hablando.
+     */
+    val continuousVoice: Flow<Boolean> =
+        context.jarvisDataStore.data.map { it[Keys.continuousVoice] ?: true }
+
     suspend fun setOnDeviceVoice(value: Boolean) {
         context.jarvisDataStore.edit { it[Keys.onDeviceVoice] = value }
+    }
+
+    suspend fun setContinuousVoice(value: Boolean) {
+        context.jarvisDataStore.edit { it[Keys.continuousVoice] = value }
     }
 
     suspend fun setTtsEnabled(value: Boolean) {

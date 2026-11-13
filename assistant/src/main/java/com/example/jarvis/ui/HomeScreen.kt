@@ -65,6 +65,7 @@ import com.example.jarvis.ui.components.JarvisCore
 fun HomeScreen(
     state: AssistantState,
     messages: List<ChatMessage>,
+    liveTranscript: String,
     onSend: (String) -> Unit,
     onMicClick: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -115,10 +116,11 @@ fun HomeScreen(
                 letterSpacing = 8.sp,
             )
             Spacer(modifier = Modifier.height(4.dp))
+            val listeningText = state == AssistantState.LISTENING && liveTranscript.isNotBlank()
             Text(
-                text = stateHint(state),
+                text = if (listeningText) "«$liveTranscript»" else stateHint(state),
                 style = MaterialTheme.typography.bodyMedium,
-                color = JarvisColors.Muted,
+                color = if (listeningText) JarvisColors.Cyan else JarvisColors.Muted,
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(18.dp))
@@ -339,8 +341,8 @@ private fun ConversationPreview(messages: List<ChatMessage>) {
 
 private fun stateHint(state: AssistantState): String = when (state) {
     AssistantState.IDLE -> "Sistemas preparados. Pulse el núcleo o el micrófono."
-    AssistantState.LISTENING -> "Le escucho… hable con naturalidad."
+    AssistantState.LISTENING -> "Le escucho… hable con naturalidad. Toque el micrófono para detener."
     AssistantState.THINKING -> "Procesando su orden…"
-    AssistantState.SPEAKING -> "Respondiendo…"
+    AssistantState.SPEAKING -> "Respondiendo… toque el micrófono para interrumpir."
     AssistantState.ERROR -> "Algo ha fallado. Inténtelo de nuevo."
 }

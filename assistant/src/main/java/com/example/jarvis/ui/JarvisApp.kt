@@ -1,10 +1,8 @@
 package com.example.jarvis.ui
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.BatteryManager
-import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -77,6 +75,8 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val wakeWord by viewModel.wakeWord.collectAsStateWithLifecycle()
     val capturing by JarvisBus.listening.collectAsStateWithLifecycle()
     val onDeviceVoice by viewModel.onDeviceVoice.collectAsStateWithLifecycle()
+    val continuousVoice by viewModel.continuousVoice.collectAsStateWithLifecycle()
+    val liveTranscript by viewModel.liveTranscript.collectAsStateWithLifecycle()
     val assistantState by viewModel.assistantState.collectAsStateWithLifecycle()
 
     // El estado más reciente manda: si JARVIS habla o piensa, se muestra eso
@@ -103,33 +103,17 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
 
     val context = LocalContext.current
 
-    val speechLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            val spoken = result.data
-                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                ?.firstOrNull()
-            if (spoken.isNullOrBlank()) {
-                viewModel.markIdle()
-            } else {
-                viewModel.submit(spoken)
-            }
-        }
-
-    fun startSpeech() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Diga su orden")
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        }
-        viewModel.markListening()
-        runCatching { speechLauncher.launch(intent) }
-            .onFailure { viewModel.markIdle() }
-    }
-
     val permissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) startSpeech()
+            if (granted) {
+                viewModel.startVoice()
+            } else {
+                Toast.makeText(
+                    context,
+                    "Sin permiso de micrófono Jarvis no puede escucharle",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
         }
 
     val audioPermissionLauncher =
@@ -184,7 +168,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
             Manifest.permission.RECORD_AUDIO,
         ) == PackageManager.PERMISSION_GRANTED
         if (granted) {
-            startSpeech()
+            viewModel.toggleVoice()
         } else {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -225,7 +209,8 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                     HomeScreen(
                         state = visualState,
                         messages = messages,
-                        onSend = viewModel::submit,
+                        liveTranscript = liveTranscript,
+                        onSend = { viewModel.submit(it) },
                         onMicClick = ::micClick,
                         onOpenHistory = { open(JarvisDestination.TERMINAL) },
                         onOpenSettings = { open(JarvisDestination.SETTINGS) },
@@ -235,8 +220,8 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                 composable(JarvisDestination.TERMINAL.route) {
                     TerminalScreen(
                         messages = messages,
-                        listening = alwaysListening,
-                        onSend = viewModel::submit,
+                        listening = visualState == AssistantState.LISTENING,
+                        onSend = { viewModel.submit(it) },
                         onMicClick = ::micClick,
                     )
                 }
@@ -281,6 +266,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                     SettingsScreen(
                         ttsEnabled = ttsEnabled,
                         alwaysListening = alwaysListening,
+                        continuousVoice = continuousVoice,
                         wakeWord = wakeWord,
                         onDeviceVoice = onDeviceVoice,
                         onTtsChange = viewModel::setTtsEnabled,
@@ -291,6 +277,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                                 viewModel.setAlwaysListening(false)
                             }
                         },
+                        onContinuousVoiceChange = viewModel::setContinuousVoice,
                         onWakeWordChange = viewModel::setWakeWord,
                         onOnDeviceVoiceChange = viewModel::setOnDeviceVoice,
                         onClearChat = viewModel::clearChat,

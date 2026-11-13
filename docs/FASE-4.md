@@ -94,6 +94,13 @@ data/SecureSettings.kt clave y modelo cifrados con EncryptedSharedPreferences
   del reconocedor), el micrófono ya no se cierra al instante: se espera 700 ms
   y solo se cierra si la app sigue fuera de pantalla.
 
+## Correcciones de la fase 4.4
+
+- **Margen de silencio ampliado a 6 segundos.** El reconocedor de la app espera
+  hasta 6 segundos de silencio completo (y 3 de silencio parcial) antes de cerrar
+  la sesión de escucha automática, dando tiempo suficiente para que el usuario
+  pronuncie órdenes o preguntas largas sin cortes prematuros.
+
 ## Pruebas
 
 - `AiPromptTest` cubre el recorte del historial, la deduplicación del mensaje

@@ -17,6 +17,7 @@ import com.example.jarvis.JarvisApplication
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.Notifications
 import com.example.jarvis.assistant.WakeWordDetector
+import com.example.jarvis.widget.JarvisWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -317,6 +318,8 @@ class AlwaysListeningService : Service() {
                             startListening()
                         }
                     }
+                    // El widget de escritorio refleja si JARVIS está hablando.
+                    JarvisWidgetProvider.updateAll(this@AlwaysListeningService)
                 }
             }
         }
@@ -427,6 +430,8 @@ class AlwaysListeningService : Service() {
         recognizer = null
         micReleased = true
         isRunning = false
+        // El widget de escritorio deja de mostrar «escuchando».
+        JarvisWidgetProvider.updateAll(this)
         // Los colectores del bus no deben sobrevivir al servicio.
         scope.cancel()
         super.onDestroy()

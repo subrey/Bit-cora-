@@ -6,6 +6,7 @@ import android.content.Intent
 import com.example.jarvis.JarvisApplication
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.Notifications
+import com.example.jarvis.widget.JarvisWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,6 +54,11 @@ class JarvisReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 Notifications.showReminder(context, id, label)
+                // El aviso ya ha salido: deja de estar pendiente. Si el usuario
+                // lo pospone, vuelve a la lista.
+                app.repository.getReminder(id)?.let { reminder ->
+                    if (!reminder.done) app.repository.markReminderDone(reminder)
+                }
                 // Mientras JARVIS habla se pausa el micrófono del servicio:
                 // así no se oye a sí mismo.
                 JarvisBus.speaking.value = true
@@ -61,6 +67,7 @@ class JarvisReceiver : BroadcastReceiver() {
                 // la notificación ya ha mostrado el aviso
             } finally {
                 JarvisBus.speaking.value = false
+                JarvisWidgetProvider.updateAll(context)
                 pending.finish()
             }
         }
@@ -81,6 +88,7 @@ class JarvisReceiver : BroadcastReceiver() {
             } catch (_: Exception) {
                 // nada que hacer
             } finally {
+                JarvisWidgetProvider.updateAll(context)
                 pending.finish()
             }
         }
@@ -102,6 +110,7 @@ class JarvisReceiver : BroadcastReceiver() {
             } catch (_: Exception) {
                 // nada que hacer
             } finally {
+                JarvisWidgetProvider.updateAll(context)
                 pending.finish()
             }
         }

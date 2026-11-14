@@ -1,6 +1,7 @@
 package com.example.jarvis
 
 import android.graphics.Color
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -28,6 +29,20 @@ class MainActivity : ComponentActivity() {
                 JarvisApp(viewModel)
             }
         }
+        maybeStartListening(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        maybeStartListening(intent)
+    }
+
+    /** El botón del widget abre la app con el micrófono ya preparado. */
+    private fun maybeStartListening(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_START_LISTENING, false) != true) return
+        intent.removeExtra(EXTRA_START_LISTENING)
+        viewModel.startVoice(delayMillis = 600)
     }
 
     override fun onStart() {
@@ -46,5 +61,10 @@ class MainActivity : ComponentActivity() {
         // Con la app en pantalla el reconocimiento de voz es mucho más fiable,
         // así que se relanza la escucha por si el sistema la había cortado.
         AlwaysListeningService.rearm(this)
+    }
+
+    companion object {
+        /** El widget de escritorio pide abrir la app con el micrófono listo. */
+        const val EXTRA_START_LISTENING = "com.example.jarvis.extra.START_LISTENING"
     }
 }

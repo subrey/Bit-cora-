@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">JARVIS AI</string>
+
+    <!-- Widget de escritorio -->
+    <string name="widget_name">JARVIS</string>
+    <string name="widget_description">Estado de JARVIS, próximo aviso y acciones rápidas</string>
+    <string name="widget_status_idle">En espera</string>
+    <string name="widget_status_listening">Escuchando</string>
+    <string name="widget_status_speaking">Hablando</string>
+    <string name="widget_next_title">PRÓXIMO AVISO</string>
+    <string name="widget_next_empty">Nada programado</string>
+    <string name="widget_counts_tasks">%1$d tarea(s)</string>
+    <string name="widget_counts_reminders">%1$d recordatorio(s)</string>
+    <string name="widget_action_mic">Hablar</string>
+    <string name="widget_action_music">Música</string>
+    <string name="widget_mic_description">Abrir JARVIS y hablar</string>
+    <string name="widget_music_description">Poner o quitar la música</string>
 </resources>

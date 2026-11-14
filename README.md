@@ -9,13 +9,14 @@ Este repositorio contiene **dos apps nativas de Android**, ambas en **Kotlin + J
 
 Se compilan por separado, generan **dos APK** y pueden instalarse los dos en el mismo teléfono.
 
-> **Estado de JARVIS AI**: Fases 1, 2, 3 y 4 completadas (estructura por capas,
-> interfaz holográfica, voz continua e interrumpible e IA conversacional con
-> clave cifrada). Consulta
+> **Estado de JARVIS AI**: Fases 1, 2, 3, 4, 5 y 6 completadas (estructura por
+> capas, interfaz holográfica, voz continua e interrumpible, IA conversacional
+> con clave cifrada, recordatorios con hora exacta e historial exportable, y
+> widget de escritorio). Consulta
 > [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md),
 > [`docs/FASE-1.md`](docs/FASE-1.md), [`docs/FASE-2.md`](docs/FASE-2.md),
-> [`docs/FASE-3.md`](docs/FASE-3.md) y [`docs/FASE-4.md`](docs/FASE-4.md).
-> Las siguientes fases añaden el control del teléfono y el resto de funciones.
+> [`docs/FASE-3.md`](docs/FASE-3.md), [`docs/FASE-4.md`](docs/FASE-4.md),
+> [`docs/FASE-5.md`](docs/FASE-5.md) y [`docs/FASE-6.md`](docs/FASE-6.md).
 
 ---
 
@@ -119,6 +120,10 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 | «calcula 12 * (3 + 4)» | calculadora completa con paréntesis |
 | «convierte 10 km a millas» | conversor de unidades (longitud, masa, volumen, tiempo, temperatura) |
 | «pon un temporizador de 10 minutos» | temporizador con notificación y aviso hablado |
+| «recuérdame comprar pan a las 6 de la tarde» | recordatorio con fecha y hora exactas |
+| «qué recordatorios tengo» | lista los recordatorios pendientes |
+| «cancela el recordatorio de comprar pan» | lo borra y cancela su alarma |
+| «exporta el historial» | guarda la conversación en un archivo y abre el menú de compartir |
 | «añade tarea comprar leche» | lista de tareas (puedes decir solo «comprar leche») |
 | «memoriza el número del hotel» | memorias persistentes |
 | «qué hora es», «qué día es» | hora y fecha en español |
@@ -156,6 +161,20 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 - Mientras hay música, el servicio espera más entre sesiones de escucha y no
   llena el chat con avisos de «te he oído» cuando el micrófono capta la letra.
 
+## Recordatorios y widget
+
+- **Recordatorios con hora exacta**: «recuérdame comprar el pan a las 6 de la
+  tarde», «en 20 minutos», «mañana a las 9». Se guardan en su propia tabla y
+  sobreviven al cierre de la app.
+- **Aviso con acciones**: cuando salta, JARVIS lo dice con la voz y muestra una
+  notificación con **Hecho** y **Posponer** (10 minutos más).
+- **Historial exportable**: «exporta el historial» genera un archivo de texto con
+  la conversación completa y abre el menú de compartir (o el botón **Exportar**
+  en la pantalla de historial).
+- **Widget de escritorio**: estado (en espera / escuchando / hablando), el
+  próximo aviso con su hora, el recuento de pendientes y dos botones: hablar
+  (abre la app con el micro listo) y música (pone o quita la canción).
+
 ## Estructura
 
 ```
@@ -180,13 +199,19 @@ assistant/src/main/java/com/example/jarvis/
 │   ├── voice/
 │   │   └── VoiceRecognizer.kt  # micrófono de la app (SpeechRecognizer directo)
 │   ├── TimerScheduler.kt    # temporizadores con AlarmManager
+│   ├── ReminderParser.kt    # frases naturales → recordatorio con fecha (puro)
+│   ├── ReminderScheduler.kt # recordatorios con AlarmManager
+│   ├── ChatExporter.kt      # historial a texto + compartir
 │   ├── Notifications.kt
 │   └── JarvisBus.kt         # bus interno servicio ↔ interfaz
 ├── data/                    # Room, ajustes y SecureSettings (clave cifrada)
 ├── service/
 │   └── AlwaysListeningService.kt   # escucha permanente y palabra clave
 ├── receiver/
-│   └── JarvisReceiver.kt    # alarma de los temporizadores
+│   └── JarvisReceiver.kt    # alarma de los temporizadores y recordatorios
+├── widget/
+│   ├── JarvisWidgetProvider.kt  # widget de escritorio
+│   └── WidgetSummary.kt        # texto del widget (puro, testeable)
 └── ui/
     ├── JarvisApp.kt         # raíz, barra superior, navegación y dock
     ├── HomeScreen.kt        # núcleo, voz, texto y resumen

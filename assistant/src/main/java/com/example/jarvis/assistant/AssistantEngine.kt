@@ -14,6 +14,7 @@ import com.example.jarvis.ai.AiResult
 import com.example.jarvis.ai.AiTurn
 import com.example.jarvis.data.JarvisRepository
 import com.example.jarvis.domain.model.JarvisPersona
+import com.example.jarvis.widget.JarvisWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -279,6 +280,7 @@ class AssistantEngine(
         )
         val id = repository.addReminder(parsed.message, parsed.triggerAtMillis)
         reminderScheduler.schedule(id, parsed.message, parsed.triggerAtMillis)
+        JarvisWidgetProvider.updateAll(context)
         return AssistantResponse(
             "Recordatorio programado para ${formatMoment(parsed.triggerAtMillis)}: ${parsed.message}."
         )
@@ -307,6 +309,7 @@ class AssistantEngine(
         }
         reminderScheduler.cancel(match.id)
         repository.deleteReminder(match)
+        JarvisWidgetProvider.updateAll(context)
         return AssistantResponse("Recordatorio cancelado: ${match.text}.")
     }
 
@@ -346,6 +349,7 @@ class AssistantEngine(
         val label = extractTimerLabel(payload)
         val id = repository.addTimer(label, seconds)
         scheduler.schedule(id, label, seconds)
+        JarvisWidgetProvider.updateAll(context)
         val minutes = seconds / 60
         val text = if (minutes >= 1) "$minutes minuto(s)" else "$seconds segundo(s)"
         return AssistantResponse("Temporizador programado: $text. Le avisaré al terminar.")

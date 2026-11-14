@@ -60,6 +60,12 @@ class JarvisRepository(
 
     suspend fun pendingReminderCount(): Int = reminderDao.observePendingCount().first()
 
+    /** Recordatorio pendiente más cercano: lo usa el widget de escritorio. */
+    suspend fun nextReminder(): ReminderItem? = reminderDao.nextPending()
+
+    /** Temporizador activo más antiguo: lo usa el widget de escritorio. */
+    suspend fun nextTimer(): TimerItem? = timerDao.nextActive()
+
     // --- Recuentos para el resumen del asistente -------------------------
 
     suspend fun pendingTodoCount(): Int = todoDao.observePendingCount().first()

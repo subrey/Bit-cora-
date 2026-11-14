@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#04070F</color>
+
+    <!-- Colores del widget de escritorio (estética holográfica). -->
+    <color name="widget_background">#0A1220</color>
+    <color name="widget_text">#7FE7FF</color>
+    <color name="widget_text_secondary">#6C8AA5</color>
+    <color name="widget_accent">#22D3EE</color>
+    <color name="widget_on_accent">#041018</color>
+    <color name="widget_stroke">#3322D3EE</color>
 </resources>

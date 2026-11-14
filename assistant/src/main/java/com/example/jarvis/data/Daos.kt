@@ -51,6 +51,9 @@ interface TimerDao {
     @Query("SELECT * FROM timers WHERE id = :id")
     suspend fun getById(id: Long): TimerItem?
 
+    @Query("SELECT * FROM timers WHERE fired = 0 ORDER BY createdAt ASC LIMIT 1")
+    suspend fun nextActive(): TimerItem?
+
     @Insert
     suspend fun insert(item: TimerItem): Long
 
@@ -69,6 +72,9 @@ interface ReminderDao {
 
     @Query("SELECT * FROM reminders WHERE id = :id")
     suspend fun getById(id: Long): ReminderItem?
+
+    @Query("SELECT * FROM reminders WHERE done = 0 ORDER BY triggerAt ASC LIMIT 1")
+    suspend fun nextPending(): ReminderItem?
 
     @Query("SELECT COUNT(*) FROM reminders WHERE done = 0")
     fun observePendingCount(): Flow<Int>

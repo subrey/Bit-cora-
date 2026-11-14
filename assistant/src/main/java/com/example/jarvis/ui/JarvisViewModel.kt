@@ -18,6 +18,7 @@ import com.example.jarvis.assistant.IntentParser
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.VoicePolicy
 import com.example.jarvis.assistant.voice.VoiceRecognizer
+import com.example.jarvis.widget.JarvisWidgetProvider
 import com.example.jarvis.data.MemoryItem
 import com.example.jarvis.data.ReminderItem
 import com.example.jarvis.data.TimerItem
@@ -537,17 +538,26 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun toggleTodo(item: TodoItem) {
-        viewModelScope.launch { repository.toggleTodo(item) }
+        viewModelScope.launch {
+            repository.toggleTodo(item)
+            refreshWidget()
+        }
     }
 
     fun deleteTodo(item: TodoItem) {
-        viewModelScope.launch { repository.deleteTodo(item) }
+        viewModelScope.launch {
+            repository.deleteTodo(item)
+            refreshWidget()
+        }
     }
 
     fun addTodo(text: String) {
         val clean = text.trim()
         if (clean.isEmpty()) return
-        viewModelScope.launch { repository.addTodo(clean) }
+        viewModelScope.launch {
+            repository.addTodo(clean)
+            refreshWidget()
+        }
     }
 
     fun addMemory(text: String) {
@@ -564,6 +574,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             app.scheduler.cancel(item.id)
             repository.deleteTimer(item)
+            refreshWidget()
         }
     }
 
@@ -592,6 +603,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             app.reminderScheduler.cancel(item.id)
             repository.markReminderDone(item)
+            refreshWidget()
         }
     }
 
@@ -600,7 +612,13 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             app.reminderScheduler.cancel(item.id)
             repository.deleteReminder(item)
+            refreshWidget()
         }
+    }
+
+    /** Refresca el widget de escritorio con los datos nuevos. */
+    private fun refreshWidget() {
+        JarvisWidgetProvider.updateAll(getApplication())
     }
 
     fun setTtsEnabled(enabled: Boolean) {

@@ -24,6 +24,7 @@ import com.example.jarvis.widget.JarvisWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -138,9 +139,21 @@ class AssistantEngine(
 
             IntentKind.TODO -> {
                 val text = intent.payload.ifBlank { intent.raw }
-                repository.addTodo(text)
-                AssistantResponse("Tarea añadida a la lista: $text.")
+                val parsed = ReminderParser.parseStrict(text)
+                if (parsed != null) {
+                    // La tarea lleva fecha: «llamar al banco mañana a las 10».
+                    repository.addTodo(parsed.message, parsed.triggerAtMillis)
+                    AssistantResponse(
+                        "Tarea añadida para ${Agenda.relativeLabel(parsed.triggerAtMillis, LocalDate.now())} " +
+                            "a las ${Agenda.time(parsed.triggerAtMillis)}: ${parsed.message}."
+                    )
+                } else {
+                    repository.addTodo(text)
+                    AssistantResponse("Tarea añadida a la lista: $text.")
+                }
             }
+
+            IntentKind.AGENDA_TODAY -> agendaToday()
 
             IntentKind.MEMORY -> {
                 val text = intent.payload.ifBlank { intent.raw }
@@ -261,6 +274,22 @@ class AssistantEngine(
             is AiResult.Success -> AssistantResponse(result.text)
             is AiResult.Failure -> AssistantResponse("No he podido consultar la IA. ${result.message}")
         }
+    }
+
+    /** «qué tengo hoy»: agenda del día con tareas, avisos y tiempo. */
+    private suspend fun agendaToday(): AssistantResponse {
+        val now = LocalDate.now()
+        val todos = repository.observeTodos().first()
+        val reminders = repository.observeReminders().first()
+        val weather = weatherReport()?.let { WeatherText.now(it) }
+        val text = Agenda.summary(
+            todos = todos,
+            reminders = reminders,
+            now = now,
+            weatherLine = weather,
+            batteryLine = batteryText(),
+        )
+        return AssistantResponse(text)
     }
 
     /** «crea una rutina: cuando suene el temporizador de los huevos, apaga la música» */

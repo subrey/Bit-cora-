@@ -126,6 +126,12 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta la agenda del dia`() {
+        assertEquals(IntentKind.AGENDA_TODAY, IntentParser.parse("qué tengo hoy").kind)
+        assertEquals(IntentKind.AGENDA_TODAY, IntentParser.parse("mi agenda de hoy").kind)
+    }
+
+    @Test
     fun `detecta el tiempo`() {
         assertEquals(IntentKind.WEATHER, IntentParser.parse("¿qué tiempo hace?").kind)
         assertEquals(IntentKind.WEATHER, IntentParser.parse("cuál es la temperatura exterior").kind)

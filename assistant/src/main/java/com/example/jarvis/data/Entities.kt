@@ -10,6 +10,8 @@ data class TodoItem(
     val text: String,
     val done: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Fecha y hora acordada (null si la tarea no tiene día). */
+    val dueAt: Long? = null,
 )
 
 /** Recuerdo o nota breve memorizada por el asistente. */

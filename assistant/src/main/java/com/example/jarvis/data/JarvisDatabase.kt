@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ReminderItem::class,
         RoutineItem::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class JarvisDatabase : RoomDatabase() {
@@ -87,6 +87,13 @@ abstract class JarvisDatabase : RoomDatabase() {
             }
         }
 
+        /** Fase 10: las tareas pueden tener fecha y hora. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE todos ADD COLUMN dueAt INTEGER")
+            }
+        }
+
         @Volatile
         private var instance: JarvisDatabase? = null
 
@@ -97,7 +104,7 @@ abstract class JarvisDatabase : RoomDatabase() {
                     JarvisDatabase::class.java,
                     DB_NAME
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }

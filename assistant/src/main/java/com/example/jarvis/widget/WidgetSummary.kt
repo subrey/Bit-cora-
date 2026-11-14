@@ -50,8 +50,8 @@ object WidgetSummary {
     }
 
     /** Resumen de lo que hay pendiente. */
-    fun counts(pendingTasks: Int, pendingReminders: Int): String {
-        val tasks = "$pendingTasks tarea(s)"
+    fun counts(todayTasks: Int, pendingReminders: Int): String {
+        val tasks = if (todayTasks == 1) "1 tarea hoy" else "$todayTasks tareas hoy"
         val reminders = "$pendingReminders recordatorio(s)"
         return "$tasks · $reminders"
     }
@@ -62,12 +62,12 @@ object WidgetSummary {
         speaking: Boolean,
         reminder: ReminderItem?,
         timer: TimerItem?,
-        pendingTasks: Int,
+        todayTasks: Int,
         pendingReminders: Int,
     ): WidgetState = WidgetState(
         status = status(listening, speaking),
         nextText = next(reminder, timer) ?: "Nada programado",
-        countsText = counts(pendingTasks, pendingReminders),
+        countsText = counts(todayTasks, pendingReminders),
     )
 
     private fun format(millis: Long): String =

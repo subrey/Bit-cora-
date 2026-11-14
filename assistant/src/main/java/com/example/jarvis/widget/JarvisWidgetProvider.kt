@@ -10,11 +10,13 @@ import android.widget.RemoteViews
 import com.example.jarvis.JarvisApplication
 import com.example.jarvis.MainActivity
 import com.example.jarvis.R
+import com.example.jarvis.assistant.Agenda
 import com.example.jarvis.assistant.JarvisBus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /**
  * Widget de escritorio de JARVIS: estado del asistente, próximo aviso y dos
@@ -43,7 +45,9 @@ class JarvisWidgetProvider : AppWidgetProvider() {
                     speaking = JarvisBus.speaking.value,
                     reminder = app.repository.nextReminder(),
                     timer = app.repository.nextTimer(),
-                    pendingTasks = app.repository.pendingTodoCount(),
+                    todayTasks = app.repository.todosDueBefore(
+                        Agenda.endOfDay(LocalDate.now()),
+                    ).size,
                     pendingReminders = app.repository.pendingReminderCount(),
                 )
                 appWidgetIds.forEach { widgetId ->

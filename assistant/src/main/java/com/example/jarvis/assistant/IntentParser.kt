@@ -43,6 +43,7 @@ enum class IntentKind {
     WEATHER_TOMORROW,
     WEATHER_ADVICE,
     SUMMARY,
+    AGENDA_TODAY,
     UNKNOWN,
 }
 
@@ -116,6 +117,16 @@ object IntentParser {
         }
         if (RoutineParser.looksLikeRoutine(n)) {
             return ParsedIntent(IntentKind.ROUTINE_CREATE, payload = n, raw = raw)
+        }
+
+        // --- Agenda del día (antes que las tareas: «mi agenda de hoy») ------
+        if (has(
+                "que tengo hoy", "que hay hoy", "mi agenda", "agenda de hoy",
+                "que debo hacer hoy", "mi dia de hoy", "resumen del dia",
+                "que me toca hoy", "mis cosas de hoy", "tareas de hoy",
+            )
+        ) {
+            return ParsedIntent(IntentKind.AGENDA_TODAY, raw = raw)
         }
 
         // --- Música ------------------------------------------------------

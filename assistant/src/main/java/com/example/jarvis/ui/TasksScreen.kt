@@ -136,14 +136,22 @@ fun TasksScreen(
                             checkmarkColor = Color.Black,
                         ),
                     )
-                    Text(
-                        text = todo.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (todo.done) JarvisColors.Muted else JarvisColors.Green,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = todo.text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (todo.done) JarvisColors.Muted else JarvisColors.Green,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        todo.dueAt?.let { due ->
+                            Text(
+                                text = "Para ${formatReminderMoment(due)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = JarvisColors.Amber,
+                            )
+                        }
+                    }
                     IconButton(onClick = { onDeleteTodo(todo) }) {
                         Icon(
                             Icons.Rounded.Close,

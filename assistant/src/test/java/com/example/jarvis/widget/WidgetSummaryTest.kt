@@ -38,13 +38,14 @@ class WidgetSummaryTest {
             speaking = false,
             reminder = null,
             timer = null,
-            pendingTasks = 0,
+            todayTasks = 0,
             pendingReminders = 0,
         ).nextText)
     }
 
     @Test
-    fun `resume las tareas y recordatorios pendientes`() {
-        assertEquals("2 tarea(s) · 1 recordatorio(s)", WidgetSummary.counts(2, 1))
+    fun `resume las tareas de hoy y los recordatorios`() {
+        assertEquals("2 tareas hoy · 1 recordatorio(s)", WidgetSummary.counts(2, 1))
+        assertEquals("1 tarea hoy · 0 recordatorio(s)", WidgetSummary.counts(1, 0))
     }
 }

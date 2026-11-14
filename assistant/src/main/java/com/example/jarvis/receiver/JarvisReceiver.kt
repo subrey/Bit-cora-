@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.example.jarvis.JarvisApplication
+import com.example.jarvis.assistant.Agenda
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.Notifications
 import com.example.jarvis.assistant.RoutineAction
@@ -15,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 /** Recibe la alarma de los temporizadores y de los recordatorios y avisa al usuario. */
 class JarvisReceiver : BroadcastReceiver() {
@@ -157,7 +159,7 @@ class JarvisReceiver : BroadcastReceiver() {
     /** Ejecuta una rutina concreta. */
     private suspend fun execute(app: JarvisApplication, context: Context, routine: RoutineItem) {
         val action = runCatching { RoutineAction.valueOf(routine.action) }.getOrNull() ?: return
-        val text = RoutinePlan.actionText(routine)
+        val text = routineText(app, routine)
         when (action) {
             RoutineAction.STOP_MUSIC -> {
                 app.musicPlayer.stop()
@@ -186,6 +188,24 @@ class JarvisReceiver : BroadcastReceiver() {
             }
         }
         JarvisWidgetProvider.updateAll(context)
+    }
+
+    /**
+     * Texto de la rutina. Si pide el resumen, se construye con lo que hay
+     * pendiente hoy (tareas y avisos).
+     */
+    private suspend fun routineText(app: JarvisApplication, routine: RoutineItem): String {
+        val payload = routine.payload.trim()
+        if (!payload.contains("resumen", ignoreCase = true)) {
+            return RoutinePlan.actionText(routine)
+        }
+        val todos = app.repository.observeTodos().first()
+        val reminders = app.repository.observeReminders().first()
+        return Agenda.summary(
+            todos = todos,
+            reminders = reminders,
+            now = java.time.LocalDate.now(),
+        )
     }
 
     companion object {

@@ -36,7 +36,22 @@ object ReminderParser {
         "con", "que", "me", "a", "en", "mi", "mis", "recordatorio", "aviso", "alarma",
     )
 
-    fun parse(payload: String, baseTime: LocalDateTime = LocalDateTime.now()): ParsedReminder? {
+    fun parse(payload: String, baseTime: LocalDateTime = LocalDateTime.now()): ParsedReminder? =
+        parseInternal(payload, baseTime, fallbackMinutes = DEFAULT_FALLBACK_MINUTES)
+
+    /**
+     * Como [parse], pero devuelve null si la frase no tiene ninguna expresión
+     * temporal. Se usa para las tareas: «añade tarea comprar leche» no lleva
+     * fecha, pero «llamar al banco mañana a las 10» sí.
+     */
+    fun parseStrict(payload: String, baseTime: LocalDateTime = LocalDateTime.now()): ParsedReminder? =
+        parseInternal(payload, baseTime, fallbackMinutes = null)
+
+    private fun parseInternal(
+        payload: String,
+        baseTime: LocalDateTime,
+        fallbackMinutes: Int?,
+    ): ParsedReminder? {
         val clean = IntentParser.normalize(payload)
         if (clean.isBlank()) return null
 
@@ -118,8 +133,10 @@ object ReminderParser {
             }
         }
 
-        // Sin hora reconocible: se avisa dentro de 10 minutos.
-        val moment: LocalDateTime = target ?: baseTime.plusMinutes(10)
+        // Sin hora reconocible: se avisa dentro de 10 minutos (o no hay fecha).
+        val moment: LocalDateTime = target ?: fallbackMinutes?.let {
+            baseTime.plusMinutes(it.toLong())
+        } ?: return null
         val message = cleanMessage(text)
         val millis = moment.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         return ParsedReminder(message = message, triggerAtMillis = millis)
@@ -191,4 +208,7 @@ object ReminderParser {
         IntentParser.normalize(text)
             .split(" ")
             .filter { it.isNotBlank() && it !in STOP_WORDS }
+
+    /** Minutos que se usan cuando un recordatorio no trae fecha. */
+    private const val DEFAULT_FALLBACK_MINUTES = 10
 }

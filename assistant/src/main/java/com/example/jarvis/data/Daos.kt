@@ -16,6 +16,9 @@ interface TodoDao {
     @Query("SELECT COUNT(*) FROM todos WHERE done = 0")
     fun observePendingCount(): Flow<Int>
 
+    @Query("SELECT * FROM todos WHERE dueAt IS NOT NULL AND done = 0 ORDER BY dueAt ASC")
+    fun observeDated(): Flow<List<TodoItem>>
+
     @Insert
     suspend fun insert(item: TodoItem): Long
 

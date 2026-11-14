@@ -25,7 +25,17 @@ class JarvisRepository(
 
     fun observeReminders(): Flow<List<ReminderItem>> = reminderDao.observeAll()
 
-    suspend fun addTodo(text: String): Long = todoDao.insert(TodoItem(text = text))
+    suspend fun addTodo(text: String, dueAt: Long? = null): Long =
+        todoDao.insert(TodoItem(text = text, dueAt = dueAt))
+
+    /** Tareas pendientes que tienen fecha, de la más próxima a la más lejana. */
+    suspend fun datedTodos(): List<TodoItem> = todoDao.observeDated().first()
+
+    /** Tareas pendientes con fecha que vencen antes del final del día dado. */
+    suspend fun todosDueBefore(endOfDayMillis: Long): List<TodoItem> =
+        todoDao.observeDated().first().filter { item ->
+            (item.dueAt ?: Long.MAX_VALUE) <= endOfDayMillis
+        }
 
     suspend fun toggleTodo(item: TodoItem) = todoDao.update(item.copy(done = !item.done))
 

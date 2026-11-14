@@ -109,6 +109,8 @@ class AssistantEngine(
 
             IntentKind.CONVERT -> convert(intent.payload)
 
+            IntentKind.REMINDER -> createReminder(intent.payload)
+
             IntentKind.TIMER -> createTimer(intent.payload)
 
             IntentKind.TODO -> {
@@ -262,6 +264,24 @@ class AssistantEngine(
         return AssistantResponse(
             "${formatNumber(value)} ${from.trim()} son ${formatNumber(result)} ${to.trim()}."
         )
+    }
+
+    private suspend fun createReminder(payload: String): AssistantResponse {
+        val parsed = ReminderParser.parse(payload) ?: return AssistantResponse(
+            "Indíqueme por ejemplo: «recuérdame comprar pan a las 5 de la tarde» o «en 20 minutos»."
+        )
+        val diffSecs = ((parsed.triggerAtMillis - System.currentTimeMillis()) / 1000L).coerceAtLeast(10L).toInt()
+        val id = repository.addTimer(parsed.message, diffSecs)
+        scheduler.schedule(id, parsed.message, diffSecs)
+        val minutes = diffSecs / 60
+        val timeDesc = if (minutes >= 60) {
+            "${minutes / 60} hora(s)"
+        } else if (minutes >= 1) {
+            "$minutes minuto(s)"
+        } else {
+            "$diffSecs segundo(s)"
+        }
+        return AssistantResponse("Recordatorio programado para dentro de $timeDesc: ${parsed.message}.")
     }
 
     private suspend fun createTimer(payload: String): AssistantResponse {

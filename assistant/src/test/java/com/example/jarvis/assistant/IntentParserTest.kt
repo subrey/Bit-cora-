@@ -58,6 +58,13 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta recordatorio por voz`() {
+        val intent = IntentParser.parse("recuérdame comprar el pan a las 5")
+        assertEquals(IntentKind.REMINDER, intent.kind)
+        assertTrue(intent.payload.contains("comprar el pan"))
+    }
+
+    @Test
     fun `detecta temporizador`() {
         assertEquals(IntentKind.TIMER, IntentParser.parse("pon un temporizador de 10 minutos").kind)
     }

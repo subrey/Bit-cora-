@@ -71,6 +71,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val memories by viewModel.memories.collectAsStateWithLifecycle()
     val timers by viewModel.timers.collectAsStateWithLifecycle()
     val reminders by viewModel.reminders.collectAsStateWithLifecycle()
+    val routines by viewModel.routines.collectAsStateWithLifecycle()
     val ttsEnabled by viewModel.ttsEnabled.collectAsStateWithLifecycle()
     val alwaysListening by viewModel.alwaysListening.collectAsStateWithLifecycle()
     val wakeWord by viewModel.wakeWord.collectAsStateWithLifecycle()
@@ -260,6 +261,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         memories = memories,
                         timers = timers,
                         reminders = reminders,
+                        routines = routines,
                         onAddTodo = viewModel::addTodo,
                         onToggleTodo = viewModel::toggleTodo,
                         onDeleteTodo = viewModel::deleteTodo,
@@ -268,6 +270,8 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         onDeleteTimer = viewModel::deleteTimer,
                         onCompleteReminder = viewModel::completeReminder,
                         onDeleteReminder = viewModel::deleteReminder,
+                        onToggleRoutine = viewModel::toggleRoutine,
+                        onDeleteRoutine = viewModel::deleteRoutine,
                     )
                 }
 

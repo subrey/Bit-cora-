@@ -114,6 +114,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta crear una rutina`() {
+        val intent = IntentParser.parse("cuando suene el temporizador de los huevos, apaga la música")
+        assertEquals(IntentKind.ROUTINE_CREATE, intent.kind)
+    }
+
+    @Test
+    fun `detecta listar y borrar rutinas`() {
+        assertEquals(IntentKind.ROUTINE_LIST, IntentParser.parse("qué rutinas tengo").kind)
+        assertEquals(IntentKind.ROUTINE_DELETE, IntentParser.parse("borra la rutina de los huevos").kind)
+    }
+
+    @Test
     fun `detecta el tiempo`() {
         assertEquals(IntentKind.WEATHER, IntentParser.parse("¿qué tiempo hace?").kind)
         assertEquals(IntentKind.WEATHER, IntentParser.parse("cuál es la temperatura exterior").kind)

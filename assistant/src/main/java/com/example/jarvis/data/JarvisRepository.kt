@@ -12,6 +12,7 @@ class JarvisRepository(
     private val timerDao: TimerDao,
     private val chatDao: ChatDao,
     private val reminderDao: ReminderDao,
+    private val routineDao: RoutineDao,
 ) : ChatRepository {
 
     fun observeTodos(): Flow<List<TodoItem>> = todoDao.observeAll()
@@ -65,6 +66,22 @@ class JarvisRepository(
 
     /** Temporizador activo más antiguo: lo usa el widget de escritorio. */
     suspend fun nextTimer(): TimerItem? = timerDao.nextActive()
+
+    // --- Rutinas (fase 9) -----------------------------------------------
+
+    fun observeRoutines(): Flow<List<RoutineItem>> = routineDao.observeAll()
+
+    suspend fun addRoutine(item: RoutineItem): Long = routineDao.insert(item)
+
+    suspend fun getRoutine(id: Long): RoutineItem? = routineDao.getById(id)
+
+    suspend fun updateRoutine(item: RoutineItem) = routineDao.update(item)
+
+    suspend fun deleteRoutine(item: RoutineItem) = routineDao.delete(item)
+
+    /** Rutinas activas de un disparador concreto. */
+    suspend fun activeRoutines(trigger: String): List<RoutineItem> =
+        routineDao.activeByTrigger(trigger)
 
     // --- Recuentos para el resumen del asistente -------------------------
 

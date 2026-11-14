@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Checkbox
@@ -38,8 +39,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.jarvis.assistant.RoutinePlan
 import com.example.jarvis.data.MemoryItem
 import com.example.jarvis.data.ReminderItem
+import com.example.jarvis.data.RoutineItem
 import com.example.jarvis.data.TimerItem
 import com.example.jarvis.data.TodoItem
 import java.time.Instant
@@ -53,6 +56,7 @@ fun TasksScreen(
     memories: List<MemoryItem>,
     timers: List<TimerItem>,
     reminders: List<ReminderItem>,
+    routines: List<RoutineItem>,
     onAddTodo: (String) -> Unit,
     onToggleTodo: (TodoItem) -> Unit,
     onDeleteTodo: (TodoItem) -> Unit,
@@ -61,6 +65,8 @@ fun TasksScreen(
     onDeleteTimer: (TimerItem) -> Unit,
     onCompleteReminder: (ReminderItem) -> Unit,
     onDeleteReminder: (ReminderItem) -> Unit,
+    onToggleRoutine: (RoutineItem) -> Unit,
+    onDeleteRoutine: (RoutineItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var todoInput by remember { mutableStateOf("") }
@@ -248,6 +254,61 @@ fun TasksScreen(
                         Icon(
                             Icons.Rounded.Close,
                             contentDescription = "Borrar recordatorio",
+                            tint = JarvisColors.Outline,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        item(key = "routine-header") {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "RUTINAS",
+                style = MaterialTheme.typography.labelMedium,
+                color = JarvisColors.GreenDim,
+            )
+        }
+        if (routines.isEmpty()) {
+            item(key = "routine-empty") {
+                Text(
+                    text = "Ninguna rutina. Diga «cuando suene el temporizador de los huevos, " +
+                        "apaga la música».",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = JarvisColors.Muted,
+                )
+            }
+        } else {
+            items(items = routines, key = { "routine-${it.id}" }) { routine ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (routine.enabled) Icons.Rounded.Bolt else Icons.Rounded.Close,
+                        contentDescription = null,
+                        tint = if (routine.enabled) JarvisColors.Amber else JarvisColors.Outline,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = RoutinePlan.describe(routine),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (routine.enabled) JarvisColors.Green else JarvisColors.Muted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { onToggleRoutine(routine) }) {
+                        Icon(
+                            imageVector = if (routine.enabled) Icons.Rounded.Check else Icons.Rounded.Add,
+                            contentDescription = if (routine.enabled) "Desactivar rutina" else "Activar rutina",
+                            tint = if (routine.enabled) JarvisColors.Green else JarvisColors.Outline,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    IconButton(onClick = { onDeleteRoutine(routine) }) {
+                        Icon(
+                            Icons.Rounded.Close,
+                            contentDescription = "Borrar rutina",
                             tint = JarvisColors.Outline,
                             modifier = Modifier.size(16.dp),
                         )

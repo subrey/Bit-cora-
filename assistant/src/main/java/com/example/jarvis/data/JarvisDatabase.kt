@@ -8,8 +8,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TodoItem::class, MemoryItem::class, TimerItem::class, ChatEntry::class, ReminderItem::class],
-    version = 3,
+    entities = [
+        TodoItem::class,
+        MemoryItem::class,
+        TimerItem::class,
+        ChatEntry::class,
+        ReminderItem::class,
+        RoutineItem::class,
+    ],
+    version = 4,
     exportSchema = false,
 )
 abstract class JarvisDatabase : RoomDatabase() {
@@ -23,6 +30,8 @@ abstract class JarvisDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 
     abstract fun reminderDao(): ReminderDao
+
+    abstract fun routineDao(): RoutineDao
 
     companion object {
         private const val DB_NAME = "jarvis.db"
@@ -59,6 +68,25 @@ abstract class JarvisDatabase : RoomDatabase() {
             }
         }
 
+        /** Fase 9: tabla de rutinas (disparador → acción). */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS routines (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        trigger TEXT NOT NULL,
+                        triggerLabel TEXT NOT NULL,
+                        action TEXT NOT NULL,
+                        payload TEXT NOT NULL,
+                        enabled INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var instance: JarvisDatabase? = null
 
@@ -69,7 +97,7 @@ abstract class JarvisDatabase : RoomDatabase() {
                     JarvisDatabase::class.java,
                     DB_NAME
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }

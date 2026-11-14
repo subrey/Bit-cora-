@@ -42,6 +42,24 @@ data class ReminderItem(
     val done: Boolean = false,
 )
 
+/**
+ * Rutina programada: cuando ocurre un disparador, se ejecuta una acción.
+ *
+ * @param trigger TIMER, REMINDER o HOURLY.
+ * @param triggerLabel etiqueta a la que debe corresponderse (vacío = cualquiera).
+ * @param action STOP_MUSIC, PLAY_MUSIC, NOTIFY, SPEAK o REMIND.
+ */
+@Entity(tableName = "routines")
+data class RoutineItem(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val trigger: String,
+    val triggerLabel: String = "",
+    val action: String,
+    val payload: String = "",
+    val enabled: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
 /** Mensaje del histórico de conversación con el asistente. */
 @Entity(tableName = "chat")
 data class ChatEntry(

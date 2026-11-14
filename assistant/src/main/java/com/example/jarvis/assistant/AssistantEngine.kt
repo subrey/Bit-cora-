@@ -13,6 +13,7 @@ import com.example.jarvis.ai.AiRequest
 import com.example.jarvis.ai.AiResult
 import com.example.jarvis.ai.AiTurn
 import com.example.jarvis.data.JarvisRepository
+import com.example.jarvis.data.RoutineItem
 import com.example.jarvis.domain.model.JarvisPersona
 import com.example.jarvis.weather.OpenMeteoProvider
 import com.example.jarvis.weather.WeatherProvider
@@ -39,6 +40,7 @@ class AssistantEngine(
     private val scheduler: TimerScheduler,
     private val ai: AiProvider,
     private val reminderScheduler: ReminderScheduler = ReminderScheduler(context),
+    private val routineScheduler: RoutineScheduler = RoutineScheduler(context),
     private val weather: WeatherProvider? = null,
     private val cityProvider: suspend () -> String = { "" },
 ) {
@@ -62,6 +64,12 @@ class AssistantEngine(
             IntentKind.MUSIC_PLAY -> playMusic()
 
             IntentKind.MUSIC_SEARCH -> playByRequest(intent.payload)
+
+            IntentKind.ROUTINE_CREATE -> createRoutine(intent.payload)
+
+            IntentKind.ROUTINE_LIST -> listRoutines()
+
+            IntentKind.ROUTINE_DELETE -> deleteRoutine(intent.payload)
 
             IntentKind.MUSIC_PAUSE -> {
                 player.toggle()
@@ -253,6 +261,53 @@ class AssistantEngine(
             is AiResult.Success -> AssistantResponse(result.text)
             is AiResult.Failure -> AssistantResponse("No he podido consultar la IA. ${result.message}")
         }
+    }
+
+    /** «crea una rutina: cuando suene el temporizador de los huevos, apaga la música» */
+    private suspend fun createRoutine(payload: String): AssistantResponse {
+        val spec = RoutineParser.parse(payload) ?: return AssistantResponse(
+            "Dígame la rutina así: «cuando suene el temporizador de los huevos, apaga la música» " +
+                "o «cada mañana a las 8, recuérdame el café»."
+        )
+        val item = RoutineItem(
+            trigger = spec.trigger.name,
+            triggerLabel = spec.triggerLabel,
+            action = spec.action.name,
+            payload = spec.payload,
+        )
+        val id = repository.addRoutine(item)
+        if (spec.trigger == RoutineTrigger.HOURLY) {
+            routineScheduler.scheduleHourly(id, spec.hour, spec.minute)
+        }
+        JarvisWidgetProvider.updateAll(context)
+        return AssistantResponse("Rutina creada: ${RoutinePlan.describe(item)}")
+    }
+
+    /** «qué rutinas tengo» */
+    private suspend fun listRoutines(): AssistantResponse {
+        val routines = repository.observeRoutines().first()
+        if (routines.isEmpty()) {
+            return AssistantResponse("No tiene rutinas creadas, señor.")
+        }
+        val list = routines.take(4).joinToString(" · ") { RoutinePlan.describe(it) }
+        val more = if (routines.size > 4) " Y ${routines.size - 4} más." else ""
+        return AssistantResponse("Tiene ${routines.size} rutina(s): $list.$more")
+    }
+
+    /** «borra la rutina de los huevos» */
+    private suspend fun deleteRoutine(payload: String): AssistantResponse {
+        val target = payload.trim()
+        val routines = repository.observeRoutines().first()
+        val match = routines.lastOrNull { routine ->
+            target.isBlank() || routine.triggerLabel.contains(target, ignoreCase = true)
+        }
+        if (match == null) {
+            return AssistantResponse("No encuentro ninguna rutina con ese nombre.")
+        }
+        routineScheduler.cancel(match.id)
+        repository.deleteRoutine(match)
+        JarvisWidgetProvider.updateAll(context)
+        return AssistantResponse("Rutina borrada: ${RoutinePlan.describe(match)}")
     }
 
     /**

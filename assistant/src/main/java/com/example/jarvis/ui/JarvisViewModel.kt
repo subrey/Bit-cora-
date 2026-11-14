@@ -21,6 +21,7 @@ import com.example.jarvis.assistant.voice.VoiceRecognizer
 import com.example.jarvis.widget.JarvisWidgetProvider
 import com.example.jarvis.data.MemoryItem
 import com.example.jarvis.data.ReminderItem
+import com.example.jarvis.data.RoutineItem
 import com.example.jarvis.data.TimerItem
 import com.example.jarvis.data.TodoItem
 import com.example.jarvis.domain.model.AssistantState
@@ -54,6 +55,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val reminders: StateFlow<List<ReminderItem>> = repository.observeReminders()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Rutinas programadas (fase 9). */
+    val routines: StateFlow<List<RoutineItem>> = repository.observeRoutines()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val playerState = app.musicPlayer.state
@@ -616,6 +621,27 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             app.reminderScheduler.cancel(item.id)
             repository.deleteReminder(item)
+            refreshWidget()
+        }
+    }
+
+    /** Activa o desactiva una rutina. */
+    fun toggleRoutine(item: RoutineItem) {
+        viewModelScope.launch {
+            repository.updateRoutine(item.copy(enabled = !item.enabled))
+            if (item.enabled) {
+                // Al desactivar hay que quitar su alarma horaria.
+                app.routineScheduler.cancel(item.id)
+            }
+            refreshWidget()
+        }
+    }
+
+    /** Borra una rutina y su alarma. */
+    fun deleteRoutine(item: RoutineItem) {
+        viewModelScope.launch {
+            app.routineScheduler.cancel(item.id)
+            repository.deleteRoutine(item)
             refreshWidget()
         }
     }

@@ -12,6 +12,9 @@ enum class IntentKind {
     MUSIC_PLAY,
     MUSIC_SEARCH,
     MUSIC_PAUSE,
+    ROUTINE_CREATE,
+    ROUTINE_LIST,
+    ROUTINE_DELETE,
     MUSIC_NEXT,
     MUSIC_PREVIOUS,
     MUSIC_STOP,
@@ -93,6 +96,26 @@ object IntentParser {
         }
         if (has("que dia es", "que fecha", "fecha de hoy", "dia de hoy")) {
             return ParsedIntent(IntentKind.DATE, raw = raw)
+        }
+
+        // --- Rutinas (antes que la música: «cuando suene…, apaga la música») ---
+        if (has(
+                "mis rutinas", "que rutinas tengo", "lista mis rutinas", "rutinas activas",
+                "que hay programado", "mis automatizaciones",
+            )
+        ) {
+            return ParsedIntent(IntentKind.ROUTINE_LIST, raw = raw)
+        }
+        if (has(
+                "borra la rutina", "elimina la rutina", "quita la rutina",
+                "cancela la rutina", "desactiva la rutina",
+            )
+        ) {
+            val body = n.substringAfter("rutina", "").trim()
+            return ParsedIntent(IntentKind.ROUTINE_DELETE, payload = body, raw = raw)
+        }
+        if (RoutineParser.looksLikeRoutine(n)) {
+            return ParsedIntent(IntentKind.ROUTINE_CREATE, payload = n, raw = raw)
         }
 
         // --- Música ------------------------------------------------------

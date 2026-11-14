@@ -7,6 +7,7 @@ import com.example.jarvis.assistant.AssistantEngine
 import com.example.jarvis.assistant.CrashReporter
 import com.example.jarvis.assistant.MusicPlayer
 import com.example.jarvis.assistant.ReminderScheduler
+import com.example.jarvis.assistant.RoutineScheduler
 import com.example.jarvis.assistant.Speaker
 import com.example.jarvis.assistant.TimerScheduler
 import com.example.jarvis.data.JarvisDatabase
@@ -33,6 +34,7 @@ class JarvisApplication : Application() {
             database.timerDao(),
             database.chatDao(),
             database.reminderDao(),
+            database.routineDao(),
         )
     }
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
@@ -48,6 +50,9 @@ class JarvisApplication : Application() {
     val scheduler: TimerScheduler by lazy { TimerScheduler(this) }
     val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(this) }
 
+    /** Fase 9: rutinas (disparador → acción). */
+    val routineScheduler: RoutineScheduler by lazy { RoutineScheduler(this) }
+
     /** Fase 7: meteorología con Open-Meteo (gratis y sin clave). */
     val weatherProvider: WeatherProvider by lazy { OpenMeteoProvider() }
 
@@ -59,6 +64,7 @@ class JarvisApplication : Application() {
             scheduler = scheduler,
             ai = aiProvider,
             reminderScheduler = reminderScheduler,
+            routineScheduler = routineScheduler,
             weather = weatherProvider,
             cityProvider = { settings.city.first() },
         )

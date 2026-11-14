@@ -90,6 +90,28 @@ interface ReminderDao {
 }
 
 @Dao
+interface RoutineDao {
+
+    @Query("SELECT * FROM routines ORDER BY enabled DESC, createdAt DESC")
+    fun observeAll(): Flow<List<RoutineItem>>
+
+    @Query("SELECT * FROM routines WHERE id = :id")
+    suspend fun getById(id: Long): RoutineItem?
+
+    @Query("SELECT * FROM routines WHERE enabled = 1 AND trigger = :trigger")
+    suspend fun activeByTrigger(trigger: String): List<RoutineItem>
+
+    @Insert
+    suspend fun insert(item: RoutineItem): Long
+
+    @Update
+    suspend fun update(item: RoutineItem)
+
+    @Delete
+    suspend fun delete(item: RoutineItem)
+}
+
+@Dao
 interface ChatDao {
 
     @Query("SELECT * FROM chat ORDER BY id ASC")

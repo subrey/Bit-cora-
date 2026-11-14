@@ -34,6 +34,29 @@ data class Track(
     val genre: String = "",
     /** Año de publicación (0 si el sistema no lo sabe). */
     val year: Int = 0,
+) {
+    /** Versión sin dependencias de Android, para buscar y probar. */
+    fun toSong(): Song = Song(
+        id = id,
+        title = title,
+        artist = artist,
+        album = album,
+        genre = genre,
+        year = year,
+    )
+}
+
+/**
+ * Canción de la biblioteca sin nada de Android: la búsqueda musical trabaja
+ * con este modelo, así se puede probar en tests unitarios.
+ */
+data class Song(
+    val id: Long,
+    val title: String,
+    val artist: String,
+    val album: String = "",
+    val genre: String = "",
+    val year: Int = 0,
 )
 
 data class PlayerState(

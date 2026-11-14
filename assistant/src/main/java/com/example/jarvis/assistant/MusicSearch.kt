@@ -1,44 +1,45 @@
 package com.example.jarvis.assistant
 
 /**
- * Busca en la biblioteca musical las pistas que encajan con lo que ha pedido el
- * usuario. Función pura: se puede probar en tests.
+ * Busca en la biblioteca musical las canciones que encajan con lo que ha pedido
+ * el usuario. Trabaja con [Song], que no depende de Android, así se puede
+ * probar en tests unitarios.
  */
 object MusicSearch {
 
-    /** Puntuación de una pista para una petición. */
+    /** Puntuación de una canción para una petición. */
     data class Hit(
-        val track: Track,
+        val song: Song,
         val score: Int,
     )
 
     /**
-     * Devuelve las pistas ordenadas de mejor a peor ajuste. Solo las que
+     * Devuelve las canciones ordenadas de mejor a peor ajuste. Solo las que
      * tienen alguna coincidencia.
      */
-    fun search(tracks: List<Track>, request: MusicRequest): List<Hit> {
-        val hits = tracks.mapNotNull { track ->
-            val score = score(track, request)
-            if (score > 0) Hit(track, score) else null
+    fun search(songs: List<Song>, request: MusicRequest): List<Hit> {
+        val hits = songs.mapNotNull { song ->
+            val score = score(song, request)
+            if (score > 0) Hit(song, score) else null
         }
         return hits.sortedWith(
-            compareByDescending<Hit> { it.score }.thenBy { it.track.title },
+            compareByDescending<Hit> { it.score }.thenBy { it.song.title },
         )
     }
 
-    /** Puntuación de una pista: 0 significa que no encaja. */
-    fun score(track: Track, request: MusicRequest): Int {
-        val title = MusicRequestParser.normalize(track.title)
-        val artist = MusicRequestParser.normalize(track.artist)
-        val album = MusicRequestParser.normalize(track.album)
-        val genre = MusicRequestParser.normalize(track.genre)
+    /** Puntuación de una canción: 0 significa que no encaja. */
+    fun score(song: Song, request: MusicRequest): Int {
+        val title = MusicRequestParser.normalize(song.title)
+        val artist = MusicRequestParser.normalize(song.artist)
+        val album = MusicRequestParser.normalize(song.album)
+        val genre = MusicRequestParser.normalize(song.genre)
 
         return when (request.kind) {
             MusicRequestKind.GENRE -> scoreGenre(request, genre, title, artist, album)
             MusicRequestKind.MOOD -> scoreMood(request, genre, title, artist, album)
             MusicRequestKind.ARTIST -> scoreArtist(request, title, artist, album)
             MusicRequestKind.TITLE -> scoreTitle(request, title, artist)
-            MusicRequestKind.ERA -> scoreEra(request, track)
+            MusicRequestKind.ERA -> scoreEra(request, song)
         }
     }
 
@@ -91,7 +92,7 @@ object MusicSearch {
         return scoreGenre(asGenre, genre, title, artist, album)
     }
 
-    /** Busqueda por nombre de artista o banda. */
+    /** Búsqueda por nombre de artista o banda. */
     private fun scoreArtist(request: MusicRequest, title: String, artist: String, album: String): Int {
         var score = 0
         request.terms.forEach { term ->
@@ -117,16 +118,16 @@ object MusicSearch {
     }
 
     /** Búsqueda por década: «algo de los 90». */
-    private fun scoreEra(request: MusicRequest, track: Track): Int {
+    private fun scoreEra(request: MusicRequest, song: Song): Int {
         val decade = request.terms.firstOrNull()?.trim() ?: return 0
         val years = MusicRequestParser.yearsOf(decade)
-        if (track.year <= 0) return 0
-        return if (track.year in years) 100 else 0
+        if (song.year <= 0) return 0
+        return if (song.year in years) 100 else 0
     }
 
     /** Lista de artistas disponibles, para preguntarle a la IA cuál encaja. */
-    fun artists(tracks: List<Track>, limit: Int = 40): List<String> =
-        tracks.map { it.artist.trim() }
+    fun artists(songs: List<Song>, limit: Int = 40): List<String> =
+        songs.map { it.artist.trim() }
             .filter { it.isNotBlank() && !it.equals("desconocido", ignoreCase = true) }
             .distinct()
             .sorted()

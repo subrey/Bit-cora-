@@ -267,6 +267,7 @@ class AssistantEngine(
                 "No encuentro música en el dispositivo. Conceda el permiso de audio o use el tono de prueba."
             )
         }
+        val songs = tracks.map { it.toSong() }
 
         val request = MusicRequestParser.parse(payload)
         if (request == null) {
@@ -276,16 +277,22 @@ class AssistantEngine(
             return AssistantResponse("Reproduciendo ${track.title}, de ${track.artist}.")
         }
 
-        val best = MusicSearch.search(tracks, request).firstOrNull()
+        val best = MusicSearch.search(songs, request).firstOrNull()
         if (best != null) {
-            player.play(best.track)
-            return AssistantResponse("Reproduciendo ${best.track.title}, de ${best.track.artist}.")
+            val track = tracks.firstOrNull { it.id == best.song.id }
+            if (track != null) {
+                player.play(track)
+                return AssistantResponse("Reproduciendo ${track.title}, de ${track.artist}.")
+            }
         }
 
-        val chosen = askAiForTrack(request, tracks)
+        val chosen = askAiForTrack(request, songs)
         if (chosen != null) {
-            player.play(chosen)
-            return AssistantResponse("He elegido ${chosen.title}, de ${chosen.artist}.")
+            val track = tracks.firstOrNull { it.id == chosen.id }
+            if (track != null) {
+                player.play(track)
+                return AssistantResponse("He elegido ${track.title}, de ${track.artist}.")
+            }
         }
 
         return AssistantResponse(
@@ -295,9 +302,9 @@ class AssistantEngine(
     }
 
     /** Le pregunta a la IA qué artista de la biblioteca encaja con la petición. */
-    private suspend fun askAiForTrack(request: MusicRequest, tracks: List<Track>): Track? {
+    private suspend fun askAiForTrack(request: MusicRequest, songs: List<Song>): Song? {
         if (!ai.isConfigured()) return null
-        val artists = MusicSearch.artists(tracks)
+        val artists = MusicSearch.artists(songs)
         if (artists.isEmpty()) return null
         val prompt = "El usuario ha pedido música ${request.label}. " +
             "Estos son los artistas de su biblioteca: ${artists.joinToString(", ")}. " +
@@ -317,7 +324,7 @@ class AssistantEngine(
             .substringBefore("\n")
             .trim()
         if (name.isBlank()) return null
-        return tracks.firstOrNull {
+        return songs.firstOrNull {
             it.artist.equals(name, ignoreCase = true) ||
                 it.artist.contains(name, ignoreCase = true)
         }

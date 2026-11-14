@@ -41,6 +41,7 @@ fun SettingsScreen(
     aiConfigured: Boolean,
     aiModel: String,
     aiStatus: String?,
+    city: String,
     onTtsChange: (Boolean) -> Unit,
     onAlwaysListeningChange: (Boolean) -> Unit,
     onContinuousVoiceChange: (Boolean) -> Unit,
@@ -50,12 +51,14 @@ fun SettingsScreen(
     onClearAiKey: () -> Unit,
     onSaveAiModel: (String) -> Unit,
     onTestAi: () -> Unit,
+    onSaveCity: (String) -> Unit,
     onClearChat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var wordInput by remember(wakeWord) { mutableStateOf(wakeWord) }
     var keyInput by remember { mutableStateOf("") }
     var modelInput by remember(aiModel) { mutableStateOf(aiModel) }
+    var cityInput by remember(city) { mutableStateOf(city) }
     val uriHandler = LocalUriHandler.current
 
     Column(
@@ -116,6 +119,43 @@ fun SettingsScreen(
             if (clean.isNotEmpty()) onWakeWordChange(clean)
         }) {
             Text("Guardar palabra clave", color = JarvisColors.Green)
+        }
+
+        HorizontalDivider(color = JarvisColors.Outline)
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "METEOROLOGÍA",
+            style = MaterialTheme.typography.labelMedium,
+            color = JarvisColors.GreenDim,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Ciudad para el tiempo. Se consulta en Open-Meteo, un servicio gratuito " +
+                "que no necesita clave ni permiso de ubicación: solo se envía el nombre de la ciudad.",
+            style = MaterialTheme.typography.bodySmall,
+            color = JarvisColors.Muted,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        OutlinedTextField(
+            value = cityInput,
+            onValueChange = { cityInput = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Ciudad") },
+            placeholder = { Text("Madrid") },
+            textStyle = TextStyle(fontFamily = FontFamily.Monospace, color = JarvisColors.Green),
+            colors = fieldColors(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = {
+                onSaveCity(cityInput.trim().ifBlank { "Madrid" })
+            }) {
+                Text("Guardar ciudad", color = JarvisColors.Green)
+            }
+            TextButton(onClick = { onSaveCity("Madrid") }) {
+                Text("Madrid", color = JarvisColors.Muted)
+            }
         }
 
         HorizontalDivider(color = JarvisColors.Outline)
@@ -249,7 +289,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · v2.0-fase6.1",
+            text = "JARVIS · v2.0-fase7.1",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

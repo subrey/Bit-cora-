@@ -80,6 +80,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val aiConfigured by viewModel.aiConfigured.collectAsStateWithLifecycle()
     val aiModel by viewModel.aiModel.collectAsStateWithLifecycle()
     val aiStatus by viewModel.aiStatus.collectAsStateWithLifecycle()
+    val city by viewModel.city.collectAsStateWithLifecycle()
     val liveTranscript by viewModel.liveTranscript.collectAsStateWithLifecycle()
     val assistantState by viewModel.assistantState.collectAsStateWithLifecycle()
 
@@ -280,6 +281,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         aiConfigured = aiConfigured,
                         aiModel = aiModel,
                         aiStatus = aiStatus,
+                        city = city,
                         onTtsChange = viewModel::setTtsEnabled,
                         onAlwaysListeningChange = { enabled ->
                             if (enabled) {
@@ -295,6 +297,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         onClearAiKey = viewModel::clearAiKey,
                         onSaveAiModel = viewModel::saveAiModel,
                         onTestAi = viewModel::testAi,
+                        onSaveCity = viewModel::setCity,
                         onClearChat = viewModel::clearChat,
                     )
                 }

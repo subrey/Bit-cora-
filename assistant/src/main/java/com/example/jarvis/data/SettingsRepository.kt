@@ -20,6 +20,7 @@ class SettingsRepository(private val context: Context) {
         val accent = stringPreferencesKey("accent")
         val onDeviceVoice = booleanPreferencesKey("on_device_voice")
         val continuousVoice = booleanPreferencesKey("continuous_voice")
+        val city = stringPreferencesKey("city")
     }
 
     val ttsEnabled: Flow<Boolean> = context.jarvisDataStore.data.map { it[Keys.tts] ?: true }
@@ -44,6 +45,9 @@ class SettingsRepository(private val context: Context) {
     val continuousVoice: Flow<Boolean> =
         context.jarvisDataStore.data.map { it[Keys.continuousVoice] ?: true }
 
+    /** Ciudad para la meteorología. No hace falta permiso de ubicación. */
+    val city: Flow<String> = context.jarvisDataStore.data.map { it[Keys.city].orEmpty() }
+
     suspend fun setOnDeviceVoice(value: Boolean) {
         context.jarvisDataStore.edit { it[Keys.onDeviceVoice] = value }
     }
@@ -66,5 +70,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAccent(value: String) {
         context.jarvisDataStore.edit { it[Keys.accent] = value }
+    }
+
+    suspend fun setCity(value: String) {
+        context.jarvisDataStore.edit { it[Keys.city] = value.trim() }
     }
 }

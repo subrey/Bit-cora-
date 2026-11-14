@@ -9,10 +9,10 @@ Este repositorio contiene **dos apps nativas de Android**, ambas en **Kotlin + J
 
 Se compilan por separado, generan **dos APK** y pueden instalarse los dos en el mismo teléfono.
 
-> **Estado de JARVIS AI**: Fases 1, 2, 3, 4, 5 y 6 completadas (estructura por
+> **Estado de JARVIS AI**: Fases 1, 2, 3, 4, 5, 6 y 7 completadas (estructura por
 > capas, interfaz holográfica, voz continua e interrumpible, IA conversacional
-> con clave cifrada, recordatorios con hora exacta e historial exportable, y
-> widget de escritorio). Consulta
+> con clave cifrada, recordatorios con hora exacta e historial exportable,
+> widget de escritorio y meteorología real). Consulta
 > [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md),
 > [`docs/FASE-1.md`](docs/FASE-1.md), [`docs/FASE-2.md`](docs/FASE-2.md),
 > [`docs/FASE-3.md`](docs/FASE-3.md), [`docs/FASE-4.md`](docs/FASE-4.md),
@@ -120,6 +120,9 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 | «calcula 12 * (3 + 4)» | calculadora completa con paréntesis |
 | «convierte 10 km a millas» | conversor de unidades (longitud, masa, volumen, tiempo, temperatura) |
 | «pon un temporizador de 10 minutos» | temporizador con notificación y aviso hablado |
+| «qué tiempo hace» | temperatura, sensación térmica, estado del cielo y previsión de mañana |
+| «qué tiempo hace mañana» | máximo, mínimo y probabilidad de lluvia |
+| «¿debo llevar paraguas?» | consejo breve según el tiempo |
 | «recuérdame comprar pan a las 6 de la tarde» | recordatorio con fecha y hora exactas |
 | «qué recordatorios tengo» | lista los recordatorios pendientes |
 | «cancela el recordatorio de comprar pan» | lo borra y cancela su alarma |
@@ -160,6 +163,17 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
   responde, para que se entienda la respuesta.
 - Mientras hay música, el servicio espera más entre sesiones de escucha y no
   llena el chat con avisos de «te he oído» cuando el micrófono capta la letra.
+
+## Meteorología
+
+- **Tiempo real** con [Open-Meteo](https://open-meteo.com): es gratuito, no
+  necesita clave ni cuenta y no guarda datos personales.
+- **Sin permiso de ubicación**: en *Ajustes → Meteorología* se escribe la
+  ciudad (por defecto Madrid). Solo se envía el nombre de la ciudad.
+- **Qué responde**: «qué tiempo hace» (temperatura, sensación térmica, cielo,
+  lluvia y viento), «qué tiempo hace mañana» (máximo, mínimo y probabilidad de
+  lluvia) y «¿debo llevar paraguas?» (un consejo breve).
+- **Sin cobertura**: JARVIS lo avisa y el resto de órdenes siguen funcionando.
 
 ## Recordatorios y widget
 
@@ -205,6 +219,11 @@ assistant/src/main/java/com/example/jarvis/
 │   ├── Notifications.kt
 │   └── JarvisBus.kt         # bus interno servicio ↔ interfaz
 ├── data/                    # Room, ajustes y SecureSettings (clave cifrada)
+├── weather/                 # Fase 7: meteorología con Open-Meteo
+│   ├── WeatherModels.kt     # lugar, tiempo actual y previsión por día
+│   ├── WeatherJson.kt       # lectura del JSON (puro, testeable)
+│   ├── WeatherText.kt       # el informe a texto hablable (puro, testeable)
+│   └── OpenMeteoProvider.kt # cliente HTTP sin clave
 ├── service/
 │   └── AlwaysListeningService.kt   # escucha permanente y palabra clave
 ├── receiver/
@@ -269,5 +288,5 @@ Los APK de depuración van firmados con la clave de debug generada en el runner,
 # Datos y privacidad
 
 - **Bitácora**: sin permisos de red; todo se guarda en `bitacora.db` dentro del almacenamiento privado.
-- **JARVIS**: tampoco usa la red. Pide permiso de **micrófono** (voz), **notificaciones** (temporizadores) y **lectura de audio** (biblioteca musical) solo cuando usas esa función. Sus datos están en `jarvis.db`.
+- **JARVIS**: usa la red solo en dos funciones opcionales: la IA conversacional (Google Gemini, con clave cifrada en el teléfono) y la meteorología (Open-Meteo, sin clave). Pide permiso de **micrófono** (voz), **notificaciones** (temporizadores y recordatorios) y **lectura de audio** (biblioteca musical) solo cuando usas esa función. Sus datos están en `jarvis.db`.
 - La copia de seguridad de Android está habilitada en ambas apps.

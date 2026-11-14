@@ -36,6 +36,8 @@ enum class IntentKind {
     OPEN_APP,
     JOKE,
     WEATHER,
+    WEATHER_TOMORROW,
+    WEATHER_ADVICE,
     SUMMARY,
     UNKNOWN,
 }
@@ -228,7 +230,26 @@ object IntentParser {
         if (has("linterna", "flash")) {
             return ParsedIntent(IntentKind.TORCH, raw = raw)
         }
-        if (has("clima", "que tiempo hace", "temperatura exterior", "el tiempo")) {
+        if (has(
+                "que tiempo hace manana", "tiempo de manana", "el tiempo manana",
+                "prevision de manana", "que tiempo tendra manana", "mañana llovera",
+            )
+        ) {
+            return ParsedIntent(IntentKind.WEATHER_TOMORROW, raw = raw)
+        }
+        if (has(
+                "debo llevar paraguas", "necesito un paraguas", "llevo paraguas",
+                "debo salir", "puedo salir", "hace frio", "hace calor", "va a llover",
+                "va a hacer frio", "consejo del tiempo", "como me visto hoy",
+            )
+        ) {
+            return ParsedIntent(IntentKind.WEATHER_ADVICE, raw = raw)
+        }
+        if (has(
+                "clima", "que tiempo hace", "temperatura exterior", "el tiempo",
+                "que temperatura", "cuanta calor hace", "tiempo en la ciudad",
+            )
+        ) {
             return ParsedIntent(IntentKind.WEATHER, raw = raw)
         }
         if (has("resumen", "estado general", "informe")) {

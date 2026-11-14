@@ -13,6 +13,9 @@ import com.example.jarvis.data.JarvisDatabase
 import com.example.jarvis.data.JarvisRepository
 import com.example.jarvis.data.SecureSettings
 import com.example.jarvis.data.SettingsRepository
+import com.example.jarvis.weather.OpenMeteoProvider
+import com.example.jarvis.weather.WeatherProvider
+import kotlinx.coroutines.flow.first
 
 class JarvisApplication : Application() {
 
@@ -44,7 +47,20 @@ class JarvisApplication : Application() {
     val speaker: Speaker by lazy { Speaker(this) }
     val scheduler: TimerScheduler by lazy { TimerScheduler(this) }
     val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(this) }
+
+    /** Fase 7: meteorología con Open-Meteo (gratis y sin clave). */
+    val weatherProvider: WeatherProvider by lazy { OpenMeteoProvider() }
+
     val engine: AssistantEngine by lazy {
-        AssistantEngine(this, repository, musicPlayer, scheduler, aiProvider, reminderScheduler)
+        AssistantEngine(
+            context = this,
+            repository = repository,
+            player = musicPlayer,
+            scheduler = scheduler,
+            ai = aiProvider,
+            reminderScheduler = reminderScheduler,
+            weather = weatherProvider,
+            cityProvider = { settings.city.first() },
+        )
     }
 }

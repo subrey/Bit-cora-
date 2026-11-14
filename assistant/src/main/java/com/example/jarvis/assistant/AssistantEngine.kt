@@ -14,6 +14,11 @@ import com.example.jarvis.ai.AiResult
 import com.example.jarvis.ai.AiTurn
 import com.example.jarvis.data.JarvisRepository
 import com.example.jarvis.domain.model.JarvisPersona
+import com.example.jarvis.weather.OpenMeteoProvider
+import com.example.jarvis.weather.WeatherProvider
+import com.example.jarvis.weather.WeatherReport
+import com.example.jarvis.weather.WeatherResult
+import com.example.jarvis.weather.WeatherText
 import com.example.jarvis.widget.JarvisWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -34,6 +39,8 @@ class AssistantEngine(
     private val scheduler: TimerScheduler,
     private val ai: AiProvider,
     private val reminderScheduler: ReminderScheduler = ReminderScheduler(context),
+    private val weather: WeatherProvider? = null,
+    private val cityProvider: suspend () -> String = { "" },
 ) {
 
     suspend fun execute(intent: ParsedIntent): AssistantResponse {
@@ -168,10 +175,11 @@ class AssistantEngine(
 
             IntentKind.JOKE -> AssistantResponse(joke())
 
-            IntentKind.WEATHER -> AssistantResponse(
-                "No dispongo de conexión a los servicios meteorológicos, señor. " +
-                    "Le sugiero consultar el widget del tiempo del sistema."
-            )
+            IntentKind.WEATHER -> weatherNow()
+
+            IntentKind.WEATHER_TOMORROW -> weatherTomorrow()
+
+            IntentKind.WEATHER_ADVICE -> weatherAdvice()
 
             IntentKind.SUMMARY -> AssistantResponse(summary())
 
@@ -312,6 +320,59 @@ class AssistantEngine(
         JarvisWidgetProvider.updateAll(context)
         return AssistantResponse("Recordatorio cancelado: ${match.text}.")
     }
+
+    /** «qué tiempo hace»: estado actual, previsión de mañana y un consejo. */
+    private suspend fun weatherNow(): AssistantResponse {
+        val report = weatherReport() ?: return weatherUnavailable()
+        val tomorrow = report.days.getOrNull(1)
+        return AssistantResponse(
+            buildString {
+                append(WeatherText.now(report))
+                if (tomorrow != null) {
+                    WeatherText.day(report, tomorrow.date, "Mañana")?.let {
+                        append(" ")
+                        append(it)
+                    }
+                }
+                append(" ")
+                append(WeatherText.advice(report))
+            },
+        )
+    }
+
+    /** «qué tiempo hace mañana»: previsión del día siguiente. */
+    private suspend fun weatherTomorrow(): AssistantResponse {
+        val report = weatherReport() ?: return weatherUnavailable()
+        val tomorrow = report.days.getOrNull(1)
+            ?: return AssistantResponse("No tengo previsión para mañana, señor.")
+        return AssistantResponse(
+            WeatherText.day(report, tomorrow.date, "Mañana")
+                ?: "No tengo previsión para mañana, señor.",
+        )
+    }
+
+    /** «¿debo llevar paraguas?»: un consejo breve según el tiempo. */
+    private suspend fun weatherAdvice(): AssistantResponse {
+        val report = weatherReport() ?: return weatherUnavailable()
+        return AssistantResponse(WeatherText.advice(report))
+    }
+
+    /** Pide el informe a la fuente del tiempo y anota los errores. */
+    private suspend fun weatherReport(): WeatherReport? {
+        val provider = weather ?: return null
+        val city = cityProvider().trim().ifBlank { OpenMeteoProvider.DEFAULT_CITY }
+        return when (val result = provider.report(city)) {
+            is WeatherResult.Success -> result.report
+            is WeatherResult.Failure -> {
+                JarvisBus.notice("⚠ ${result.message}")
+                null
+            }
+        }
+    }
+
+    private fun weatherUnavailable(): AssistantResponse = AssistantResponse(
+        "No he podido consultar el tiempo. Compruebe la conexión e inténtelo de nuevo, señor.",
+    )
 
     /** «exporta el historial»: guarda la conversación y abre el menú de compartir. */
     private suspend fun exportHistory(): AssistantResponse {
@@ -478,15 +539,16 @@ class AssistantEngine(
     private fun helpText(): String =
         "Puedo hacer esto: poner música, pausar, quitar la música, cambiar o repetir canción, " +
             "subir o bajar el volumen, calcular expresiones, convertir unidades, poner temporizadores " +
-            "y recordatorios, listar y cancelar recordatorios, añadir tareas, memorizar notas, " +
+            "y recordatorios, listar y cancelar recordatorios, consultar el tiempo y su previsión, " +
+            "añadir tareas, memorizar notas, " +
             "decir la hora y la fecha, informar de la " +
             "batería y del almacenamiento, encender la linterna, abrir aplicaciones, contar un chiste, " +
             "recordar lo que hemos hablado o darme un resumen. " +
             "Si configura una clave gratuita de Gemini en Ajustes, también puedo conversar, explicar " +
             "temas y responder preguntas abiertas. " +
             "Inténtelo con: «pon música», «quita la música», «pon un temporizador de 10 minutos», " +
-            "«recuérdame comprar pan a las 6 de la tarde», «qué recordatorios tengo», " +
-            "«calcula 12 * (3 + 4)» o «explícame la fotosíntesis»."
+            "«recuérdame comprar pan a las 6 de la tarde», «qué tiempo hace», «qué tiempo hace mañana», " +
+            "«qué recordatorios tengo», «calcula 12 * (3 + 4)» o «explícame la fotosíntesis»."
 
     // --- Conversación larga: entender continuaciones ------------------------
 

@@ -70,6 +70,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val accent: StateFlow<String> = settings.accent
         .stateIn(viewModelScope, SharingStarted.Eagerly, "green")
 
+    /** Ciudad para la meteorología. */
+    val city: StateFlow<String> = settings.city
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     /** Voz en el dispositivo (sin pitidos) frente al motor normal. */
     val onDeviceVoice: StateFlow<Boolean> = settings.onDeviceVoice
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -665,6 +669,11 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setAccent(accent: String) {
         viewModelScope.launch { settings.setAccent(accent) }
+    }
+
+    /** Guarda la ciudad que se usará para consultar el tiempo. */
+    fun setCity(city: String) {
+        viewModelScope.launch { settings.setCity(city) }
     }
 
     /** Envía al bus una orden detectada por el servicio de escucha permanente. */

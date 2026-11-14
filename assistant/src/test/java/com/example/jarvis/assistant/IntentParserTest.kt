@@ -103,6 +103,23 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta el tiempo`() {
+        assertEquals(IntentKind.WEATHER, IntentParser.parse("¿qué tiempo hace?").kind)
+        assertEquals(IntentKind.WEATHER, IntentParser.parse("cuál es la temperatura exterior").kind)
+    }
+
+    @Test
+    fun `detecta el tiempo de manana`() {
+        assertEquals(IntentKind.WEATHER_TOMORROW, IntentParser.parse("qué tiempo hace mañana").kind)
+    }
+
+    @Test
+    fun `detecta el consejo del tiempo`() {
+        assertEquals(IntentKind.WEATHER_ADVICE, IntentParser.parse("¿debo llevar paraguas?").kind)
+        assertEquals(IntentKind.WEATHER_ADVICE, IntentParser.parse("hace frío").kind)
+    }
+
+    @Test
     fun `detecta ayuda`() {
         assertEquals(IntentKind.HELP, IntentParser.parse("¿qué sabes hacer?").kind)
     }

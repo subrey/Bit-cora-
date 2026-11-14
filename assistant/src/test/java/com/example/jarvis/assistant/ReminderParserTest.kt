@@ -18,7 +18,7 @@ class ReminderParserTest {
         assertTrue(result!!.message.contains("sacar la basura"))
         val expected = baseTime.plusMinutes(30)
             .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        assertEquals(expected, result.triggerAtMillis)
+        assertEquals(expected, result!!.triggerAtMillis)
     }
 
     @Test
@@ -28,7 +28,7 @@ class ReminderParserTest {
         assertEquals("comprar pan", result!!.message)
         val expected = LocalDateTime.of(2026, 11, 14, 17, 0)
             .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        assertEquals(expected, result.triggerAtMillis)
+        assertEquals(expected, result!!.triggerAtMillis)
     }
 
     @Test
@@ -38,7 +38,7 @@ class ReminderParserTest {
         assertEquals("reunion", result!!.message)
         val expected = LocalDateTime.of(2026, 11, 15, 9, 0)
             .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        assertEquals(expected, result.triggerAtMillis)
+        assertEquals(expected, result!!.triggerAtMillis)
     }
 
     @Test
@@ -48,7 +48,7 @@ class ReminderParserTest {
         assertNotNull(result)
         val expected = LocalDateTime.of(2026, 11, 14, 18, 0)
             .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        assertEquals(expected, result.triggerAtMillis)
+        assertEquals(expected, result!!.triggerAtMillis)
     }
 
     @Test

@@ -119,12 +119,9 @@ object ReminderParser {
         }
 
         // Sin hora reconocible: se avisa dentro de 10 minutos.
-        if (target == null) {
-            target = baseTime.plusMinutes(10)
-        }
-
+        val moment: LocalDateTime = target ?: baseTime.plusMinutes(10)
         val message = cleanMessage(text)
-        val millis = target.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val millis = moment.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         return ParsedReminder(message = message, triggerAtMillis = millis)
     }
 

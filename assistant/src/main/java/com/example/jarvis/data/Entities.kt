@@ -45,21 +45,6 @@ data class ReminderItem(
 )
 
 /**
- * Alarma del despertador. Si [repeatDaily] es true, salta todos los días a la
- * misma hora; si no, solo la próxima vez.
- */
-@Entity(tableName = "alarms")
-data class AlarmItem(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
-    val hour: Int,
-    val minute: Int,
-    val label: String = "",
-    val repeatDaily: Boolean = false,
-    val enabled: Boolean = true,
-    val createdAt: Long = System.currentTimeMillis(),
-)
-
-/**
  * Rutina programada: cuando ocurre un disparador, se ejecuta una acción.
  *
  * @param trigger TIMER, REMINDER o HOURLY.

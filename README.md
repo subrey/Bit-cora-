@@ -9,14 +9,15 @@ Este repositorio contiene **dos apps nativas de Android**, ambas en **Kotlin + J
 
 Se compilan por separado, generan **dos APK** y pueden instalarse los dos en el mismo teléfono.
 
-> **Estado de JARVIS AI**: Fases 1, 2, 3, 4, 5, 6 y 7 completadas (estructura por
-> capas, interfaz holográfica, voz continua e interrumpible, IA conversacional
-> con clave cifrada, recordatorios con hora exacta e historial exportable,
-> widget de escritorio y meteorología real). Consulta
+> **Estado de JARVIS AI**: Fases 1 a 8 completadas (estructura por capas,
+> interfaz holográfica, voz continua e interrumpible, IA conversacional con
+> clave cifrada, recordatorios con hora exacta e historial exportable, widget de
+> escritorio, meteorología real y música inteligente). Consulta
 > [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md),
 > [`docs/FASE-1.md`](docs/FASE-1.md), [`docs/FASE-2.md`](docs/FASE-2.md),
 > [`docs/FASE-3.md`](docs/FASE-3.md), [`docs/FASE-4.md`](docs/FASE-4.md),
-> [`docs/FASE-5.md`](docs/FASE-5.md) y [`docs/FASE-6.md`](docs/FASE-6.md).
+> [`docs/FASE-5.md`](docs/FASE-5.md), [`docs/FASE-6.md`](docs/FASE-6.md),
+> [`docs/FASE-7.md`](docs/FASE-7.md) y [`docs/FASE-8.md`](docs/FASE-8.md).
 
 ---
 
@@ -114,6 +115,10 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 | Orden | Respuesta |
 |---|---|
 | «pon música» | reproduce una pista de tu biblioteca |
+| «pon algo de rock» | busca por género |
+| «pon música para estudiar» | busca por estado de ánimo |
+| «pon algo de Coldplay» / «la canción Billie Jean» | busca por artista o título |
+| «pon algo de los 90» | busca por década |
 | «pausa», «siguiente canción», «canción anterior» | control del reproductor |
 | «quita la música», «apaga el sonido», «no quiero música» | detiene la reproducción |
 | «sube / baja el volumen», «modo aleatorio», «repite» | control de reproducción |
@@ -189,6 +194,16 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
   próximo aviso con su hora, el recuento de pendientes y dos botones: hablar
   (abre la app con el micro listo) y música (pone o quita la canción).
 
+## Música inteligente
+
+- **Busca lo que pidas**: por género («algo de rock»), por artista («algo de
+  Coldplay»), por título («la canción Billie Jean»), por década («algo de los
+  90») o por estado de ánimo («música para estudiar», «algo tranquilo»).
+- **En local**: la búsqueda recorre la biblioteca del teléfono, sin red.
+- **Si no hay coincidencia, decide la IA**: con clave de Gemini, JARVIS le
+  pregunta al modelo qué artista de tu biblioteca encaja mejor.
+- 29 géneros con sinónimos en español e inglés y 7 estados de ánimo.
+
 ## Estructura
 
 ```
@@ -210,6 +225,8 @@ assistant/src/main/java/com/example/jarvis/
 │   ├── MusicPlayer.kt       # reproductor con MediaStore + MediaPlayer
 │   ├── Speaker.kt           # respuestas habladas (TextToSpeech)
 │   ├── VoicePolicy.kt       # reglas puras de la conversación continua
+│   ├── MusicRequestParser.kt # «algo de rock» → búsqueda (puro, testeable)
+│   ├── MusicSearch.kt       # puntúa las pistas de la biblioteca (puro, testeable)
 │   ├── voice/
 │   │   └── VoiceRecognizer.kt  # micrófono de la app (SpeechRecognizer directo)
 │   ├── TimerScheduler.kt    # temporizadores con AlarmManager

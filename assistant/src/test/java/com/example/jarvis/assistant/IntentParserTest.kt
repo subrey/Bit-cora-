@@ -103,6 +103,17 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta la busqueda de musica`() {
+        val genre = IntentParser.parse("pon algo de rock")
+        assertEquals(IntentKind.MUSIC_SEARCH, genre.kind)
+        assertEquals("rock", genre.payload)
+
+        val mood = IntentParser.parse("pon música para estudiar")
+        assertEquals(IntentKind.MUSIC_SEARCH, mood.kind)
+        assertEquals("estudiar", mood.payload)
+    }
+
+    @Test
     fun `detecta el tiempo`() {
         assertEquals(IntentKind.WEATHER, IntentParser.parse("¿qué tiempo hace?").kind)
         assertEquals(IntentKind.WEATHER, IntentParser.parse("cuál es la temperatura exterior").kind)

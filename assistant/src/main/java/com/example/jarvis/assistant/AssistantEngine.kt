@@ -61,6 +61,8 @@ class AssistantEngine(
 
             IntentKind.MUSIC_PLAY -> playMusic()
 
+            IntentKind.MUSIC_SEARCH -> playByRequest(intent.payload)
+
             IntentKind.MUSIC_PAUSE -> {
                 player.toggle()
                 AssistantResponse("Música en pausa. Silencio en la sala.")
@@ -250,6 +252,74 @@ class AssistantEngine(
         return when (val result = ai.complete(request)) {
             is AiResult.Success -> AssistantResponse(result.text)
             is AiResult.Failure -> AssistantResponse("No he podido consultar la IA. ${result.message}")
+        }
+    }
+
+    /**
+     * Busca en la biblioteca lo que el usuario ha pedido: un género, un
+     * estado de ánimo, un artista o una época. Si no hay coincidencia y hay
+     * clave de IA, se le pregunta al modelo cuál de los artistas encaja.
+     */
+    private suspend fun playByRequest(payload: String): AssistantResponse {
+        val tracks = withContext(Dispatchers.IO) { player.scanLibrary() }
+        if (tracks.isEmpty()) {
+            return AssistantResponse(
+                "No encuentro música en el dispositivo. Conceda el permiso de audio o use el tono de prueba."
+            )
+        }
+
+        val request = MusicRequestParser.parse(payload)
+        if (request == null) {
+            // No se ha entendido la búsqueda: se pone música normal.
+            val track = tracks.random()
+            player.play(track)
+            return AssistantResponse("Reproduciendo ${track.title}, de ${track.artist}.")
+        }
+
+        val best = MusicSearch.search(tracks, request).firstOrNull()
+        if (best != null) {
+            player.play(best.track)
+            return AssistantResponse("Reproduciendo ${best.track.title}, de ${best.track.artist}.")
+        }
+
+        val chosen = askAiForTrack(request, tracks)
+        if (chosen != null) {
+            player.play(chosen)
+            return AssistantResponse("He elegido ${chosen.title}, de ${chosen.artist}.")
+        }
+
+        return AssistantResponse(
+            "No encuentro nada ${request.label} en su biblioteca. " +
+                "Pruebe con «pon algo de rock», «música para estudiar» o el nombre de un artista."
+        )
+    }
+
+    /** Le pregunta a la IA qué artista de la biblioteca encaja con la petición. */
+    private suspend fun askAiForTrack(request: MusicRequest, tracks: List<Track>): Track? {
+        if (!ai.isConfigured()) return null
+        val artists = MusicSearch.artists(tracks)
+        if (artists.isEmpty()) return null
+        val prompt = "El usuario ha pedido música ${request.label}. " +
+            "Estos son los artistas de su biblioteca: ${artists.joinToString(", ")}. " +
+            "Responde únicamente con el nombre de un artista de la lista que encaje mejor."
+        val result = ai.complete(
+            AiRequest(
+                systemPrompt = "Eres JARVIS, un asistente musical. Respondes en español y de forma breve.",
+                turns = listOf(AiTurn(fromUser = true, text = prompt)),
+            ),
+        )
+        if (result !is AiResult.Success) return null
+        val name = result.text.trim()
+            .removeSurrounding("\"")
+            .removeSurrounding("«")
+            .removeSurrounding("»")
+            .trim()
+            .substringBefore("\n")
+            .trim()
+        if (name.isBlank()) return null
+        return tracks.firstOrNull {
+            it.artist.equals(name, ignoreCase = true) ||
+                it.artist.contains(name, ignoreCase = true)
         }
     }
 

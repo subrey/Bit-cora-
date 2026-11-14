@@ -10,6 +10,7 @@ enum class IntentKind {
     TIME,
     DATE,
     MUSIC_PLAY,
+    MUSIC_SEARCH,
     MUSIC_PAUSE,
     MUSIC_NEXT,
     MUSIC_PREVIOUS,
@@ -95,6 +96,16 @@ object IntentParser {
         }
 
         // --- Música ------------------------------------------------------
+        // Una búsqueda concreta («algo de rock», «para estudiar», «de Coldplay»)
+        // tiene prioridad sobre el simple «pon música».
+        if (has("musica para", "cancion para", "algo para", "música para", "canciones para")) {
+            val body = n.substringAfter("para", "").trim()
+            return ParsedIntent(IntentKind.MUSIC_SEARCH, payload = body.ifBlank { n }, raw = raw)
+        }
+        if (has("algo de", "algo del", "musica de", "música de", "canciones de", "cancion de")) {
+            val body = n.substringAfter("de", "").trim()
+            return ParsedIntent(IntentKind.MUSIC_SEARCH, payload = body.ifBlank { n }, raw = raw)
+        }
         if (has("sube volumen", "sube el volumen", "volumen arriba", "mas alto", "sube")) {
             return ParsedIntent(IntentKind.VOLUME_UP, raw = raw)
         }

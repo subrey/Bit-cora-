@@ -28,6 +28,12 @@ data class Track(
     val artist: String,
     val durationMs: Long,
     val uri: Uri,
+    /** Álbum del dispositivo (a veces está vacío). */
+    val album: String = "",
+    /** Género de la pista según MediaStore (Android 11 o superior). */
+    val genre: String = "",
+    /** Año de publicación (0 si el sistema no lo sabe). */
+    val year: Int = 0,
 )
 
 data class PlayerState(
@@ -89,7 +95,15 @@ class MusicPlayer(private val context: Context) {
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.YEAR,
         )
+        // El género solo existe desde Android 11; en el resto de versiones se
+        // deja vacío y la búsqueda se apoya en el título, el artista y el álbum.
+        val withGenre = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+        if (withGenre) {
+            projection += MediaStore.Audio.Media.GENRE
+        }
         val tracks = mutableListOf<Track>()
         runCatching {
             context.contentResolver.query(collection, projection, null, null, null)?.use { cursor ->
@@ -97,11 +111,18 @@ class MusicPlayer(private val context: Context) {
                 val titleIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
                 val artistIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
                 val durationIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val albumIndex = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM)
+                val yearIndex = cursor.getColumnIndex(MediaStore.Audio.Media.YEAR)
+                val genreIndex =
+                    if (withGenre) cursor.getColumnIndex(MediaStore.Audio.Media.GENRE) else -1
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idIndex)
                     val title = cursor.getString(titleIndex) ?: "Sin título"
                     val artist = cursor.getString(artistIndex) ?: "Desconocido"
                     val duration = cursor.getLong(durationIndex)
+                    val album = if (albumIndex >= 0) cursor.getString(albumIndex).orEmpty() else ""
+                    val year = if (yearIndex >= 0) cursor.getInt(yearIndex) else 0
+                    val genre = if (genreIndex >= 0) cursor.getString(genreIndex).orEmpty() else ""
                     tracks.add(
                         Track(
                             id = id,
@@ -109,6 +130,9 @@ class MusicPlayer(private val context: Context) {
                             artist = artist,
                             durationMs = duration,
                             uri = ContentUris.withAppendedId(collection, id),
+                            album = album,
+                            genre = cleanGenre(genre),
+                            year = year,
                         )
                     )
                 }
@@ -120,6 +144,13 @@ class MusicPlayer(private val context: Context) {
             message = if (tracks.isEmpty()) "No hay música en el dispositivo." else null,
         )
         return tracks
+    }
+
+    /** Los valores genre que no sirven se dejan vacíos. */
+    private fun cleanGenre(value: String): String {
+        val clean = value.trim()
+        if (clean.isBlank() || clean.equals("<unknown>", ignoreCase = true)) return ""
+        return clean
     }
 
     fun play(track: Track): Boolean {

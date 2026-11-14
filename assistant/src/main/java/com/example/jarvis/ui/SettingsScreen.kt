@@ -289,7 +289,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · v2.0-fase7.1",
+            text = "JARVIS · v2.0-fase8.1",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

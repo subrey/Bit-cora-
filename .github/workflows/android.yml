@@ -38,12 +38,16 @@ jobs:
           key: jarvis-debug-keystore-v1
 
       - name: Instalar Android SDK 35
+        env:
+          ANDROID_HOME: ${{ secrets.ANDROID_HOME }}
         run: |
           SDKMANAGER="$(command -v sdkmanager || echo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager")"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Compilar y ejecutar tests
+        env:
+          ANDROID_HOME: ${{ secrets.ANDROID_HOME }}
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug testDebugUnitTest --stacktrace

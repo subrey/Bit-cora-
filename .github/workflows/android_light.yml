@@ -36,12 +36,14 @@ jobs:
 
       - name: Compilar Kotlin JVM (modo sans-SDK)
         if: success()
-        run: ./gradlew :assistant:compileKotlinJvm --no-daemon -x testDebugUnitTest
         env:
-          ANDROID_HOME: ""   # Forzamos vacío para evitar que gradle busque SDK
+          ANDROID_HOME: ${{ secrets.ANDROID_HOME }}
+        run: ./gradlew :assistant:compileKotlinJvm --no-daemon -x testDebugUnitTest
 
       - name: Ejecutar tests unitarios puros (sin Android)
         if: success()
+        env:
+          ANDROID_HOME: ${{ secrets.ANDROID_HOME }}
         run: |
           echo "▶️ Ejecutando tests unitarios locales..."
           # Los tests que no dependen de Android pueden ejecutarse

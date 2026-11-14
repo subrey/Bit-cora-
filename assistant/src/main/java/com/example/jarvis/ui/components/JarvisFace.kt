@@ -9,7 +9,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -29,23 +28,22 @@ import androidx.compose.ui.unit.dp
 import com.example.jarvis.domain.model.AssistantState
 import com.example.jarvis.ui.JarvisColors
 import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Rostro androide de JARVIS con proporciones humanas y textura metálica.
- * Reacciona al estado del asistente con luz, parpadeo y animación de voz.
+ * Androide de medio cuerpo de JARVIS: cabeza, cuello, hombros y torso
+ * con proporciones humanas, textura metálica y núcleo reactivo al estado.
  */
 @Composable
 fun JarvisFace(
     state: AssistantState,
     modifier: Modifier = Modifier,
 ) {
-    val transition = rememberInfiniteTransition(label = "jarvis-face")
+    val transition = rememberInfiniteTransition(label = "jarvis-body")
 
     val breathe by transition.animateFloat(
-        initialValue = 0.992f,
-        targetValue = 1.008f,
+        initialValue = 0.994f,
+        targetValue = 1.006f,
         animationSpec = infiniteRepeatable(
             animation = tween(3400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
@@ -77,6 +75,15 @@ fun JarvisFace(
         ),
         label = "boca",
     )
+    val corePulse by transition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "core",
+    )
     val ringRot by transition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
@@ -98,118 +105,97 @@ fun JarvisFace(
         label = "accent",
     )
 
-    // Paleta metálica
     val metalDark = Color(0xFF08131C)
     val metalMid = Color(0xFF122433)
     val metalLight = Color(0xFF1E3A4D)
     val steel = Color(0xFF8FB6C8)
 
-    Canvas(modifier.aspectRatio(1f)) {
+    Canvas(modifier) {
         val w = size.width
         val h = size.height
         val cx = w / 2f
-        val cy = h * 0.50f
-        // Proporciones humanas aproximadas: ancho cara ~0.72 de alto cabeza
-        val faceH = h * 0.72f * breathe
-        val faceW = faceH * 0.72f
+
+        // Escala general del cuerpo dentro del canvas
+        val bodyH = h * 0.92f * breathe
+        val headH = bodyH * 0.34f
+        val headW = headH * 0.72f
+        val headCy = h * 0.22f
+        val neckTop = headCy + headH * 0.46f
+        val shoulderY = neckTop + bodyH * 0.08f
+        val torsoBottom = h * 0.96f
+        val torsoW = bodyH * 0.62f
 
         // Halo ambiental
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(accent.copy(alpha = 0.18f), accent.copy(alpha = 0.04f), Color.Transparent),
-                center = Offset(cx, cy),
-                radius = w * 0.48f,
+                colors = listOf(accent.copy(alpha = 0.16f), accent.copy(alpha = 0.04f), Color.Transparent),
+                center = Offset(cx, h * 0.45f),
+                radius = w * 0.55f,
             ),
-            radius = w * 0.48f,
-            center = Offset(cx, cy),
+            radius = w * 0.55f,
+            center = Offset(cx, h * 0.45f),
         )
 
-        // Anillos HUD
-        rotate(ringRot, pivot = Offset(cx, cy)) {
-            drawArc(accent.copy(alpha = 0.30f), -20f, 60f, false,
-                Offset(cx - w * 0.45f, cy - h * 0.45f), Size(w * 0.90f, h * 0.90f),
+        // Anillo HUD detrás de cabeza
+        rotate(ringRot, pivot = Offset(cx, headCy)) {
+            drawArc(accent.copy(alpha = 0.22f), -30f, 70f, false,
+                Offset(cx - headW * 0.85f, headCy - headH * 0.55f), Size(headW * 1.7f, headH * 1.1f),
                 style = Stroke(1.2.dp.toPx(), cap = StrokeCap.Round))
-            drawArc(accent.copy(alpha = 0.16f), 160f, 45f, false,
-                Offset(cx - w * 0.45f, cy - h * 0.45f), Size(w * 0.90f, h * 0.90f),
-                style = Stroke(1.dp.toPx(), cap = StrokeCap.Round))
         }
-        rotate(-ringRot * 0.6f, pivot = Offset(cx, cy)) {
-            drawArc(steel.copy(alpha = 0.14f), 40f, 120f, false,
-                Offset(cx - w * 0.41f, cy - h * 0.41f), Size(w * 0.82f, h * 0.82f),
+        rotate(-ringRot * 0.6f, pivot = Offset(cx, headCy)) {
+            drawArc(steel.copy(alpha = 0.12f), 140f, 60f, false,
+                Offset(cx - headW * 0.78f, headCy - headH * 0.50f), Size(headW * 1.56f, headH * 1.0f),
                 style = Stroke(1.dp.toPx(), cap = StrokeCap.Round))
         }
 
-        val head = headPath(cx, cy, faceW, faceH)
+        // Torso y hombros
+        drawTorso(cx, shoulderY, torsoW, torsoBottom, metalDark, metalMid, metalLight, steel, accent, corePulse, state)
 
-        // Base metálica de la cabeza
-        drawPath(
-            path = head,
-            brush = Brush.linearGradient(
-                colors = listOf(metalLight, metalMid, metalDark, metalMid),
-                start = Offset(cx - faceW * 0.5f, cy - faceH * 0.5f),
-                end = Offset(cx + faceW * 0.5f, cy + faceH * 0.5f),
-            ),
-        )
-        // Sombreado vertical para volumen
-        drawPath(
-            path = head,
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = 0.06f),
-                    Color.Transparent,
-                    Color.Black.copy(alpha = 0.25f),
-                ),
-                startY = cy - faceH / 2f,
-                endY = cy + faceH / 2f,
-            ),
-        )
-        // Brillo especular (mejilla/luz)
-        drawPath(
-            path = head,
-            brush = Brush.radialGradient(
-                colors = listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
-                center = Offset(cx - faceW * 0.18f, cy - faceH * 0.15f),
-                radius = faceW * 0.55f,
-            ),
-        )
+        // Cuello
+        drawNeck(cx, neckTop, headW, shoulderY, metalMid, metalDark, steel, accent)
 
-        // Textura metálica (líneas de cepillado + paneles) recortada al rostro
+        // Cabeza
+        val head = headPath(cx, headCy, headW, headH)
+        drawPath(head, Brush.linearGradient(
+            colors = listOf(metalLight, metalMid, metalDark, metalMid),
+            start = Offset(cx - headW * 0.5f, headCy - headH * 0.5f),
+            end = Offset(cx + headW * 0.5f, headCy + headH * 0.5f),
+        ))
+        drawPath(head, Brush.verticalGradient(
+            colors = listOf(Color.White.copy(alpha = 0.06f), Color.Transparent, Color.Black.copy(alpha = 0.22f)),
+            startY = headCy - headH / 2f, endY = headCy + headH / 2f,
+        ))
+        drawPath(head, Brush.radialGradient(
+            colors = listOf(Color.White.copy(alpha = 0.09f), Color.Transparent),
+            center = Offset(cx - headW * 0.18f, headCy - headH * 0.12f),
+            radius = headW * 0.55f,
+        ))
+
         clipPath(head) {
-            drawMetalTexture(cx, cy, faceW, faceH, accent, steel)
-            drawFaceStructure(cx, cy, faceW, faceH, accent, steel)
-            // Escaneo
-            val scanY = cy - faceH * 0.52f + faceH * scan
+            drawMetalTexture(cx, headCy, headW, headH, accent, steel)
+            drawFaceStructure(cx, headCy, headW, headH, accent, steel)
+            val scanY = headCy - headH * 0.52f + headH * scan
             drawRect(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, accent.copy(alpha = 0.12f), accent.copy(alpha = 0.02f), Color.Transparent),
-                    startY = scanY - faceH * 0.06f,
-                    endY = scanY + faceH * 0.06f,
+                    colors = listOf(Color.Transparent, accent.copy(alpha = 0.12f), Color.Transparent),
+                    startY = scanY - headH * 0.06f, endY = scanY + headH * 0.06f,
                 ),
-                topLeft = Offset(cx - faceW, scanY - faceH * 0.06f),
-                size = Size(faceW * 2f, faceH * 0.12f),
+                topLeft = Offset(cx - headW, scanY - headH * 0.06f),
+                size = Size(headW * 2f, headH * 0.12f),
             )
         }
 
-        // Contorno exterior
-        drawPath(
-            path = head,
-            brush = Brush.verticalGradient(
-                colors = listOf(accent.copy(alpha = 0.65f), accent.copy(alpha = 0.25f), accent.copy(alpha = 0.45f)),
-                startY = cy - faceH / 2f,
-                endY = cy + faceH / 2f,
-            ),
-            style = Stroke(2.dp.toPx(), join = StrokeJoin.Round),
-        )
+        drawPath(head, Brush.verticalGradient(
+            colors = listOf(accent.copy(alpha = 0.60f), accent.copy(alpha = 0.22f), accent.copy(alpha = 0.40f)),
+            startY = headCy - headH / 2f, endY = headCy + headH / 2f,
+        ), style = Stroke(2.dp.toPx(), join = StrokeJoin.Round))
 
-        // Cuello metálico (debajo de mandíbula)
-        drawNeck(cx, cy, faceW, faceH, metalMid, metalDark, accent, steel)
+        // Rasgos faciales
+        drawFacialFeatures(cx, headCy, headW, headH, accent, steel, state, blink, mouthWave)
 
-        // Rasgos faciales con proporciones humanas
-        drawFacialFeatures(cx, cy, faceW, faceH, accent, steel, state, blink, mouthWave)
-
-        // Indicadores laterales
-        drawSidePlate(cx - faceW * 0.52f, cy - faceH * 0.05f, faceW, faceH, accent, steel, true)
-        drawSidePlate(cx + faceW * 0.52f, cy - faceH * 0.05f, faceW, faceH, accent, steel, false)
+        // Placas laterales cabeza
+        drawSidePlate(cx - headW * 0.52f, headCy, headW, headH, accent, steel, true)
+        drawSidePlate(cx + headW * 0.52f, headCy, headW, headH, accent, steel, false)
     }
 }
 
@@ -218,23 +204,131 @@ private fun headPath(cx: Float, cy: Float, w: Float, h: Float): Path {
     val right = cx + w / 2f
     val top = cy - h / 2f
     val bottom = cy + h / 2f
-    // Proporciones: frente más amplia, pómulos, mandíbula angulada, barbilla redondeada
     return Path().apply {
         moveTo(cx, top + h * 0.02f)
-        // frente derecha
         cubicTo(cx + w * 0.22f, top, right - w * 0.02f, top + h * 0.10f, right, cy - h * 0.12f)
-        // sien/pómulo derecho
         cubicTo(right + w * 0.01f, cy + h * 0.02f, right - w * 0.02f, cy + h * 0.18f, right - w * 0.08f, cy + h * 0.30f)
-        // mandíbula derecha
         cubicTo(right - w * 0.14f, cy + h * 0.42f, cx + w * 0.20f, bottom - h * 0.02f, cx, bottom)
-        // mandíbula izquierda
         cubicTo(cx - w * 0.20f, bottom - h * 0.02f, left + w * 0.14f, cy + h * 0.42f, left + w * 0.08f, cy + h * 0.30f)
-        // pómulo/sien izquierda
         cubicTo(left + w * 0.02f, cy + h * 0.18f, left - w * 0.01f, cy + h * 0.02f, left, cy - h * 0.12f)
-        // frente izquierda
         cubicTo(left + w * 0.02f, top + h * 0.10f, cx - w * 0.22f, top, cx, top + h * 0.02f)
         close()
     }
+}
+
+private fun DrawScope.drawTorso(
+    cx: Float, shoulderY: Float, torsoW: Float, bottom: Float,
+    dark: Color, mid: Color, light: Color, steel: Color, accent: Color,
+    corePulse: Float, state: AssistantState,
+) {
+    val topW = torsoW * 0.48f
+    val midW = torsoW * 0.55f
+    val botW = torsoW * 0.42f
+    val torsoPath = Path().apply {
+        moveTo(cx - topW, shoulderY)
+        // hombro izquierdo
+        cubicTo(cx - torsoW * 0.52f, shoulderY + (bottom - shoulderY) * 0.05f, cx - midW, shoulderY + (bottom - shoulderY) * 0.35f, cx - botW, bottom)
+        lineTo(cx + botW, bottom)
+        // lado derecho
+        cubicTo(cx + midW, shoulderY + (bottom - shoulderY) * 0.35f, cx + torsoW * 0.52f, shoulderY + (bottom - shoulderY) * 0.05f, cx + topW, shoulderY)
+        close()
+    }
+    drawPath(torsoPath, Brush.verticalGradient(listOf(light, mid, dark), shoulderY, bottom))
+    drawPath(torsoPath, Brush.horizontalGradient(
+        listOf(Color.Black.copy(alpha = 0.18f), Color.Transparent, Color.White.copy(alpha = 0.05f), Color.Transparent, Color.Black.copy(alpha = 0.18f)),
+        cx - torsoW * 0.55f, cx + torsoW * 0.55f,
+    ))
+    clipPath(torsoPath) {
+        // Textura de placas
+        var y = shoulderY
+        var i = 0
+        while (y < bottom) {
+            val a = if (i % 4 == 0) 0.05f else 0.02f
+            drawLine(steel.copy(alpha = a), Offset(cx - torsoW, y), Offset(cx + torsoW, y), 1f)
+            y += (bottom - shoulderY) * 0.03f
+            i++
+        }
+        // Líneas de armadura pectoral
+        val chestY = shoulderY + (bottom - shoulderY) * 0.28f
+        drawLine(accent.copy(alpha = 0.14f), Offset(cx, shoulderY + (bottom - shoulderY) * 0.05f), Offset(cx, bottom - (bottom - shoulderY) * 0.08f), 1.2.dp.toPx())
+        drawLine(accent.copy(alpha = 0.12f), Offset(cx - torsoW * 0.10f, shoulderY + (bottom - shoulderY) * 0.12f), Offset(cx - torsoW * 0.38f, chestY), 1.dp.toPx())
+        drawLine(accent.copy(alpha = 0.12f), Offset(cx + torsoW * 0.10f, shoulderY + (bottom - shoulderY) * 0.12f), Offset(cx + torsoW * 0.38f, chestY), 1.dp.toPx())
+        drawLine(accent.copy(alpha = 0.10f), Offset(cx - torsoW * 0.38f, chestY), Offset(cx - torsoW * 0.30f, bottom - (bottom - shoulderY) * 0.15f), 1.dp.toPx())
+        drawLine(accent.copy(alpha = 0.10f), Offset(cx + torsoW * 0.38f, chestY), Offset(cx + torsoW * 0.30f, bottom - (bottom - shoulderY) * 0.15f), 1.dp.toPx())
+        drawArc(accent.copy(alpha = 0.10f), 20f, 140f, false,
+            Offset(cx - torsoW * 0.28f, chestY - torsoW * 0.06f), Size(torsoW * 0.56f, torsoW * 0.30f),
+            style = Stroke(1.dp.toPx()))
+    }
+    drawPath(torsoPath, accent.copy(alpha = 0.28f), style = Stroke(1.8.dp.toPx(), join = StrokeJoin.Round))
+
+    // Hombros (pauldrons)
+    drawShoulder(cx - torsoW * 0.52f, shoulderY + (bottom - shoulderY) * 0.06f, torsoW, bottom - shoulderY, dark, mid, steel, accent, left = true)
+    drawShoulder(cx + torsoW * 0.52f, shoulderY + (bottom - shoulderY) * 0.06f, torsoW, bottom - shoulderY, dark, mid, steel, accent, left = false)
+
+    // Núcleo del reactor (pecho)
+    val coreCy = shoulderY + (bottom - shoulderY) * 0.38f
+    val coreR = torsoW * 0.11f * corePulse
+    val glow = if (state == AssistantState.THINKING || state == AssistantState.SPEAKING) 1f else 0.7f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(accent.copy(alpha = 0.35f * glow), accent.copy(alpha = 0.08f), Color.Transparent),
+            center = Offset(cx, coreCy), radius = coreR * 2.8f,
+        ),
+        radius = coreR * 2.8f, center = Offset(cx, coreCy),
+    )
+    drawCircle(Color(0xFF071018), radius = coreR * 1.25f, center = Offset(cx, coreCy))
+    drawCircle(accent.copy(alpha = 0.7f * glow), radius = coreR * 1.25f, center = Offset(cx, coreCy), style = Stroke(1.5.dp.toPx()))
+    // anillo interior
+    drawCircle(accent.copy(alpha = 0.55f), radius = coreR * 0.85f, center = Offset(cx, coreCy), style = Stroke(1.dp.toPx()))
+    // segmentos de reactor
+    for (i in 0 until 6) {
+        val a = i * 60f - 90f
+        drawArc(accent.copy(alpha = 0.75f * glow), a + 8f, 44f, false,
+            Offset(cx - coreR, coreCy - coreR), Size(coreR * 2f, coreR * 2f),
+            style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
+    }
+    drawCircle(
+        brush = Brush.radialGradient(listOf(Color.White.copy(alpha = 0.95f), accent.copy(alpha = 0.6f), Color.Transparent), Offset(cx, coreCy), coreR * 0.55f),
+        radius = coreR * 0.55f, center = Offset(cx, coreCy),
+    )
+}
+
+private fun DrawScope.drawShoulder(cx: Float, cy: Float, torsoW: Float, torsoH: Float, dark: Color, mid: Color, steel: Color, accent: Color, left: Boolean) {
+    val dir = if (left) -1f else 1f
+    val sw = torsoW * 0.22f
+    val sh = torsoH * 0.22f
+    val path = Path().apply {
+        moveTo(cx, cy - sh * 0.5f)
+        cubicTo(cx + dir * sw * 0.6f, cy - sh * 0.45f, cx + dir * sw, cy - sh * 0.1f, cx + dir * sw * 0.85f, cy + sh * 0.4f)
+        cubicTo(cx + dir * sw * 0.5f, cy + sh * 0.55f, cx + dir * sw * 0.1f, cy + sh * 0.35f, cx, cy + sh * 0.1f)
+        close()
+    }
+    drawPath(path, Brush.linearGradient(listOf(mid, dark), Offset(cx, cy - sh), Offset(cx + dir * sw, cy + sh)))
+    drawPath(path, accent.copy(alpha = 0.22f), style = Stroke(1.2.dp.toPx()))
+    drawLine(steel.copy(alpha = 0.20f), Offset(cx + dir * sw * 0.15f, cy - sh * 0.1f), Offset(cx + dir * sw * 0.65f, cy + sh * 0.05f), 1.dp.toPx())
+    drawCircle(accent.copy(alpha = 0.35f), radius = sw * 0.06f, center = Offset(cx + dir * sw * 0.55f, cy))
+}
+
+private fun DrawScope.drawNeck(cx: Float, top: Float, headW: Float, shoulderY: Float, mid: Color, dark: Color, steel: Color, accent: Color) {
+    val neckW = headW * 0.28f
+    val bottom = shoulderY + (shoulderY - top) * 0.15f
+    val path = Path().apply {
+        moveTo(cx - neckW, top)
+        lineTo(cx - neckW * 1.25f, bottom)
+        lineTo(cx + neckW * 1.25f, bottom)
+        lineTo(cx + neckW, top)
+        close()
+    }
+    drawPath(path, Brush.verticalGradient(listOf(mid, dark), top, bottom))
+    drawPath(path, steel.copy(alpha = 0.14f), style = Stroke(1.dp.toPx()))
+    for (i in 1..3) {
+        val yy = top + (bottom - top) * (i / 4f)
+        val ww = neckW * (1f + 0.07f * i)
+        drawLine(accent.copy(alpha = 0.10f), Offset(cx - ww, yy), Offset(cx + ww, yy), 1.dp.toPx())
+    }
+    // Cables/detalle lateral cuello
+    drawLine(accent.copy(alpha = 0.18f), Offset(cx - neckW * 0.9f, top + (bottom - top) * 0.2f), Offset(cx - neckW * 1.1f, bottom - (bottom - top) * 0.2f), 1.5.dp.toPx(), cap = StrokeCap.Round)
+    drawLine(accent.copy(alpha = 0.18f), Offset(cx + neckW * 0.9f, top + (bottom - top) * 0.2f), Offset(cx + neckW * 1.1f, bottom - (bottom - top) * 0.2f), 1.5.dp.toPx(), cap = StrokeCap.Round)
 }
 
 private fun DrawScope.drawMetalTexture(cx: Float, cy: Float, faceW: Float, faceH: Float, accent: Color, steel: Color) {
@@ -242,104 +336,53 @@ private fun DrawScope.drawMetalTexture(cx: Float, cy: Float, faceW: Float, faceH
     val right = cx + faceW
     val top = cy - faceH
     val bottom = cy + faceH
-    // Cepillado horizontal fino
     var y = top
     var i = 0
     while (y < bottom) {
-        val alpha = if (i % 3 == 0) 0.05f else 0.025f
-        drawLine(
-            color = steel.copy(alpha = alpha),
-            start = Offset(left, y),
-            end = Offset(right, y),
-            strokeWidth = 1f,
-        )
-        y += faceH * 0.018f
+        val alpha = if (i % 3 == 0) 0.045f else 0.02f
+        drawLine(steel.copy(alpha = alpha), Offset(left, y), Offset(right, y), 1f)
+        y += faceH * 0.02f
         i++
     }
-    // Bandas de brillo especular
     drawRect(
         brush = Brush.horizontalGradient(
             colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.05f), Color.Transparent),
-            startX = cx - faceW * 0.35f,
-            endX = cx - faceW * 0.05f,
+            startX = cx - faceW * 0.35f, endX = cx - faceW * 0.05f,
         ),
-        topLeft = Offset(cx - faceW, top),
-        size = Size(faceW * 2f, faceH * 2f),
+        topLeft = Offset(left, top), size = Size(faceW * 2f, faceH * 2f),
     )
-    // Micro costuras/paneles hex-like sugeridos (pocas líneas)
-    val seam = accent.copy(alpha = 0.06f)
-    for (k in -2..2) {
-        val yy = cy + k * faceH * 0.12f
-        drawLine(seam, Offset(cx - faceW * 0.46f, yy), Offset(cx + faceW * 0.46f, yy), strokeWidth = 0.8f)
-    }
 }
 
 private fun DrawScope.drawFaceStructure(cx: Float, cy: Float, faceW: Float, faceH: Float, accent: Color, steel: Color) {
-    val line = accent.copy(alpha = 0.11f)
-    // Línea media
+    val line = accent.copy(alpha = 0.10f)
     drawLine(line, Offset(cx, cy - faceH * 0.44f), Offset(cx, cy + faceH * 0.46f), 1.dp.toPx())
-    // Pómulos
     drawLine(line, Offset(cx - faceW * 0.12f, cy - faceH * 0.02f), Offset(cx - faceW * 0.46f, cy + faceH * 0.10f), 1.dp.toPx())
     drawLine(line, Offset(cx + faceW * 0.12f, cy - faceH * 0.02f), Offset(cx + faceW * 0.46f, cy + faceH * 0.10f), 1.dp.toPx())
-    // Contorno mandíbula interno
     drawLine(line, Offset(cx - faceW * 0.18f, cy + faceH * 0.22f), Offset(cx - faceW * 0.34f, cy + faceH * 0.34f), 1.dp.toPx())
     drawLine(line, Offset(cx + faceW * 0.18f, cy + faceH * 0.22f), Offset(cx + faceW * 0.34f, cy + faceH * 0.34f), 1.dp.toPx())
     drawLine(line, Offset(cx - faceW * 0.18f, cy + faceH * 0.22f), Offset(cx + faceW * 0.18f, cy + faceH * 0.22f), 1.dp.toPx())
-    // Sienes
-    drawLine(steel.copy(alpha = 0.10f), Offset(cx - faceW * 0.36f, cy - faceH * 0.22f), Offset(cx - faceW * 0.46f, cy - faceH * 0.08f), 1.dp.toPx())
-    drawLine(steel.copy(alpha = 0.10f), Offset(cx + faceW * 0.36f, cy - faceH * 0.22f), Offset(cx + faceW * 0.46f, cy - faceH * 0.08f), 1.dp.toPx())
-    // Remaches decorativos
-    val rivet = steel.copy(alpha = 0.25f)
-    val points = listOf(
+    val rivet = steel.copy(alpha = 0.22f)
+    listOf(
         Offset(cx - faceW * 0.40f, cy - faceH * 0.28f),
         Offset(cx + faceW * 0.40f, cy - faceH * 0.28f),
         Offset(cx - faceW * 0.42f, cy + faceH * 0.18f),
         Offset(cx + faceW * 0.42f, cy + faceH * 0.18f),
-    )
-    points.forEach { p ->
-        drawCircle(rivet, radius = faceW * 0.012f, center = p)
-        drawCircle(accent.copy(alpha = 0.20f), radius = faceW * 0.005f, center = p)
-    }
-}
-
-private fun DrawScope.drawNeck(cx: Float, cy: Float, faceW: Float, faceH: Float, mid: Color, dark: Color, accent: Color, steel: Color) {
-    val neckTop = cy + faceH * 0.48f
-    val neckW = faceW * 0.38f
-    val neckH = faceH * 0.22f
-    val path = Path().apply {
-        moveTo(cx - neckW, neckTop)
-        lineTo(cx - neckW * 1.15f, neckTop + neckH)
-        lineTo(cx + neckW * 1.15f, neckTop + neckH)
-        lineTo(cx + neckW, neckTop)
-        close()
-    }
-    drawPath(path, Brush.verticalGradient(listOf(mid, dark), neckTop, neckTop + neckH))
-    drawPath(path, steel.copy(alpha = 0.12f), style = Stroke(1.dp.toPx()))
-    // Segmentos de cuello
-    for (i in 1..3) {
-        val yy = neckTop + neckH * (i / 4f)
-        val ww = neckW * (1f + 0.04f * i)
-        drawLine(accent.copy(alpha = 0.10f), Offset(cx - ww, yy), Offset(cx + ww, yy), 1.dp.toPx())
-    }
+    ).forEach { p -> drawCircle(rivet, radius = faceW * 0.012f, center = p) }
 }
 
 private fun DrawScope.drawFacialFeatures(
     cx: Float, cy: Float, faceW: Float, faceH: Float,
     accent: Color, steel: Color, state: AssistantState, blink: Float, mouthWave: Float,
 ) {
-    // Proporciones humanas (tercios): ojos ~40% desde arriba, nariz base ~66%, boca ~80%
     val eyeY = cy - faceH * 0.10f
     val noseBaseY = cy + faceH * 0.16f
     val mouthY = cy + faceH * 0.30f
-
-    // Cejas
     val browY = eyeY - faceH * 0.075f
     val browW = faceW * 0.19f
     val browTilt = if (state == AssistantState.THINKING) -faceH * 0.015f else 0f
-    drawBrow(cx - faceW * 0.21f, browY + browTilt, browW, accent, left = true)
-    drawBrow(cx + faceW * 0.21f, browY - browTilt, browW, accent, left = false)
+    drawBrow(cx - faceW * 0.21f, browY + browTilt, browW, accent, true)
+    drawBrow(cx + faceW * 0.21f, browY - browTilt, browW, accent, false)
 
-    // Ojos (separación ~1 ancho de ojo)
     val eyeOffsetX = faceW * 0.21f
     val eyeRx = faceW * 0.105f
     val eyeRy = faceH * 0.034f
@@ -352,33 +395,17 @@ private fun DrawScope.drawFacialFeatures(
     }
     drawRealisticEye(cx - eyeOffsetX, eyeY, eyeRx, eyeRy, eyeOpen, accent, state)
     drawRealisticEye(cx + eyeOffsetX, eyeY, eyeRx, eyeRy, eyeOpen, accent, state)
-
-    // Nariz (proporción humana: puente desde entrecejo, base más ancha)
     drawNose(cx, eyeY + faceH * 0.02f, noseBaseY, faceW, faceH, steel, accent)
-
-    // Surco nasolabial sutil
-    drawLine(steel.copy(alpha = 0.08f), Offset(cx - faceW * 0.10f, noseBaseY + faceH * 0.02f), Offset(cx - faceW * 0.14f, mouthY - faceH * 0.02f), 1.dp.toPx())
-    drawLine(steel.copy(alpha = 0.08f), Offset(cx + faceW * 0.10f, noseBaseY + faceH * 0.02f), Offset(cx + faceW * 0.14f, mouthY - faceH * 0.02f), 1.dp.toPx())
-
-    // Boca
     drawRealisticMouth(cx, mouthY, faceW, faceH, accent, state, mouthWave, blink)
 }
 
 private fun DrawScope.drawBrow(cx: Float, cy: Float, w: Float, accent: Color, left: Boolean) {
-    val dir = if (left) -1f else 1f
     val path = Path().apply {
         moveTo(cx - w, cy + w * 0.08f)
         quadraticBezierTo(cx, cy - w * 0.10f, cx + w, cy + w * 0.12f)
     }
     drawPath(path, color = accent.copy(alpha = 0.40f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-    // placa de ceja metálica
-    drawLine(
-        color = Color(0xFF2A4658).copy(alpha = 0.6f),
-        start = Offset(cx - w * 0.95f, cy + w * 0.12f),
-        end = Offset(cx + w * 0.95f, cy + w * 0.16f),
-        strokeWidth = 1.2.dp.toPx(),
-        cap = StrokeCap.Round,
-    )
+    drawLine(Color(0xFF2A4658).copy(alpha = 0.6f), Offset(cx - w * 0.95f, cy + w * 0.12f), Offset(cx + w * 0.95f, cy + w * 0.16f), 1.2.dp.toPx(), cap = StrokeCap.Round)
 }
 
 private fun DrawScope.drawRealisticEye(cx: Float, cy: Float, rx: Float, ry: Float, open: Float, accent: Color, state: AssistantState) {
@@ -386,40 +413,19 @@ private fun DrawScope.drawRealisticEye(cx: Float, cy: Float, rx: Float, ry: Floa
     val tl = Offset(cx - rx, cy - h / 2f)
     val sz = Size(rx * 2f, h)
     val cr = CornerRadius(rx * 0.9f, rx * 0.9f)
-
-    // Sombra de párpado/cuenca
-    drawOval(
-        brush = Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.35f), Color.Transparent), Offset(cx, cy), rx * 1.5f),
-        topLeft = Offset(cx - rx * 1.5f, cy - ry * 1.6f),
-        size = Size(rx * 3f, ry * 3.2f),
-    )
-    // Globo ocular
-    drawRoundRect(
-        brush = Brush.verticalGradient(listOf(Color(0xFFE8F4FF).copy(alpha = 0.12f), Color(0xFF0A1822)), tl.y, tl.y + h),
-        topLeft = tl, size = sz, cornerRadius = cr,
-    )
+    drawOval(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.35f), Color.Transparent), Offset(cx, cy), rx * 1.5f),
+        topLeft = Offset(cx - rx * 1.5f, cy - ry * 1.6f), size = Size(rx * 3f, ry * 3.2f))
+    drawRoundRect(Brush.verticalGradient(listOf(Color(0xFFE8F4FF).copy(alpha = 0.12f), Color(0xFF0A1822)), tl.y, tl.y + h), tl, sz, cr)
     drawRoundRect(accent.copy(alpha = 0.50f), tl, sz, cr, style = Stroke(1.dp.toPx()))
-
     if (open > 0.22f) {
         val irisR = ry * 0.95f * open.coerceAtMost(1f)
-        // Iris detallado
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(accent.copy(alpha = 0.9f), accent, Color(0xFF063040)),
-                center = Offset(cx, cy), radius = irisR,
-            ),
-            radius = irisR, center = Offset(cx, cy),
-        )
-        // Anillo limbal
-        drawCircle(accent.copy(alpha = 0.7f), radius = irisR, center = Offset(cx, cy), style = Stroke(1.dp.toPx()))
-        // Pupila
+        drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.9f), accent, Color(0xFF063040)), Offset(cx, cy), irisR), irisR, Offset(cx, cy))
+        drawCircle(accent.copy(alpha = 0.7f), irisR, Offset(cx, cy), style = Stroke(1.dp.toPx()))
         val pupilR = irisR * (if (state == AssistantState.LISTENING) 0.52f else 0.40f)
-        drawCircle(Color(0xFF010406), radius = pupilR, center = Offset(cx, cy))
-        // Reflejos
-        drawCircle(Color.White.copy(alpha = 0.95f), radius = irisR * 0.20f, center = Offset(cx - irisR * 0.22f, cy - irisR * 0.26f))
-        drawCircle(Color.White.copy(alpha = 0.5f), radius = irisR * 0.09f, center = Offset(cx + irisR * 0.20f, cy + irisR * 0.18f))
+        drawCircle(Color(0xFF010406), pupilR, Offset(cx, cy))
+        drawCircle(Color.White.copy(alpha = 0.95f), irisR * 0.20f, Offset(cx - irisR * 0.22f, cy - irisR * 0.26f))
+        drawCircle(Color.White.copy(alpha = 0.5f), irisR * 0.09f, Offset(cx + irisR * 0.20f, cy + irisR * 0.18f))
     }
-    // Párpado superior metálico
     val lidPath = Path().apply {
         moveTo(cx - rx, cy - h / 2f + h * 0.1f)
         quadraticBezierTo(cx, cy - h / 2f - h * 0.05f, cx + rx, cy - h / 2f + h * 0.1f)
@@ -430,15 +436,11 @@ private fun DrawScope.drawRealisticEye(cx: Float, cy: Float, rx: Float, ry: Floa
 private fun DrawScope.drawNose(cx: Float, topY: Float, baseY: Float, faceW: Float, faceH: Float, steel: Color, accent: Color) {
     val bridgeW = faceW * 0.045f
     val baseW = faceW * 0.11f
-    // Puente
     drawLine(steel.copy(alpha = 0.22f), Offset(cx - bridgeW * 0.3f, topY), Offset(cx - bridgeW, baseY - faceH * 0.03f), 1.4.dp.toPx(), cap = StrokeCap.Round)
     drawLine(Color.White.copy(alpha = 0.06f), Offset(cx + bridgeW * 0.4f, topY), Offset(cx + bridgeW * 0.2f, baseY - faceH * 0.04f), 1.dp.toPx(), cap = StrokeCap.Round)
-    // Lados
     drawLine(steel.copy(alpha = 0.18f), Offset(cx - bridgeW, baseY - faceH * 0.03f), Offset(cx - baseW, baseY), 1.2.dp.toPx(), cap = StrokeCap.Round)
     drawLine(steel.copy(alpha = 0.14f), Offset(cx + bridgeW * 0.2f, baseY - faceH * 0.04f), Offset(cx + baseW * 0.7f, baseY), 1.2.dp.toPx(), cap = StrokeCap.Round)
-    // Punta/base
     drawLine(accent.copy(alpha = 0.12f), Offset(cx - baseW, baseY), Offset(cx + baseW * 0.7f, baseY + faceH * 0.005f), 1.dp.toPx(), cap = StrokeCap.Round)
-    // Fosas
     drawOval(Color.Black.copy(alpha = 0.35f), topLeft = Offset(cx - baseW * 0.55f, baseY - faceH * 0.005f), size = Size(faceW * 0.035f, faceH * 0.012f))
     drawOval(Color.Black.copy(alpha = 0.30f), topLeft = Offset(cx + baseW * 0.05f, baseY - faceH * 0.003f), size = Size(faceW * 0.03f, faceH * 0.011f))
 }
@@ -451,18 +453,15 @@ private fun DrawScope.drawRealisticMouth(cx: Float, cy: Float, faceW: Float, fac
         else -> 0.08f
     }
     val openH = faceH * (0.008f + 0.030f * amp)
-    // Labios metálicos / marco
     val lipPath = Path().apply {
         moveTo(cx - mouthW, cy)
         quadraticBezierTo(cx, cy - faceH * 0.012f, cx + mouthW, cy)
         quadraticBezierTo(cx, cy + faceH * 0.018f + openH, cx - mouthW, cy)
         close()
     }
-    drawPath(lipPath, brush = Brush.verticalGradient(listOf(Color(0xFF1A3344), Color(0xFF0C1C28)), cy - faceH * 0.02f, cy + faceH * 0.03f))
+    drawPath(lipPath, Brush.verticalGradient(listOf(Color(0xFF1A3344), Color(0xFF0C1C28)), cy - faceH * 0.02f, cy + faceH * 0.03f))
     drawPath(lipPath, accent.copy(alpha = 0.35f), style = Stroke(1.dp.toPx()))
-    // Línea central labios
     drawLine(Color(0xFF050C12).copy(alpha = 0.9f), Offset(cx - mouthW * 0.95f, cy + openH * 0.2f), Offset(cx + mouthW * 0.95f, cy + openH * 0.2f), 1.2.dp.toPx(), cap = StrokeCap.Round)
-    // Rejilla de voz
     if (openH > faceH * 0.012f) {
         val bars = 7
         val gap = mouthW * 1.6f / bars
@@ -474,18 +473,12 @@ private fun DrawScope.drawRealisticMouth(cx: Float, cy: Float, faceW: Float, fac
                 else -> 0.15f
             }
             val bh = (openH * 1.3f * bhFactor).coerceAtLeast(1.dp.toPx())
-            drawRoundRect(
-                color = accent.copy(alpha = 0.30f + 0.55f * bhFactor),
-                topLeft = Offset(bx, cy - bh * 0.15f),
-                size = Size(gap * 0.45f, bh),
-                cornerRadius = CornerRadius(gap * 0.2f, gap * 0.2f),
-            )
+            drawRoundRect(accent.copy(alpha = 0.30f + 0.55f * bhFactor), topLeft = Offset(bx, cy - bh * 0.15f), size = Size(gap * 0.45f, bh), cornerRadius = CornerRadius(gap * 0.2f, gap * 0.2f))
         }
     }
 }
 
 private fun DrawScope.drawSidePlate(x: Float, y: Float, faceW: Float, faceH: Float, accent: Color, steel: Color, left: Boolean) {
-    val dir = if (left) -1f else 1f
     val w = faceW * 0.055f
     val h = faceH * 0.16f
     val tl = Offset(if (left) x - w else x, y - h / 2f)

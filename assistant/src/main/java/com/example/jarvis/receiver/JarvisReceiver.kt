@@ -29,6 +29,92 @@ class JarvisReceiver : BroadcastReceiver() {
             ACTION_REMINDER_DONE -> onReminderDone(context, id)
             ACTION_REMINDER_SNOOZE -> onReminderSnooze(context, id)
             ACTION_ROUTINE_HOURLY -> onHourlyRoutine(context, id)
+            ACTION_ALARM -> onAlarm(context, id)
+            ACTION_ALARM_DISMISS -> onAlarmDismiss(context, id)
+            ACTION_ALARM_SNOOZE -> onAlarmSnooze(context, id)
+        }
+    }
+
+    /** Suena la alarma: notificación a pantalla completa y tono de despertador. */
+    private fun onAlarm(context: Context, id: Long) {
+        val app = context.applicationContext as? JarvisApplication ?: return
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                val alarm = app.repository.getAlarm(id)
+                if (alarm == null || !alarm.enabled) return@launch
+                Notifications.showAlarm(context, id, alarm.label, alarm.hour, alarm.minute)
+                // Tono del sistema, aparte del sonido de la notificación.
+                playAlarmTone(context)
+                JarvisBus.speaking.value = true
+                app.speaker.speak("Son las ${alarm.hour}:${alarm.minute}, señor. Ha sonado la alarma.")
+                JarvisBus.speaking.value = false
+                // La alarma diaria se vuelve a programar para el día siguiente.
+                if (alarm.repeatDaily) {
+                    app.alarmScheduler.reschedule(id, alarm.hour, alarm.minute)
+                }
+            } catch (_: Exception) {
+                // la notificación ya ha mostrado el aviso
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    /** «Despertar»: se quita la notificación y la alarma diaria se reprograma. */
+    private fun onAlarmDismiss(context: Context, id: Long) {
+        val app = context.applicationContext as? JarvisApplication ?: return
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                Notifications.cancelAlarm(context, id)
+                val alarm = app.repository.getAlarm(id)
+                if (alarm != null && alarm.repeatDaily) {
+                    app.alarmScheduler.reschedule(id, alarm.hour, alarm.minute)
+                }
+            } catch (_: Exception) {
+                // nada que hacer
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    /** «Posponer»: la alarma vuelve a sonar en nueve minutos. */
+    private fun onAlarmSnooze(context: Context, id: Long) {
+        val app = context.applicationContext as? JarvisApplication ?: return
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                Notifications.cancelAlarm(context, id)
+                val alarm = app.repository.getAlarm(id)
+                if (alarm != null) {
+                    app.alarmScheduler.scheduleOnce(
+                        id,
+                        System.currentTimeMillis() + SNOOZE_ALARM_MINUTES * 60_000L,
+                    )
+                }
+            } catch (_: Exception) {
+                // nada que hacer
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    /** Tono largo del despertador, usando el sonido de alarma del sistema. */
+    private fun playAlarmTone(context: Context) {
+        val uri = android.media.RingtoneManager.getDefaultUri(
+            android.media.RingtoneManager.TYPE_ALARM,
+        ) ?: return
+        runCatching {
+            val ringtone = android.media.RingtoneManager.getRingtone(context, uri)
+            if (ringtone != null) {
+                ringtone.play()
+                Handler(Looper.getMainLooper()).postDelayed({
+                    runCatching { ringtone.stop() }
+                }, ALARM_TONE_MILLIS)
+            }
         }
     }
 

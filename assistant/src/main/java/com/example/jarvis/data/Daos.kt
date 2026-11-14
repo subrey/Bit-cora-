@@ -93,6 +93,28 @@ interface ReminderDao {
 }
 
 @Dao
+interface AlarmDao {
+
+    @Query("SELECT * FROM alarms ORDER BY enabled DESC, hour ASC, minute ASC")
+    fun observeAll(): Flow<List<AlarmItem>>
+
+    @Query("SELECT * FROM alarms WHERE id = :id")
+    suspend fun getById(id: Long): AlarmItem?
+
+    @Query("SELECT * FROM alarms WHERE enabled = 1 ORDER BY hour ASC, minute ASC LIMIT 1")
+    suspend fun nextEnabled(): AlarmItem?
+
+    @Insert
+    suspend fun insert(item: AlarmItem): Long
+
+    @Update
+    suspend fun update(item: AlarmItem)
+
+    @Delete
+    suspend fun delete(item: AlarmItem)
+}
+
+@Dao
 interface RoutineDao {
 
     @Query("SELECT * FROM routines ORDER BY enabled DESC, createdAt DESC")

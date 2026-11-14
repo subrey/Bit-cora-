@@ -1,5 +1,6 @@
 package com.example.jarvis.assistant
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -14,6 +15,9 @@ import com.example.jarvis.receiver.JarvisReceiver
 object Notifications {
 
     const val CHANNEL_ID = "jarvis_alerts"
+
+    /** Canal con sonido de alarma, aparte del de los avisos normales. */
+    const val CHANNEL_ALARM_ID = "jarvis_alarms"
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -105,6 +109,91 @@ object Notifications {
         }
     }
 
+    /**
+     * Notificación de alarma: pantalla completa, sonido y dos acciones
+     * (despertar o posponer nueve minutos).
+     */
+    fun showAlarm(context: Context, alarmId: Long, label: String, hour: Int, minute: Int) {
+        ensureAlarmChannel(context)
+        val full = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(MainActivity.EXTRA_ALARM_ID, alarmId)
+        }
+        val fullPending = PendingIntent.getActivity(
+            context,
+            alarmId.toInt(),
+            full,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val dismiss = PendingIntent.getBroadcast(
+            context,
+            alarmId.toInt() + DISMISS_OFFSET,
+            Intent(context, JarvisReceiver::class.java).apply {
+                action = JarvisReceiver.ACTION_ALARM_DISMISS
+                putExtra(JarvisReceiver.EXTRA_ID, alarmId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val snooze = PendingIntent.getBroadcast(
+            context,
+            alarmId.toInt() + SNOOZE_OFFSET,
+            Intent(context, JarvisReceiver::class.java).apply {
+                action = JarvisReceiver.ACTION_ALARM_SNOOZE
+                putExtra(JarvisReceiver.EXTRA_ID, alarmId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val clock = String.format("%02d:%02d", hour, minute)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ALARM_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Alarma · $clock")
+            .setContentText(label.ifBlank { "Es la hora, señor." })
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(false)
+            .setOngoing(true)
+            .setContentIntent(fullPending)
+            .setFullScreenIntent(fullPending, true)
+            .addAction(android.R.drawable.ic_menu_save, "Despertar", dismiss)
+            .addAction(android.R.drawable.ic_menu_recent_history, "Posponer", snooze)
+            .build()
+        runCatching {
+            NotificationManagerCompat.from(context).notify(alarmId.toInt(), notification)
+        }
+    }
+
+    fun cancelAlarm(context: Context, alarmId: Long) {
+        runCatching {
+            NotificationManagerCompat.from(context).cancel(alarmId.toInt())
+        }
+    }
+
+    /** Canal de sonido de la alarma: el sistema loSILENCIA si el usuario lo calla. */
+    private fun ensureAlarmChannel(context: Context) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (manager.getNotificationChannel(CHANNEL_ALARM_ID) != null) return
+        val channel = NotificationChannel(
+            CHANNEL_ALARM_ID,
+            "Alarmas",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            setSound(
+                android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+            )
+            enableVibration(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+        manager.createNotificationChannel(channel)
+    }
+
     private const val DONE_OFFSET = 50_000
     private const val SNOOZE_OFFSET = 100_000
+    private const val DISMISS_OFFSET = 150_000
 }

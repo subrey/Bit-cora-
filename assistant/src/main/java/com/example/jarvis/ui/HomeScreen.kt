@@ -54,7 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.example.jarvis.domain.model.AssistantState
 import com.example.jarvis.domain.model.ChatMessage
 import com.example.jarvis.ui.components.HoloPanel
-import com.example.jarvis.ui.components.JarvisCore
+import com.example.jarvis.ui.components.JarvisFace
 
 /**
  * Pantalla principal: el núcleo de JARVIS, el botón de voz, el campo de texto
@@ -97,7 +97,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             val interaction = remember { MutableInteractionSource() }
-            JarvisCore(
+            JarvisFace(
                 state = state,
                 modifier = Modifier
                     .fillMaxWidth(0.74f)

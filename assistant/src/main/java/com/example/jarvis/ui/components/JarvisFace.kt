@@ -184,8 +184,8 @@ fun JarvisFace(
         // Líneas angulares de máscara y ojos
         drawMaskDetails(cx, headCy, headW, headH, goldDark, redDark)
         drawEyeSlits(cx, headCy, headW, headH, white, eyeGlow)
-        // Boca/mentón de máscara
-        drawMouthPlate(cx, headCy, headW, headH, gold, goldDark, redDark)
+        // Boca/mentón de máscara (animada al hablar)
+        drawMouthPlate(cx, headCy, headW, headH, gold, goldDark, redDark, white, state, speakWave)
     }
 }
 
@@ -225,28 +225,42 @@ private fun DrawScope.drawFacePlate(cx: Float, cy: Float, w: Float, h: Float, go
         close()
     }
     drawPath(plate, Brush.verticalGradient(listOf(goldLight, gold, goldDark), cy - h * 0.30f, cy + h * 0.44f))
-    // sombreado central
+    // sombreado central y reflejo metálico
     drawPath(plate, Brush.horizontalGradient(
-        listOf(Color.Black.copy(alpha = 0.08f), Color.Transparent, Color.White.copy(alpha = 0.06f), Color.Transparent, Color.Black.copy(alpha = 0.08f)),
+        listOf(Color.Black.copy(alpha = 0.10f), Color.Transparent, Color.White.copy(alpha = 0.08f), Color.Transparent, Color.Black.copy(alpha = 0.10f)),
         cx - w * 0.34f, cx + w * 0.34f
     ))
+    drawPath(plate, Brush.radialGradient(
+        colors = listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
+        center = Offset(cx - w * 0.10f, cy - h * 0.18f),
+        radius = w * 0.40f,
+    ))
+    // bisel sutil
+    drawPath(plate, Color.White.copy(alpha = 0.08f), style = Stroke(1.dp.toPx()))
 }
 
 private fun DrawScope.drawMaskDetails(cx: Float, cy: Float, w: Float, h: Float, goldDark: Color, redDark: Color) {
-    val line = goldDark.copy(alpha = 0.7f)
+    val line = goldDark.copy(alpha = 0.75f)
     val dark = redDark.copy(alpha = 0.6f)
+    val fine = Color(0xFF3A2A08).copy(alpha = 0.35f)
     // Líneas angulares de la máscara
-    drawLine(line, Offset(cx, cy - h * 0.28f), Offset(cx, cy - h * 0.02f), 1.5.dp.toPx())
-    drawLine(line, Offset(cx, cy - h * 0.02f), Offset(cx - w * 0.10f, cy + h * 0.06f), 1.5.dp.toPx())
-    drawLine(line, Offset(cx, cy - h * 0.02f), Offset(cx + w * 0.10f, cy + h * 0.06f), 1.5.dp.toPx())
+    drawLine(line, Offset(cx, cy - h * 0.28f), Offset(cx, cy - h * 0.02f), 1.6.dp.toPx())
+    drawLine(line, Offset(cx, cy - h * 0.02f), Offset(cx - w * 0.10f, cy + h * 0.06f), 1.6.dp.toPx())
+    drawLine(line, Offset(cx, cy - h * 0.02f), Offset(cx + w * 0.10f, cy + h * 0.06f), 1.6.dp.toPx())
     // pómulos angulares
     drawLine(line, Offset(cx - w * 0.10f, cy + h * 0.06f), Offset(cx - w * 0.28f, cy + h * 0.02f), 1.5.dp.toPx())
     drawLine(line, Offset(cx + w * 0.10f, cy + h * 0.06f), Offset(cx + w * 0.28f, cy + h * 0.02f), 1.5.dp.toPx())
     drawLine(line, Offset(cx - w * 0.10f, cy + h * 0.06f), Offset(cx - w * 0.18f, cy + h * 0.22f), 1.5.dp.toPx())
     drawLine(line, Offset(cx + w * 0.10f, cy + h * 0.06f), Offset(cx + w * 0.18f, cy + h * 0.22f), 1.5.dp.toPx())
+    // frente / panel superior
+    drawLine(fine, Offset(cx - w * 0.16f, cy - h * 0.20f), Offset(cx + w * 0.16f, cy - h * 0.20f), 1.dp.toPx())
+    drawLine(fine, Offset(cx - w * 0.22f, cy - h * 0.14f), Offset(cx - w * 0.08f, cy - h * 0.14f), 1.dp.toPx())
+    drawLine(fine, Offset(cx + w * 0.08f, cy - h * 0.14f), Offset(cx + w * 0.22f, cy - h * 0.14f), 1.dp.toPx())
     // contorno de mejillas rojo
     drawLine(dark, Offset(cx - w * 0.34f, cy - h * 0.12f), Offset(cx - w * 0.30f, cy + h * 0.10f), 1.2.dp.toPx())
     drawLine(dark, Offset(cx + w * 0.34f, cy - h * 0.12f), Offset(cx + w * 0.30f, cy + h * 0.10f), 1.2.dp.toPx())
+    // línea de mandíbula
+    drawLine(fine, Offset(cx - w * 0.18f, cy + h * 0.24f), Offset(cx + w * 0.18f, cy + h * 0.24f), 1.dp.toPx())
 }
 
 private fun DrawScope.drawEyeSlits(cx: Float, cy: Float, w: Float, h: Float, white: Color, glow: Float) {
@@ -287,7 +301,11 @@ private fun DrawScope.drawEyeSlits(cx: Float, cy: Float, w: Float, h: Float, whi
     slit(cx + gap + slitW / 2f)
 }
 
-private fun DrawScope.drawMouthPlate(cx: Float, cy: Float, w: Float, h: Float, gold: Color, goldDark: Color, redDark: Color) {
+private fun DrawScope.drawMouthPlate(
+    cx: Float, cy: Float, w: Float, h: Float,
+    gold: Color, goldDark: Color, redDark: Color, white: Color,
+    state: AssistantState, speakWave: Float,
+) {
     val top = cy + h * 0.18f
     val bottom = cy + h * 0.42f
     val mouth = Path().apply {
@@ -298,14 +316,60 @@ private fun DrawScope.drawMouthPlate(cx: Float, cy: Float, w: Float, h: Float, g
         close()
     }
     drawPath(mouth, Brush.verticalGradient(listOf(gold, goldDark), top, bottom))
-    drawPath(mouth, redDark.copy(alpha = 0.4f), style = Stroke(1.dp.toPx()))
-    // ranuras de respiración
-    val slots = 4
-    for (i in 0 until slots) {
-        val y = top + (bottom - top) * (0.28f + i * 0.16f)
-        val sw = w * (0.20f - i * 0.015f)
-        drawLine(redDark.copy(alpha = 0.35f), Offset(cx - sw / 2f, y), Offset(cx + sw / 2f, y), 1.5.dp.toPx(), cap = StrokeCap.Round)
+    // volumen interior oscuro
+    drawPath(mouth, Brush.verticalGradient(
+        listOf(Color.Black.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.25f)),
+        top, bottom
+    ))
+    drawPath(mouth, redDark.copy(alpha = 0.45f), style = Stroke(1.dp.toPx()))
+
+    val speaking = state == AssistantState.SPEAKING
+    val listening = state == AssistantState.LISTENING
+    val baseAmp = when (state) {
+        AssistantState.SPEAKING -> 0.6f
+        AssistantState.LISTENING -> 0.25f
+        AssistantState.THINKING -> 0.15f
+        else -> 0.05f
     }
+
+    // ranuras animadas (se abren y brillan al hablar)
+    val slots = 5
+    for (i in 0 until slots) {
+        val t = i / (slots - 1).toFloat()
+        val y = top + (bottom - top) * (0.22f + t * 0.56f)
+        val sw = w * (0.21f - t * 0.03f)
+        val phase = speakWave + i * 0.9f
+        val wave = (sin(phase.toDouble()).toFloat() * 0.5f + 0.5f)
+        val amp = baseAmp * (0.4f + 0.6f * wave)
+        val slotH = h * (0.010f + 0.018f * amp)
+        val glow = if (speaking || listening) 0.25f + 0.55f * amp else 0.08f
+
+        // luz interior de la ranura
+        if (speaking || listening) {
+            drawRoundRect(
+                color = white.copy(alpha = glow * 0.35f),
+                topLeft = Offset(cx - sw / 2f, y - slotH * 1.2f),
+                size = Size(sw, slotH * 2.4f),
+                cornerRadius = CornerRadius(slotH, slotH),
+            )
+        }
+        // ranura
+        drawRoundRect(
+            color = Color(0xFF1A0A0A).copy(alpha = 0.75f),
+            topLeft = Offset(cx - sw / 2f, y - slotH / 2f),
+            size = Size(sw, slotH),
+            cornerRadius = CornerRadius(slotH / 2f, slotH / 2f),
+        )
+        drawRoundRect(
+            color = white.copy(alpha = glow),
+            topLeft = Offset(cx - sw / 2f, y - slotH / 2f),
+            size = Size(sw, slotH),
+            cornerRadius = CornerRadius(slotH / 2f, slotH / 2f),
+            style = Stroke(0.8.dp.toPx()),
+        )
+    }
+    // línea central sutil
+    drawLine(redDark.copy(alpha = 0.25f), Offset(cx, top + (bottom - top) * 0.12f), Offset(cx, bottom - (bottom - top) * 0.08f), 1.dp.toPx())
 }
 
 private fun DrawScope.drawNeck(cx: Float, top: Float, headW: Float, shoulderY: Float, red: Color, redBright: Color, redDark: Color, gold: Color, steel: Color) {

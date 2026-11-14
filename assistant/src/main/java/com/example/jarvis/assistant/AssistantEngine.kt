@@ -13,6 +13,7 @@ import com.example.jarvis.ai.AiRequest
 import com.example.jarvis.ai.AiResult
 import com.example.jarvis.ai.AiTurn
 import com.example.jarvis.data.JarvisRepository
+import com.example.jarvis.data.AlarmItem
 import com.example.jarvis.data.RoutineItem
 import com.example.jarvis.domain.model.JarvisPersona
 import com.example.jarvis.weather.OpenMeteoProvider
@@ -42,6 +43,7 @@ class AssistantEngine(
     private val ai: AiProvider,
     private val reminderScheduler: ReminderScheduler = ReminderScheduler(context),
     private val routineScheduler: RoutineScheduler = RoutineScheduler(context),
+    private val alarmScheduler: AlarmScheduler = AlarmScheduler(context),
     private val weather: WeatherProvider? = null,
     private val cityProvider: suspend () -> String = { "" },
 ) {
@@ -134,6 +136,12 @@ class AssistantEngine(
             IntentKind.LIST_REMINDERS -> listReminders()
 
             IntentKind.CANCEL_REMINDER -> cancelReminder(intent.payload)
+
+            IntentKind.ALARM_CREATE -> createAlarm(intent.payload)
+
+            IntentKind.ALARM_LIST -> listAlarms()
+
+            IntentKind.ALARM_DELETE -> deleteAlarm(intent.payload)
 
             IntentKind.TIMER -> createTimer(intent.payload)
 
@@ -482,6 +490,69 @@ class AssistantEngine(
         return AssistantResponse("Recordatorio cancelado: ${match.text}.")
     }
 
+    /** «despiértame a las 7» / «pon una alarma mañana a las 6:30» */
+    private suspend fun createAlarm(payload: String): AssistantResponse {
+        val spec = AlarmParser.parse(payload) ?: return AssistantResponse(
+            "Dígame la hora de la alarma, por ejemplo «despiértame a las 7» o «alarma mañana a las 6:30»."
+        )
+        val item = AlarmItem(
+            hour = spec.hour,
+            minute = spec.minute,
+            label = spec.label,
+            repeatDaily = spec.repeatDaily,
+            enabled = true,
+            triggerAtMillis = spec.triggerAtMillis,
+        )
+        val id = repository.addAlarm(item)
+        alarmScheduler.schedule(id, spec.triggerAtMillis)
+        JarvisWidgetProvider.updateAll(context)
+        val whenText = if (spec.repeatDaily) {
+            "cada día a las ${String.format("%02d:%02d", spec.hour, spec.minute)}"
+        } else {
+            formatMoment(spec.triggerAtMillis)
+        }
+        val label = spec.label.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""
+        return AssistantResponse("Alarma programada para $whenText$label.")
+    }
+
+    /** «qué alarmas tengo» */
+    private suspend fun listAlarms(): AssistantResponse {
+        val alarms = repository.observeAlarms().first().filter { it.enabled }
+        if (alarms.isEmpty()) return AssistantResponse("No tiene alarmas activas, señor.")
+        val list = alarms.take(5).joinToString(" · ") { alarm ->
+            val time = String.format("%02d:%02d", alarm.hour, alarm.minute)
+            val kind = if (alarm.repeatDaily) "diaria" else "una vez"
+            val label = alarm.label.takeIf { it.isNotBlank() }?.let { " $it" } ?: ""
+            "$time ($kind)$label"
+        }
+        val more = if (alarms.size > 5) " Y ${alarms.size - 5} más." else ""
+        return AssistantResponse("Tiene ${alarms.size} alarma(s): $list.$more")
+    }
+
+    /** «borra la alarma de las 7» / «cancela la alarma» */
+    private suspend fun deleteAlarm(payload: String): AssistantResponse {
+        val alarms = repository.observeAlarms().first().filter { it.enabled }
+        if (alarms.isEmpty()) return AssistantResponse("No hay alarmas activas que borrar.")
+        val target = payload.trim()
+        val match = when {
+            target.isBlank() -> alarms.firstOrNull()
+            Regex("\\b(\\d{1,2})(?::(\\d{2}))?\\b").find(target) != null -> {
+                val m = Regex("\\b(\\d{1,2})(?::(\\d{2}))?\\b").find(target)!!
+                val h = m.groupValues[1].toIntOrNull() ?: -1
+                val min = m.groupValues[2].toIntOrNull() ?: 0
+                alarms.firstOrNull { it.hour == h && it.minute == min } ?: alarms.lastOrNull()
+            }
+            else -> alarms.firstOrNull { alarm ->
+                alarm.label.contains(target, ignoreCase = true)
+            } ?: alarms.lastOrNull()
+        } ?: return AssistantResponse("No encuentro esa alarma.")
+        alarmScheduler.cancel(match.id)
+        repository.deleteAlarm(match)
+        JarvisWidgetProvider.updateAll(context)
+        val time = String.format("%02d:%02d", match.hour, match.minute)
+        return AssistantResponse("Alarma de las $time eliminada.")
+    }
+
     /** «qué tiempo hace»: estado actual, previsión de mañana y un consejo. */
     private suspend fun weatherNow(): AssistantResponse {
         val report = weatherReport() ?: return weatherUnavailable()
@@ -699,8 +770,8 @@ class AssistantEngine(
 
     private fun helpText(): String =
         "Puedo hacer esto: poner música, pausar, quitar la música, cambiar o repetir canción, " +
-            "subir o bajar el volumen, calcular expresiones, convertir unidades, poner temporizadores " +
-            "y recordatorios, listar y cancelar recordatorios, consultar el tiempo y su previsión, " +
+            "subir o bajar el volumen, calcular expresiones, convertir unidades, poner temporizadores, " +
+            "recordatorios y alarmas, listar y cancelar recordatorios o alarmas, consultar el tiempo y su previsión, " +
             "añadir tareas, memorizar notas, " +
             "decir la hora y la fecha, informar de la " +
             "batería y del almacenamiento, encender la linterna, abrir aplicaciones, contar un chiste, " +
@@ -708,8 +779,8 @@ class AssistantEngine(
             "Si configura una clave gratuita de Gemini en Ajustes, también puedo conversar, explicar " +
             "temas y responder preguntas abiertas. " +
             "Inténtelo con: «pon música», «quita la música», «pon un temporizador de 10 minutos», " +
-            "«recuérdame comprar pan a las 6 de la tarde», «qué tiempo hace», «qué tiempo hace mañana», " +
-            "«qué recordatorios tengo», «calcula 12 * (3 + 4)» o «explícame la fotosíntesis»."
+            "«recuérdame comprar pan a las 6 de la tarde», «despiértame a las 7», «qué alarmas tengo», " +
+            "«qué tiempo hace», «qué recordatorios tengo», «calcula 12 * (3 + 4)» o «explícame la fotosíntesis»."
 
     // --- Conversación larga: entender continuaciones ------------------------
 

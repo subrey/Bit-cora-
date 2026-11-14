@@ -3,6 +3,7 @@ package com.example.jarvis
 import android.app.Application
 import com.example.jarvis.ai.AiProvider
 import com.example.jarvis.ai.GeminiProvider
+import com.example.jarvis.assistant.AlarmScheduler
 import com.example.jarvis.assistant.AssistantEngine
 import com.example.jarvis.assistant.CrashReporter
 import com.example.jarvis.assistant.MusicPlayer
@@ -35,6 +36,7 @@ class JarvisApplication : Application() {
             database.chatDao(),
             database.reminderDao(),
             database.routineDao(),
+            database.alarmDao(),
         )
     }
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
@@ -53,6 +55,9 @@ class JarvisApplication : Application() {
     /** Fase 9: rutinas (disparador → acción). */
     val routineScheduler: RoutineScheduler by lazy { RoutineScheduler(this) }
 
+    /** Fase 11: alarmas del despertador. */
+    val alarmScheduler: AlarmScheduler by lazy { AlarmScheduler(this) }
+
     /** Fase 7: meteorología con Open-Meteo (gratis y sin clave). */
     val weatherProvider: WeatherProvider by lazy { OpenMeteoProvider() }
 
@@ -65,6 +70,7 @@ class JarvisApplication : Application() {
             ai = aiProvider,
             reminderScheduler = reminderScheduler,
             routineScheduler = routineScheduler,
+            alarmScheduler = alarmScheduler,
             weather = weatherProvider,
             cityProvider = { settings.city.first() },
         )

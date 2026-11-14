@@ -66,5 +66,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** El widget de escritorio pide abrir la app con el micrófono listo. */
         const val EXTRA_START_LISTENING = "com.example.jarvis.extra.START_LISTENING"
+        /** Abre la app desde la notificación de una alarma. */
+        const val EXTRA_ALARM_ID = "com.example.jarvis.extra.ALARM_ID"
     }
 }

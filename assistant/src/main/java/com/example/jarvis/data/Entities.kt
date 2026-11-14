@@ -62,6 +62,23 @@ data class RoutineItem(
     val createdAt: Long = System.currentTimeMillis(),
 )
 
+/**
+ * Alarma del despertador. Si [repeatDaily] es true suena cada día a la
+ * misma hora; si no, suena una sola vez en [triggerAtMillis].
+ */
+@Entity(tableName = "alarms")
+data class AlarmItem(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val hour: Int,
+    val minute: Int,
+    val label: String = "",
+    val repeatDaily: Boolean = false,
+    val enabled: Boolean = true,
+    /** Próximo (o único) disparo en milisegundos. */
+    val triggerAtMillis: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
 /** Mensaje del histórico de conversación con el asistente. */
 @Entity(tableName = "chat")
 data class ChatEntry(

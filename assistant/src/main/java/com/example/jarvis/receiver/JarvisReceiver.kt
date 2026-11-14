@@ -3,8 +3,13 @@ package com.example.jarvis.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.Ringtone
+import android.media.RingtoneManager
+import android.os.Handler
+import android.os.Looper
 import com.example.jarvis.JarvisApplication
 import com.example.jarvis.assistant.Agenda
+import com.example.jarvis.assistant.AlarmScheduler
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.Notifications
 import com.example.jarvis.assistant.RoutineAction
@@ -29,6 +34,9 @@ class JarvisReceiver : BroadcastReceiver() {
             ACTION_REMINDER_DONE -> onReminderDone(context, id)
             ACTION_REMINDER_SNOOZE -> onReminderSnooze(context, id)
             ACTION_ROUTINE_HOURLY -> onHourlyRoutine(context, id)
+            ACTION_ALARM -> onAlarm(context, id)
+            ACTION_ALARM_DISMISS -> onAlarmDismiss(context, id)
+            ACTION_ALARM_SNOOZE -> onAlarmSnooze(context, id)
         }
     }
 
@@ -208,16 +216,116 @@ class JarvisReceiver : BroadcastReceiver() {
         )
     }
 
+    /** Alarma: muestra notificación, suena y habla. */
+    private fun onAlarm(context: Context, id: Long) {
+        val app = context.applicationContext as? JarvisApplication ?: return
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                val alarm = app.repository.getAlarm(id) ?: return@launch
+                if (!alarm.enabled) return@launch
+                Notifications.showAlarm(context, id, alarm.label, alarm.hour, alarm.minute)
+                playAlarmTone(context)
+                JarvisBus.speaking.value = true
+                app.speaker.speak("Alarma, señor. ${alarm.label.ifBlank { "Es la hora" }}.")
+                // Reprogramar si es diaria; si es de una vez, desactivar
+                if (alarm.repeatDaily) {
+                    val next = app.alarmScheduler.nextOccurrence(alarm.hour, alarm.minute)
+                    app.repository.updateAlarm(alarm.copy(triggerAtMillis = next))
+                    app.alarmScheduler.schedule(id, next)
+                } else {
+                    app.repository.updateAlarm(alarm.copy(enabled = false))
+                }
+            } catch (_: Exception) {
+                // la notificación ya avisó
+            } finally {
+                JarvisBus.speaking.value = false
+                JarvisWidgetProvider.updateAll(context)
+                pending.finish()
+            }
+        }
+    }
+
+    private fun onAlarmDismiss(context: Context, id: Long) {
+        val app = context.applicationContext as? JarvisApplication ?: return
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                stopAlarmTone()
+                Notifications.cancelAlarm(context, id)
+                val alarm = app.repository.getAlarm(id) ?: return@launch
+                if (alarm.repeatDaily) {
+                    val next = app.alarmScheduler.nextOccurrence(alarm.hour, alarm.minute)
+                    app.repository.updateAlarm(alarm.copy(triggerAtMillis = next, enabled = true))
+                    app.alarmScheduler.schedule(id, next)
+                } else {
+                    app.repository.updateAlarm(alarm.copy(enabled = false))
+                    app.alarmScheduler.cancel(id)
+                }
+            } catch (_: Exception) {
+            } finally {
+                JarvisWidgetProvider.updateAll(context)
+                pending.finish()
+            }
+        }
+    }
+
+    private fun onAlarmSnooze(context: Context, id: Long) {
+        val app = context.applicationContext as? JarvisApplication ?: return
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                stopAlarmTone()
+                Notifications.cancelAlarm(context, id)
+                val alarm = app.repository.getAlarm(id) ?: return@launch
+                val snoozeAt = System.currentTimeMillis() + AlarmScheduler.SNOOZE_MINUTES * 60_000L
+                app.repository.updateAlarm(alarm.copy(triggerAtMillis = snoozeAt, enabled = true))
+                app.alarmScheduler.schedule(id, snoozeAt)
+            } catch (_: Exception) {
+            } finally {
+                JarvisWidgetProvider.updateAll(context)
+                pending.finish()
+            }
+        }
+    }
+
+    private fun playAlarmTone(context: Context) {
+        val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            ?: return
+        runCatching {
+            val tone = RingtoneManager.getRingtone(context, uri) ?: return
+            activeRingtone = tone
+            tone.play()
+            Handler(Looper.getMainLooper()).postDelayed({
+                runCatching { tone.stop() }
+            }, ALARM_TONE_MILLIS)
+        }
+    }
+
+    private fun stopAlarmTone() {
+        runCatching { activeRingtone?.stop() }
+        activeRingtone = null
+    }
+
     companion object {
         const val ACTION_TIMER = "com.example.jarvis.action.TIMER"
         const val ACTION_REMINDER = "com.example.jarvis.action.REMINDER"
         const val ACTION_REMINDER_DONE = "com.example.jarvis.action.REMINDER_DONE"
         const val ACTION_REMINDER_SNOOZE = "com.example.jarvis.action.REMINDER_SNOOZE"
         const val ACTION_ROUTINE_HOURLY = "com.example.jarvis.action.ROUTINE_HOURLY"
+        const val ACTION_ALARM = "com.example.jarvis.action.ALARM"
+        const val ACTION_ALARM_DISMISS = "com.example.jarvis.action.ALARM_DISMISS"
+        const val ACTION_ALARM_SNOOZE = "com.example.jarvis.action.ALARM_SNOOZE"
         const val EXTRA_ID = "com.example.jarvis.extra.ID"
         const val EXTRA_LABEL = "com.example.jarvis.extra.LABEL"
 
         /** Minutos que se retrasa un recordatorio al pulsar «Posponer». */
         const val SNOOZE_MINUTES = 10
+        /** Duración del tono de alarma antes de silenciarse solo. */
+        private const val ALARM_TONE_MILLIS = 60_000L
+
+        @Volatile
+        private var activeRingtone: Ringtone? = null
     }
 }

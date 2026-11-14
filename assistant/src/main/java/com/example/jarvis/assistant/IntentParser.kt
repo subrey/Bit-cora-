@@ -28,6 +28,9 @@ enum class IntentKind {
     REMINDER,
     LIST_REMINDERS,
     CANCEL_REMINDER,
+    ALARM_CREATE,
+    ALARM_LIST,
+    ALARM_DELETE,
     TODO,
     MEMORY,
     LIST_MEMORIES,
@@ -195,6 +198,18 @@ object IntentParser {
             return ParsedIntent(IntentKind.CONVERT, payload = body.trim(), raw = raw)
         }
 
+        // --- Alarmas (despertador) ----------------------------------------
+        if (has("que alarmas", "mis alarmas", "lista mis alarmas", "alarmas puestas", "alarmas activas")) {
+            return ParsedIntent(IntentKind.ALARM_LIST, raw = raw)
+        }
+        if (has("borra la alarma", "elimina la alarma", "quita la alarma", "cancela la alarma", "apaga la alarma", "desactiva la alarma")) {
+            val body = n.substringAfter("alarma", "").trim()
+            return ParsedIntent(IntentKind.ALARM_DELETE, payload = body, raw = raw)
+        }
+        if (AlarmParser.looksLikeAlarm(n)) {
+            return ParsedIntent(IntentKind.ALARM_CREATE, payload = n, raw = raw)
+        }
+
         // --- Temporizadores y recordatorios -------------------------------
         if (has(
                 "que recordatorios", "mis recordatorios", "lista mis recordatorios",
@@ -225,7 +240,7 @@ object IntentParser {
                 .trim()
             return ParsedIntent(IntentKind.REMINDER, payload = body.ifBlank { n }, raw = raw)
         }
-        if (has("temporizador", "recordatorio", "avisame en", "avisa en", "pon alarma", "alarma")) {
+        if (has("temporizador", "avisame en", "avisa en")) {
             return ParsedIntent(IntentKind.TIMER, payload = n, raw = raw)
         }
 

@@ -13,6 +13,7 @@ class JarvisRepository(
     private val chatDao: ChatDao,
     private val reminderDao: ReminderDao,
     private val routineDao: RoutineDao,
+    private val alarmDao: AlarmDao,
 ) : ChatRepository {
 
     fun observeTodos(): Flow<List<TodoItem>> = todoDao.observeAll()
@@ -92,6 +93,20 @@ class JarvisRepository(
     /** Rutinas activas de un disparador concreto. */
     suspend fun activeRoutines(trigger: String): List<RoutineItem> =
         routineDao.activeByTrigger(trigger)
+
+    // --- Alarmas (fase 11) -----------------------------------------------
+
+    fun observeAlarms(): Flow<List<AlarmItem>> = alarmDao.observeAll()
+
+    suspend fun getAlarm(id: Long): AlarmItem? = alarmDao.getById(id)
+
+    suspend fun addAlarm(item: AlarmItem): Long = alarmDao.insert(item)
+
+    suspend fun updateAlarm(item: AlarmItem) = alarmDao.update(item)
+
+    suspend fun deleteAlarm(item: AlarmItem) = alarmDao.delete(item)
+
+    suspend fun nextAlarm(): AlarmItem? = alarmDao.nextEnabled()
 
     // --- Recuentos para el resumen del asistente -------------------------
 

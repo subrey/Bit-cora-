@@ -15,8 +15,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ChatEntry::class,
         ReminderItem::class,
         RoutineItem::class,
+        AlarmItem::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class JarvisDatabase : RoomDatabase() {
@@ -32,6 +33,8 @@ abstract class JarvisDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
 
     abstract fun routineDao(): RoutineDao
+
+    abstract fun alarmDao(): AlarmDao
 
     companion object {
         private const val DB_NAME = "jarvis.db"
@@ -94,6 +97,26 @@ abstract class JarvisDatabase : RoomDatabase() {
             }
         }
 
+        /** Fase 11: alarmas del despertador. */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS alarms (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        hour INTEGER NOT NULL,
+                        minute INTEGER NOT NULL,
+                        label TEXT NOT NULL,
+                        repeatDaily INTEGER NOT NULL,
+                        enabled INTEGER NOT NULL,
+                        triggerAtMillis INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var instance: JarvisDatabase? = null
 
@@ -104,7 +127,7 @@ abstract class JarvisDatabase : RoomDatabase() {
                     JarvisDatabase::class.java,
                     DB_NAME
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                     .also { instance = it }
             }

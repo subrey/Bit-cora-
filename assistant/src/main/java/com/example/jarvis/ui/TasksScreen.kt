@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Checkbox
@@ -38,20 +39,28 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.jarvis.data.MemoryItem
+import com.example.jarvis.data.ReminderItem
 import com.example.jarvis.data.TimerItem
 import com.example.jarvis.data.TodoItem
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun TasksScreen(
     todos: List<TodoItem>,
     memories: List<MemoryItem>,
     timers: List<TimerItem>,
+    reminders: List<ReminderItem>,
     onAddTodo: (String) -> Unit,
     onToggleTodo: (TodoItem) -> Unit,
     onDeleteTodo: (TodoItem) -> Unit,
     onAddMemory: (String) -> Unit,
     onDeleteMemory: (MemoryItem) -> Unit,
     onDeleteTimer: (TimerItem) -> Unit,
+    onCompleteReminder: (ReminderItem) -> Unit,
+    onDeleteReminder: (ReminderItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var todoInput by remember { mutableStateOf("") }
@@ -185,6 +194,68 @@ fun TasksScreen(
             }
         }
 
+        item(key = "reminder-header") {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "RECORDATORIOS",
+                style = MaterialTheme.typography.labelMedium,
+                color = JarvisColors.GreenDim,
+            )
+        }
+        if (reminders.isEmpty()) {
+            item(key = "reminder-empty") {
+                Text(
+                    text = "Ningún recordatorio. Diga «recuérdame comprar pan a las 6 de la tarde».",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = JarvisColors.Muted,
+                )
+            }
+        } else {
+            items(items = reminders, key = { "rem-${it.id}" }) { reminder ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (reminder.done) Icons.Rounded.Check else Icons.Rounded.Alarm,
+                        contentDescription = null,
+                        tint = if (reminder.done) JarvisColors.Muted else JarvisColors.Amber,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = reminder.text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (reminder.done) JarvisColors.Muted else JarvisColors.Green,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = formatReminderMoment(reminder.triggerAt),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = JarvisColors.Muted,
+                        )
+                    }
+                    if (!reminder.done) {
+                        IconButton(onClick = { onCompleteReminder(reminder) }) {
+                            Icon(
+                                Icons.Rounded.Check,
+                                contentDescription = "Marcar como hecho",
+                                tint = JarvisColors.Green,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                    IconButton(onClick = { onDeleteReminder(reminder) }) {
+                        Icon(
+                            Icons.Rounded.Close,
+                            contentDescription = "Borrar recordatorio",
+                            tint = JarvisColors.Outline,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
+
         item(key = "memory-header") {
             Spacer(modifier = Modifier.height(10.dp))
             Text(
@@ -254,4 +325,14 @@ fun TasksScreen(
             }
         }
     }
+}
+
+/** Fecha y hora del recordatorio en formato corto: "14 nov · 18:00". */
+private fun formatReminderMoment(triggerAt: Long): String {
+    val spanish = Locale.forLanguageTag("es")
+    val formatter = DateTimeFormatter.ofPattern("d MMM · HH:mm", spanish)
+    return Instant.ofEpochMilli(triggerAt)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDateTime()
+        .format(formatter)
 }

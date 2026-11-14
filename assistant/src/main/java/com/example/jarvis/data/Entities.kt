@@ -30,6 +30,18 @@ data class TimerItem(
     val fired: Boolean = false,
 )
 
+/** Recordatorio programado para una fecha y hora concretas. */
+@Entity(tableName = "reminders")
+data class ReminderItem(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val text: String,
+    /** Momento exacto en milisegundos desde epoch en el que debe saltar. */
+    val triggerAt: Long,
+    val createdAt: Long = System.currentTimeMillis(),
+    /** true cuando ya ha saltado o el usuario lo ha marcado como hecho. */
+    val done: Boolean = false,
+)
+
 /** Mensaje del histórico de conversación con el asistente. */
 @Entity(tableName = "chat")
 data class ChatEntry(

@@ -62,6 +62,28 @@ interface TimerDao {
 }
 
 @Dao
+interface ReminderDao {
+
+    @Query("SELECT * FROM reminders ORDER BY done ASC, triggerAt ASC")
+    fun observeAll(): Flow<List<ReminderItem>>
+
+    @Query("SELECT * FROM reminders WHERE id = :id")
+    suspend fun getById(id: Long): ReminderItem?
+
+    @Query("SELECT COUNT(*) FROM reminders WHERE done = 0")
+    fun observePendingCount(): Flow<Int>
+
+    @Insert
+    suspend fun insert(item: ReminderItem): Long
+
+    @Update
+    suspend fun update(item: ReminderItem)
+
+    @Delete
+    suspend fun delete(item: ReminderItem)
+}
+
+@Dao
 interface ChatDao {
 
     @Query("SELECT * FROM chat ORDER BY id ASC")

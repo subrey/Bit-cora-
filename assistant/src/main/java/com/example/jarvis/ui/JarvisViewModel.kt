@@ -17,6 +17,7 @@ import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.VoicePolicy
 import com.example.jarvis.assistant.voice.VoiceRecognizer
 import com.example.jarvis.data.MemoryItem
+import com.example.jarvis.data.ReminderItem
 import com.example.jarvis.data.TimerItem
 import com.example.jarvis.data.TodoItem
 import com.example.jarvis.domain.model.AssistantState
@@ -47,6 +48,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val timers: StateFlow<List<TimerItem>> = repository.observeTimers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val reminders: StateFlow<List<ReminderItem>> = repository.observeReminders()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val playerState = app.musicPlayer.state
@@ -558,6 +562,22 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             app.scheduler.cancel(item.id)
             repository.deleteTimer(item)
+        }
+    }
+
+    /** Marca un recordatorio como hecho y cancela su alarma. */
+    fun completeReminder(item: ReminderItem) {
+        viewModelScope.launch {
+            app.reminderScheduler.cancel(item.id)
+            repository.markReminderDone(item)
+        }
+    }
+
+    /** Elimina un recordatorio pendiente y su alarma. */
+    fun deleteReminder(item: ReminderItem) {
+        viewModelScope.launch {
+            app.reminderScheduler.cancel(item.id)
+            repository.deleteReminder(item)
         }
     }
 

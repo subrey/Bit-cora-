@@ -22,6 +22,8 @@ enum class IntentKind {
     CONVERT,
     TIMER,
     REMINDER,
+    LIST_REMINDERS,
+    CANCEL_REMINDER,
     TODO,
     MEMORY,
     LIST_MEMORIES,
@@ -146,10 +148,32 @@ object IntentParser {
         }
 
         // --- Temporizadores y recordatorios -------------------------------
-        if (has("recuerdame", "recordarme", "pon un recordatorio", "pon recordatorio", "crea un recordatorio")) {
+        if (has(
+                "que recordatorios", "mis recordatorios", "lista mis recordatorios",
+                "que avisos tengo", "mis avisos", "que alertas tengo", "recordatorios pendientes",
+            )
+        ) {
+            return ParsedIntent(IntentKind.LIST_REMINDERS, raw = raw)
+        }
+        if (has(
+                "cancela el recordatorio", "cancela recordatorio", "borra el recordatorio",
+                "borra recordatorio", "elimina el recordatorio", "quita el recordatorio",
+                "anula el recordatorio", "anula recordatorio",
+            )
+        ) {
+            val body = n.substringAfter("recordatorio", "").trim()
+            return ParsedIntent(IntentKind.CANCEL_REMINDER, payload = body, raw = raw)
+        }
+        if (has(
+                "recuerdame", "recordarme", "pon un recordatorio", "pon recordatorio",
+                "ponme un recordatorio", "crea un recordatorio", "nuevo recordatorio",
+                "pon un aviso", "recuerdame de",
+            )
+        ) {
             val body = n.substringAfter("recuerdame", "")
                 .ifBlank { n.substringAfter("recordarme", "") }
                 .ifBlank { n.substringAfter("recordatorio", "") }
+                .ifBlank { n.substringAfter("aviso", "") }
                 .trim()
             return ParsedIntent(IntentKind.REMINDER, payload = body.ifBlank { n }, raw = raw)
         }

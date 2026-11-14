@@ -6,6 +6,7 @@ import com.example.jarvis.ai.GeminiProvider
 import com.example.jarvis.assistant.AssistantEngine
 import com.example.jarvis.assistant.CrashReporter
 import com.example.jarvis.assistant.MusicPlayer
+import com.example.jarvis.assistant.ReminderScheduler
 import com.example.jarvis.assistant.Speaker
 import com.example.jarvis.assistant.TimerScheduler
 import com.example.jarvis.data.JarvisDatabase
@@ -28,6 +29,7 @@ class JarvisApplication : Application() {
             database.memoryDao(),
             database.timerDao(),
             database.chatDao(),
+            database.reminderDao(),
         )
     }
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
@@ -41,7 +43,8 @@ class JarvisApplication : Application() {
     val musicPlayer: MusicPlayer by lazy { MusicPlayer(this) }
     val speaker: Speaker by lazy { Speaker(this) }
     val scheduler: TimerScheduler by lazy { TimerScheduler(this) }
+    val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(this) }
     val engine: AssistantEngine by lazy {
-        AssistantEngine(this, repository, musicPlayer, scheduler, aiProvider)
+        AssistantEngine(this, repository, musicPlayer, scheduler, aiProvider, reminderScheduler)
     }
 }

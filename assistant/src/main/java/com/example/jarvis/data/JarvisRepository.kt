@@ -11,6 +11,7 @@ class JarvisRepository(
     private val memoryDao: MemoryDao,
     private val timerDao: TimerDao,
     private val chatDao: ChatDao,
+    private val reminderDao: ReminderDao,
 ) : ChatRepository {
 
     fun observeTodos(): Flow<List<TodoItem>> = todoDao.observeAll()
@@ -20,6 +21,8 @@ class JarvisRepository(
     fun observeMemories(): Flow<List<MemoryItem>> = memoryDao.observeAll()
 
     fun observeTimers(): Flow<List<TimerItem>> = timerDao.observeAll()
+
+    fun observeReminders(): Flow<List<ReminderItem>> = reminderDao.observeAll()
 
     suspend fun addTodo(text: String): Long = todoDao.insert(TodoItem(text = text))
 
@@ -41,6 +44,21 @@ class JarvisRepository(
     suspend fun markTimerFired(item: TimerItem) = timerDao.update(item.copy(fired = true))
 
     suspend fun deleteTimer(item: TimerItem) = timerDao.delete(item)
+
+    // --- Recordatorios (fase 5) ------------------------------------------
+
+    suspend fun addReminder(text: String, triggerAt: Long): Long =
+        reminderDao.insert(ReminderItem(text = text, triggerAt = triggerAt))
+
+    suspend fun getReminder(id: Long): ReminderItem? = reminderDao.getById(id)
+
+    suspend fun markReminderDone(item: ReminderItem) = reminderDao.update(item.copy(done = true))
+
+    suspend fun updateReminder(item: ReminderItem) = reminderDao.update(item)
+
+    suspend fun deleteReminder(item: ReminderItem) = reminderDao.delete(item)
+
+    suspend fun pendingReminderCount(): Int = reminderDao.observePendingCount().first()
 
     // --- Recuentos para el resumen del asistente -------------------------
 

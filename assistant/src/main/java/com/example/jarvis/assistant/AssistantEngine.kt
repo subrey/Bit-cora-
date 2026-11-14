@@ -32,6 +32,7 @@ class AssistantEngine(
     private val player: MusicPlayer,
     private val scheduler: TimerScheduler,
     private val ai: AiProvider,
+    private val reminderScheduler: ReminderScheduler = ReminderScheduler(context),
 ) {
 
     suspend fun execute(intent: ParsedIntent): AssistantResponse {
@@ -110,6 +111,10 @@ class AssistantEngine(
             IntentKind.CONVERT -> convert(intent.payload)
 
             IntentKind.REMINDER -> createReminder(intent.payload)
+
+            IntentKind.LIST_REMINDERS -> listReminders()
+
+            IntentKind.CANCEL_REMINDER -> cancelReminder(intent.payload)
 
             IntentKind.TIMER -> createTimer(intent.payload)
 
@@ -270,18 +275,45 @@ class AssistantEngine(
         val parsed = ReminderParser.parse(payload) ?: return AssistantResponse(
             "Indíqueme por ejemplo: «recuérdame comprar pan a las 5 de la tarde» o «en 20 minutos»."
         )
-        val diffSecs = ((parsed.triggerAtMillis - System.currentTimeMillis()) / 1000L).coerceAtLeast(10L).toInt()
-        val id = repository.addTimer(parsed.message, diffSecs)
-        scheduler.schedule(id, parsed.message, diffSecs)
-        val minutes = diffSecs / 60
-        val timeDesc = if (minutes >= 60) {
-            "${minutes / 60} hora(s)"
-        } else if (minutes >= 1) {
-            "$minutes minuto(s)"
-        } else {
-            "$diffSecs segundo(s)"
+        val id = repository.addReminder(parsed.message, parsed.triggerAtMillis)
+        reminderScheduler.schedule(id, parsed.message, parsed.triggerAtMillis)
+        return AssistantResponse(
+            "Recordatorio programado para ${formatMoment(parsed.triggerAtMillis)}: ${parsed.message}."
+        )
+    }
+
+    /** «qué recordatorios tengo» / «lista mis recordatorios» */
+    private suspend fun listReminders(): AssistantResponse {
+        val pending = repository.observeReminders().first().filter { !it.done }
+        if (pending.isEmpty()) {
+            return AssistantResponse("No tiene recordatorios pendientes, señor.")
         }
-        return AssistantResponse("Recordatorio programado para dentro de $timeDesc: ${parsed.message}.")
+        val list = pending.joinToString(" · ") { "${it.text} (${formatMoment(it.triggerAt)})" }
+        return AssistantResponse("Tiene ${pending.size} recordatorio(s): $list.")
+    }
+
+    /** «cancela el recordatorio de comprar pan» */
+    private suspend fun cancelReminder(payload: String): AssistantResponse {
+        val target = payload.trim()
+        if (target.isBlank()) {
+            return AssistantResponse("Dígame qué recordatorio quiere cancelar.")
+        }
+        val pending = repository.observeReminders().first().filter { !it.done }
+        val match = pending.lastOrNull { ReminderParser.matchesMessage(it.text, target) }
+        if (match == null) {
+            return AssistantResponse("No encuentro ningún recordatorio con ese nombre.")
+        }
+        reminderScheduler.cancel(match.id)
+        repository.deleteReminder(match)
+        return AssistantResponse("Recordatorio cancelado: ${match.text}.")
+    }
+
+    /** Fecha y hora legible para hablar y para las notificaciones. */
+    private fun formatMoment(millis: Long): String {
+        val dateTime = java.time.Instant.ofEpochMilli(millis)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDateTime()
+        return "${Tools.formatDate(dateTime)} a las ${Tools.formatTime(dateTime)}"
     }
 
     private suspend fun createTimer(payload: String): AssistantResponse {
@@ -399,11 +431,13 @@ class AssistantEngine(
         val pending = repository.pendingTodoCount()
         val memories = repository.memoryCount()
         val timers = repository.activeTimerCount()
+        val reminders = repository.pendingReminderCount()
         return buildString {
             append("Estado del sistema: ")
             append("$pending tarea(s) pendiente(s), ")
-            append("$memories memoria(s) y ")
-            append("$timers temporizador(es) activo(s). ")
+            append("$memories memoria(s), ")
+            append("$timers temporizador(es) activo(s) y ")
+            append("$reminders recordatorio(s) pendiente(s). ")
             append(batteryText())
         }
     }
@@ -420,12 +454,14 @@ class AssistantEngine(
     private fun helpText(): String =
         "Puedo hacer esto: poner música, pausar, quitar la música, cambiar o repetir canción, " +
             "subir o bajar el volumen, calcular expresiones, convertir unidades, poner temporizadores " +
-            "y recordatorios, añadir tareas, memorizar notas, decir la hora y la fecha, informar de la " +
+            "y recordatorios, listar y cancelar recordatorios, añadir tareas, memorizar notas, " +
+            "decir la hora y la fecha, informar de la " +
             "batería y del almacenamiento, encender la linterna, abrir aplicaciones, contar un chiste, " +
             "recordar lo que hemos hablado o darme un resumen. " +
             "Si configura una clave gratuita de Gemini en Ajustes, también puedo conversar, explicar " +
             "temas y responder preguntas abiertas. " +
             "Inténtelo con: «pon música», «quita la música», «pon un temporizador de 10 minutos», " +
+            "«recuérdame comprar pan a las 6 de la tarde», «qué recordatorios tengo», " +
             "«calcula 12 * (3 + 4)» o «explícame la fotosíntesis»."
 
     // --- Conversación larga: entender continuaciones ------------------------

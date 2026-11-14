@@ -65,6 +65,19 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta listar recordatorios`() {
+        assertEquals(IntentKind.LIST_REMINDERS, IntentParser.parse("qué recordatorios tengo").kind)
+        assertEquals(IntentKind.LIST_REMINDERS, IntentParser.parse("lista mis recordatorios").kind)
+    }
+
+    @Test
+    fun `detecta cancelar recordatorio`() {
+        val intent = IntentParser.parse("cancela el recordatorio de comprar pan")
+        assertEquals(IntentKind.CANCEL_REMINDER, intent.kind)
+        assertEquals("de comprar pan", intent.payload)
+    }
+
+    @Test
     fun `detecta temporizador`() {
         assertEquals(IntentKind.TIMER, IntentParser.parse("pon un temporizador de 10 minutos").kind)
     }

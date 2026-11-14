@@ -115,15 +115,15 @@ fun JarvisFace(
         val h = size.height
         val cx = w / 2f
 
-        // Escala general del cuerpo dentro del canvas
-        val bodyH = h * 0.92f * breathe
-        val headH = bodyH * 0.34f
+        // Escala general: encuadre hasta los hombros/pecho alto
+        val bodyH = h * 0.96f * breathe
+        val headH = bodyH * 0.42f
         val headW = headH * 0.72f
-        val headCy = h * 0.22f
+        val headCy = h * 0.30f
         val neckTop = headCy + headH * 0.46f
-        val shoulderY = neckTop + bodyH * 0.08f
-        val torsoBottom = h * 0.96f
-        val torsoW = bodyH * 0.62f
+        val shoulderY = neckTop + bodyH * 0.09f
+        val torsoBottom = h * 0.92f
+        val torsoW = bodyH * 0.70f
 
         // Halo ambiental
         drawCircle(

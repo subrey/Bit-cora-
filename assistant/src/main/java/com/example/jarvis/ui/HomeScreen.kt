@@ -101,9 +101,9 @@ fun HomeScreen(
             JarvisFace(
                 state = state,
                 modifier = Modifier
-                    .fillMaxWidth(0.72f)
-                    .height(320.dp)
-                    .widthIn(max = 300.dp)
+                    .fillMaxWidth(0.78f)
+                    .height(300.dp)
+                    .widthIn(max = 320.dp)
                     .clickable(
                         interactionSource = interaction,
                         indication = null,

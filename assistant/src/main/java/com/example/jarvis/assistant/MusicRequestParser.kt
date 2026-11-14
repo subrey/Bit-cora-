@@ -72,13 +72,13 @@ object MusicRequestParser {
             "ambient", "chill", "clasica", "instrumental", "jazz", "folk", "balada", "soul",
         ),
         "estudiar" to listOf(
-            "ambient", "chill", "clasica", "instrumental", "piano",
+            "ambient", "chill", "clasica", "instrumental",
         ),
         "energia" to listOf(
             "rock", "electronica", "hip hop", "punk", "metal", "pop",
         ),
         "alegre" to listOf(
-            "pop", "salsa", "reggaeton", "cumbia", "merengue", "soul", "dance",
+            "pop", "salsa", "reggaeton", "cumbia", "merengue", "soul", "electronica",
         ),
         "triste" to listOf(
             "blues", "balada", "soul", "clasica", "flamenco",
@@ -87,7 +87,7 @@ object MusicRequestParser {
             "balada", "soul", "pop", "flamenco", "jazz", "banda",
         ),
         "fiesta" to listOf(
-            "salsa", "reggaeton", "cumbia", "merengue", "electronica", "pop", "latin",
+            "salsa", "reggaeton", "cumbia", "merengue", "electronica", "pop", "latino",
         ),
     )
 

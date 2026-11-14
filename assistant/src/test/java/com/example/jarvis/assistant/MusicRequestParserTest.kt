@@ -60,4 +60,16 @@ class MusicRequestParserTest {
     fun `normaliza acentos`() {
         assertEquals("musica clasica", MusicRequestParser.normalize("Música Clásica"))
     }
+
+    @Test
+    fun `los generos de cada animo existen en el diccionario`() {
+        MusicRequestParser.MOODS.forEach { (mood, genres) ->
+            genres.forEach { genre ->
+                assertTrue(
+                    "El género '$genre' del ánimo '$mood' no está en el diccionario",
+                    MusicRequestParser.GENRES.containsKey(genre),
+                )
+            }
+        }
+    }
 }

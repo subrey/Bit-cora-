@@ -90,6 +90,9 @@ class MusicPlayer(private val context: Context) {
             return emptyList()
         }
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        // El género solo existe desde Android 11; en el resto de versiones se
+        // deja vacío y la búsqueda se apoya en el título, el artista y el álbum.
+        val withGenre = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -97,13 +100,7 @@ class MusicPlayer(private val context: Context) {
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.YEAR,
-        )
-        // El género solo existe desde Android 11; en el resto de versiones se
-        // deja vacío y la búsqueda se apoya en el título, el artista y el álbum.
-        val withGenre = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-        if (withGenre) {
-            projection += MediaStore.Audio.Media.GENRE
-        }
+        ) + if (withGenre) arrayOf(MediaStore.Audio.Media.GENRE) else emptyArray()
         val tracks = mutableListOf<Track>()
         runCatching {
             context.contentResolver.query(collection, projection, null, null, null)?.use { cursor ->

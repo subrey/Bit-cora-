@@ -62,5 +62,16 @@
         <receiver
             android:name=".receiver.JarvisReceiver"
             android:exported="false" />
+
+        <!-- Permite compartir el historial exportado con otras aplicaciones. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

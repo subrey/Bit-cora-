@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Carpetas que la app puede compartir con otras aplicaciones. -->
+<paths>
+    <cache-path
+        name="exports"
+        path="exports/" />
+</paths>

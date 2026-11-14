@@ -15,6 +15,9 @@ momento exacto y gestionar esos avisos desde la voz o desde la pantalla.
 - **Pantalla de recordatorios.** En la pestaña **Tareas** hay un bloque
   **RECORDATORIOS** con la fecha y la hora de cada aviso pendiente. Se puede
   marcar como hecho o borrar a mano.
+- **Historial exportable.** «Exporta el historial» genera un archivo de texto con
+  toda la conversación y abre el menú de compartir. También hay un botón
+  **Exportar** en la pantalla de historial.
 
 ## Órdenes entendidas
 
@@ -26,6 +29,7 @@ momento exacto y gestionar esos avisos desde la voz o desde la pantalla.
 | «reunión mañana a las 9» | Mañana a las 09:00 |
 | «qué recordatorios tengo» | Lista los pendientes con su fecha |
 | «cancela el recordatorio de comprar pan» | Lo borra y cancela su alarma |
+| «exporta el historial» | Guarda la conversación y abre el menú de compartir |
 
 ## Cómo está hecho
 
@@ -33,7 +37,8 @@ momento exacto y gestionar esos avisos desde la voz o desde la pantalla.
 assistant/src/main/java/com/example/jarvis/
 ├── assistant/
 │   ├── ReminderParser.kt      frases naturales → (mensaje, fecha y hora exactas)
-│   └── ReminderScheduler.kt   AlarmManager con RTC_WAKEUP y hora absoluta
+│   ├── ReminderScheduler.kt   AlarmManager con RTC_WAKEUP y hora absoluta
+│   └── ChatExporter.kt        historial a texto + menú de compartir
 ├── data/
 │   ├── Entities.kt            ReminderItem (tabla «reminders»)
 │   ├── Daos.kt                ReminderDao
@@ -43,7 +48,8 @@ assistant/src/main/java/com/example/jarvis/
 │   └── JarvisReceiver.kt      ACTION_REMINDER, …_DONE y …_SNOOZE
 └── ui/
     ├── JarvisViewModel.kt     flujo de recordatorios y acciones
-    └── TasksScreen.kt         bloque RECORDATORIOS
+    ├── TasksScreen.kt         bloque RECORDATORIOS
+    └── TerminalScreen.kt      botón Exportar
 ```
 
 - `ReminderParser` es una función pura (sin Android) para poder probarla en
@@ -61,6 +67,8 @@ assistant/src/main/java/com/example/jarvis/
   recordatorio como completado y «Posponer» lo retrasa 10 minutos.
 - Los recordatorios se guardan en su propia tabla, no como temporizadores: así
   tienen una fecha absoluta y se pueden listar y cancelar por separado.
+- El historial exportado se escribe en la caché de la app y se comparte con un
+  `FileProvider` (`res/xml/file_paths.xml`), sin permisos ni archivos públicos.
 
 ## Pruebas
 
@@ -68,7 +76,9 @@ assistant/src/main/java/com/example/jarvis/
   tarde», el día siguiente, el salto al día siguiente cuando la hora ya pasó y
   la limpieza del mensaje.
 - `IntentParserTest` cubre las órdenes «recuérdame…», «qué recordatorios
-  tengo» y «cancela el recordatorio…».
+  tengo», «cancela el recordatorio…» y «exporta el historial».
+- `ChatExporterTest` comprueba que el archivo de texto lleva la fecha, la hora
+  y el autor de cada mensaje.
 
 ## Nota
 

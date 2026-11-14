@@ -10,7 +10,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.jarvis.JarvisApplication
 import com.example.jarvis.ai.AiResult
 import com.example.jarvis.ai.GeminiProvider
+import com.example.jarvis.assistant.AssistantEngine
 import com.example.jarvis.assistant.AssistantResponse
+import com.example.jarvis.assistant.ChatExporter
 import com.example.jarvis.assistant.CrashReporter
 import com.example.jarvis.assistant.IntentParser
 import com.example.jarvis.assistant.JarvisBus
@@ -562,6 +564,26 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             app.scheduler.cancel(item.id)
             repository.deleteTimer(item)
+        }
+    }
+
+    /** Exporta la conversación a un archivo de texto y abre el menú de compartir. */
+    fun exportHistory() {
+        viewModelScope.launch {
+            val messages = repository.recentMessages(AssistantEngine.EXPORT_MAX_MESSAGES)
+            if (messages.isEmpty()) {
+                systemMessage("Todavía no hay conversación que exportar.")
+                return@launch
+            }
+            val context = getApplication<Application>()
+            val ok = ChatExporter.saveAndShare(context, ChatExporter.format(messages))
+            systemMessage(
+                if (ok) {
+                    "Historial guardado en un archivo de texto. Elija cómo compartirlo."
+                } else {
+                    "No he podido guardar el historial."
+                }
+            )
         }
     }
 

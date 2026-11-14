@@ -28,6 +28,7 @@ enum class IntentKind {
     MEMORY,
     LIST_MEMORIES,
     HISTORY,
+    EXPORT_HISTORY,
     KNOWLEDGE,
     BATTERY,
     STORAGE,
@@ -182,7 +183,18 @@ object IntentParser {
         }
 
         // --- Tareas y memorias --------------------------------------------
-        if (has("que notas", "mis notas", "mis recuerdos", "que has memorizado")) {
+        if (has(
+                "exporta el historial", "exportar historial", "guarda el historial",
+                "guardar historial", "comparte el historial", "comparte el historial",
+                "descarga el historial", "exporta la conversacion", "guarda la conversacion",
+            )
+        ) {
+            return ParsedIntent(IntentKind.EXPORT_HISTORY, raw = raw)
+        }
+        if (has(
+                "que notas", "mis notas", "mis recuerdos", "que has memorizado",
+            )
+        ) {
             return ParsedIntent(IntentKind.LIST_MEMORIES, raw = raw)
         }
         if (has(

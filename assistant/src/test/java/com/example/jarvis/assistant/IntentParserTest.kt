@@ -121,6 +121,12 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta exportar el historial`() {
+        assertEquals(IntentKind.EXPORT_HISTORY, IntentParser.parse("exporta el historial").kind)
+        assertEquals(IntentKind.EXPORT_HISTORY, IntentParser.parse("guarda el historial").kind)
+    }
+
+    @Test
     fun `la pausa tiene prioridad sobre el silencio`() {
         assertEquals(IntentKind.MUSIC_PAUSE, IntentParser.parse("para la música").kind)
     }

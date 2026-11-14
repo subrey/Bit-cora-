@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +49,7 @@ fun TerminalScreen(
     listening: Boolean,
     onSend: (String) -> Unit,
     onMicClick: () -> Unit,
+    onExport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var input by remember { mutableStateOf("") }
@@ -65,12 +67,22 @@ fun TerminalScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        Text(
-            text = "HISTORIAL DE CONVERSACIÓN",
-            style = MaterialTheme.typography.labelSmall,
-            color = JarvisColors.Muted,
-            modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 2.dp),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "HISTORIAL DE CONVERSACIÓN",
+                style = MaterialTheme.typography.labelSmall,
+                color = JarvisColors.Muted,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onExport) {
+                Text("Exportar", color = JarvisColors.GreenDim)
+            }
+        }
         LazyColumn(
             modifier = Modifier
                 .weight(1f)

@@ -150,6 +150,8 @@ class AssistantEngine(
                 }
             }
 
+            IntentKind.EXPORT_HISTORY -> exportHistory()
+
             IntentKind.KNOWLEDGE -> knowledge(
                 effective.payload.ifBlank { intent.raw },
                 intent.raw,
@@ -306,6 +308,24 @@ class AssistantEngine(
         reminderScheduler.cancel(match.id)
         repository.deleteReminder(match)
         return AssistantResponse("Recordatorio cancelado: ${match.text}.")
+    }
+
+    /** «exporta el historial»: guarda la conversación y abre el menú de compartir. */
+    private suspend fun exportHistory(): AssistantResponse {
+        val messages = repository.recentMessages(EXPORT_MAX_MESSAGES)
+        if (messages.isEmpty()) {
+            return AssistantResponse("Todavía no hay conversación que exportar, señor.")
+        }
+        val text = ChatExporter.format(messages)
+        val ok = ChatExporter.saveAndShare(context, text)
+        return if (ok) {
+            AssistantResponse(
+                "He guardado el historial en un archivo de texto y he abierto la ventana " +
+                    "para que lo comparta."
+            )
+        } else {
+            AssistantResponse("No he podido guardar el historial, señor.")
+        }
     }
 
     /** Fecha y hora legible para hablar y para las notificaciones. */
@@ -468,6 +488,11 @@ class AssistantEngine(
 
     /** Última intención resuelta, para interpretar frases como «y sube el volumen». */
     private var lastKind: IntentKind? = null
+
+    companion object {
+        /** Mensajes máximos que se exportan al archivo de texto. */
+        const val EXPORT_MAX_MESSAGES = 500
+    }
 
     private fun resolve(intent: ParsedIntent): ParsedIntent {
         if (intent.kind == IntentKind.UNKNOWN && isFollowUp(intent.raw)) {

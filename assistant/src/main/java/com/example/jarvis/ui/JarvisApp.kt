@@ -227,6 +227,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         listening = visualState == AssistantState.LISTENING,
                         onSend = { viewModel.submit(it) },
                         onMicClick = ::micClick,
+                        onExport = { viewModel.exportHistory() },
                     )
                 }
 

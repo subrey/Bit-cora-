@@ -29,10 +29,9 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Busto de armadura estilo Iron Man (hasta hombros/brazos superiores):
- * casco dorado y rojo, ranuras oculares blancas, cuello articulado rojo,
- * hombreras redondeadas, pecho con placas rojas y reactor blanco.
- * Reacciona al estado con brillo/pulso del reactor y ojos.
+ * Interfaz estilo JARVIS: cabeza androide sobre un núcleo/hub tecnológico.
+ * Más "hub" que torso humano: núcleo reactor prominente, anillos HUD y base
+ * de chasis, con reacción visual al estado (ojos, reactor, anillos).
  */
 @Composable
 fun JarvisFace(
@@ -107,40 +106,35 @@ fun JarvisFace(
         val h = size.height
         val cx = w / 2f
 
-        // Proporciones: encuadre hasta hombros/brazos superiores
+        // Proporciones: cabeza arriba y núcleo/hub debajo
         val scale = h * 0.98f * breathe
-        val headH = scale * 0.36f
+        val headH = scale * 0.34f
         val headW = headH * 0.78f
-        val headCy = h * 0.24f
+        val headCy = h * 0.22f
         val neckTop = headCy + headH * 0.46f
-        val shoulderY = neckTop + scale * 0.07f
-        val chestBottom = h * 0.97f
-        val chestW = scale * 0.62f
+        val hubTop = neckTop + scale * 0.03f
+        val hubBottom = h * 0.97f
+        val hubW = scale * 0.70f
+        val hubH = hubBottom - hubTop
+        val hubCy = hubTop + hubH * 0.48f
+        val hubR = minOf(hubW, hubH) * 0.46f
 
-        // Fondo sutil
+        // Fondo HUD sutil
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(red.copy(alpha = 0.10f), Color.Transparent),
-                center = Offset(cx, h * 0.45f),
-                radius = w * 0.55f,
+                colors = listOf(white.copy(alpha = 0.06f), Color.Transparent),
+                center = Offset(cx, hubCy),
+                radius = w * 0.52f,
             ),
-            radius = w * 0.55f,
-            center = Offset(cx, h * 0.45f),
+            radius = w * 0.52f,
+            center = Offset(cx, hubCy),
         )
 
-        // Brazos superiores (detrás de hombreras/pecho)
-        drawUpperArm(cx - chestW * 0.62f, shoulderY + (chestBottom - shoulderY) * 0.18f, chestW, chestBottom - shoulderY, red, redBright, redDark, gold, left = true)
-        drawUpperArm(cx + chestW * 0.62f, shoulderY + (chestBottom - shoulderY) * 0.18f, chestW, chestBottom - shoulderY, red, redBright, redDark, gold, left = false)
+        // Núcleo/hub tecnológico
+        drawHub(cx, hubTop, hubW, hubBottom, hubR, red, redBright, redDark, gold, goldLight, white, steel, reactorPulse * active, state, scan, speakWave)
 
-        // Pecho
-        drawChest(cx, shoulderY, chestW, chestBottom, red, redBright, redDark, gold, goldLight, white, reactorPulse * active, state)
-
-        // Hombreras (grandes, redondeadas, por delante de parte del pecho)
-        drawPauldron(cx - chestW * 0.58f, shoulderY + (chestBottom - shoulderY) * 0.08f, chestW, chestBottom - shoulderY, red, redBright, redDark, gold, goldLight, steel, left = true)
-        drawPauldron(cx + chestW * 0.58f, shoulderY + (chestBottom - shoulderY) * 0.08f, chestW, chestBottom - shoulderY, red, redBright, redDark, gold, goldLight, steel, left = false)
-
-        // Cuello articulado rojo
-        drawNeck(cx, neckTop, headW, shoulderY, red, redBright, redDark, gold, steel)
+        // Cuello/soporte hacia el hub
+        drawNeck(cx, neckTop, headW, hubTop + hubH * 0.10f, red, redBright, redDark, gold, steel)
 
         // Casco
         val helmet = helmetPath(cx, headCy, headW, headH)
@@ -407,114 +401,128 @@ private fun DrawScope.drawNeck(cx: Float, top: Float, headW: Float, shoulderY: F
     drawCircle(gold.copy(alpha = 0.4f), radius = neckW * 0.04f, center = Offset(cx + neckW * 1.15f, (top + bottom) / 2f))
 }
 
-private fun DrawScope.drawChest(
-    cx: Float, top: Float, chestW: Float, bottom: Float,
-    red: Color, redBright: Color, redDark: Color, gold: Color, goldLight: Color, white: Color,
-    reactorPulse: Float, state: AssistantState,
+private fun DrawScope.drawHub(
+    cx: Float, top: Float, hubW: Float, bottom: Float, hubR: Float,
+    red: Color, redBright: Color, redDark: Color, gold: Color, goldLight: Color, white: Color, steel: Color,
+    reactorPulse: Float, state: AssistantState, scan: Float, speakWave: Float,
 ) {
     val h = bottom - top
-    // Silueta más humana: clavículas estrechas, pectorales anchos, cintura suave
-    val collar = chestW * 0.42f
-    val pec = chestW * 0.60f
-    val waist = chestW * 0.40f
-    val hip = chestW * 0.46f
+    val cy = top + h * 0.48f
+    val baseR = hubR * 0.98f
+    val activeGlow = when (state) {
+        AssistantState.THINKING, AssistantState.SPEAKING -> 0.55f
+        AssistantState.LISTENING -> 0.45f
+        AssistantState.ERROR -> 0.25f
+        else -> 0.35f
+    }
 
-    val path = Path().apply {
-        moveTo(cx - collar, top)
-        // hombro/pectoral izquierdo
-        cubicTo(cx - chestW * 0.56f, top + h * 0.10f, cx - pec, top + h * 0.30f, cx - pec * 0.98f, top + h * 0.46f)
-        // cintura izquierda (suave)
-        cubicTo(cx - chestW * 0.55f, top + h * 0.64f, cx - waist, top + h * 0.78f, cx - hip, bottom)
-        // base ligeramente curva
-        quadraticTo(cx, bottom + h * 0.03f, cx + hip, bottom)
-        // cintura derecha (suave)
-        cubicTo(cx + waist, top + h * 0.78f, cx + chestW * 0.55f, top + h * 0.64f, cx + pec * 0.98f, top + h * 0.46f)
-        // pectoral/hombro derecho
-        cubicTo(cx + pec, top + h * 0.30f, cx + chestW * 0.56f, top + h * 0.10f, cx + collar, top)
-        // clavícula curva
-        quadraticTo(cx, top - h * 0.05f, cx - collar, top)
-        close()
-    }
-    drawPath(path, Brush.verticalGradient(listOf(redBright, red, redDark), top - h * 0.05f, bottom))
-    // Placas curvas y sombreado anatómico
-    clipPath(path) {
-        drawPath(path, Brush.horizontalGradient(
-            listOf(Color.Black.copy(alpha = 0.18f), Color.Transparent, Color.White.copy(alpha = 0.07f), Color.Transparent, Color.Black.copy(alpha = 0.18f)),
-            cx - pec, cx + pec,
-        ))
-        // volumen pectoral
-        drawOval(
-            brush = Brush.radialGradient(
-                colors = listOf(Color.White.copy(alpha = 0.08f), Color.Transparent),
-                center = Offset(cx - chestW * 0.22f, top + h * 0.28f),
-                radius = chestW * 0.28f,
-            ),
-            topLeft = Offset(cx - chestW * 0.50f, top + h * 0.05f),
-            size = Size(chestW * 0.52f, h * 0.46f),
-        )
-        drawOval(
-            brush = Brush.radialGradient(
-                colors = listOf(Color.White.copy(alpha = 0.08f), Color.Transparent),
-                center = Offset(cx + chestW * 0.22f, top + h * 0.28f),
-                radius = chestW * 0.28f,
-            ),
-            topLeft = Offset(cx - chestW * 0.02f, top + h * 0.05f),
-            size = Size(chestW * 0.52f, h * 0.46f),
-        )
-        // líneas de placas siguiendo el torso
-        val plateLine = redDark.copy(alpha = 0.45f)
-        drawArc(plateLine, 210f, 120f, false,
-            Offset(cx - chestW * 0.30f, top + h * 0.02f), Size(chestW * 0.60f, h * 0.38f),
-            style = Stroke(1.5.dp.toPx()))
-        drawArc(plateLine, 205f, 130f, false,
-            Offset(cx - chestW * 0.24f, top + h * 0.18f), Size(chestW * 0.48f, h * 0.34f),
-            style = Stroke(1.2.dp.toPx()))
-        drawArc(redDark.copy(alpha = 0.30f), 20f, 140f, false,
-            Offset(cx - chestW * 0.22f, top + h * 0.52f), Size(chestW * 0.44f, h * 0.30f),
-            style = Stroke(1.dp.toPx()))
-        drawLine(plateLine, Offset(cx, top - h * 0.02f), Offset(cx, top + h * 0.22f), 1.dp.toPx())
-        drawLine(plateLine, Offset(cx, top + h * 0.58f), Offset(cx, bottom - h * 0.02f), 1.dp.toPx())
-        // bordes dorados de clavícula/hombro
-        drawLine(gold.copy(alpha = 0.35f), Offset(cx - collar, top), Offset(cx - pec * 0.72f, top + h * 0.22f), 2.dp.toPx(), cap = StrokeCap.Round)
-        drawLine(gold.copy(alpha = 0.35f), Offset(cx + collar, top), Offset(cx + pec * 0.72f, top + h * 0.22f), 2.dp.toPx(), cap = StrokeCap.Round)
-    }
-    drawPath(path, redDark.copy(alpha = 0.55f), style = Stroke(1.5.dp.toPx(), join = StrokeJoin.Round))
-
-    // Reactor circular blanco central
-    val coreCy = top + h * 0.46f
-    val coreR = chestW * 0.12f * reactorPulse
-    val glowAlpha = when (state) {
-        AssistantState.THINKING, AssistantState.SPEAKING -> 0.45f
-        AssistantState.ERROR -> 0.20f
-        else -> 0.30f
-    }
-    // halo exterior
+    // Base del hub (chasis circular)
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(white.copy(alpha = glowAlpha), white.copy(alpha = glowAlpha * 0.25f), Color.Transparent),
-            center = Offset(cx, coreCy), radius = coreR * 3f,
+            colors = listOf(redBright.copy(alpha = 0.55f), redDark.copy(alpha = 0.9f), Color(0xFF1A0608)),
+            center = Offset(cx, cy),
+            radius = baseR,
         ),
-        radius = coreR * 3f, center = Offset(cx, coreCy),
+        radius = baseR,
+        center = Offset(cx, cy),
     )
-    // aro metálico
-    drawCircle(gold.copy(alpha = 0.7f), radius = coreR * 1.35f, center = Offset(cx, coreCy), style = Stroke(2.5.dp.toPx()))
-    drawCircle(Color(0xFF1A2530), radius = coreR * 1.25f, center = Offset(cx, coreCy))
-    drawCircle(goldLight.copy(alpha = 0.5f), radius = coreR * 1.25f, center = Offset(cx, coreCy), style = Stroke(1.dp.toPx()))
-    // segmentos internos
-    for (i in 0 until 8) {
-        val a = i * 45f - 90f
-        drawArc(white.copy(alpha = 0.85f), a + 6f, 33f, false,
-            Offset(cx - coreR, coreCy - coreR), Size(coreR * 2f, coreR * 2f),
-            style = Stroke(coreR * 0.28f, cap = StrokeCap.Butt))
+    drawCircle(redDark.copy(alpha = 0.7f), radius = baseR, center = Offset(cx, cy), style = Stroke(2.dp.toPx()))
+
+    // Anillos HUD giratorios/sutiles
+    val rot = scan * 360f
+    drawArc(
+        color = white.copy(alpha = 0.18f * activeGlow + 0.08f),
+        startAngle = rot,
+        sweepAngle = 220f,
+        useCenter = false,
+        topLeft = Offset(cx - baseR * 0.88f, cy - baseR * 0.88f),
+        size = Size(baseR * 1.76f, baseR * 1.76f),
+        style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round),
+    )
+    drawArc(
+        color = goldLight.copy(alpha = 0.20f),
+        startAngle = -rot * 0.7f + 40f,
+        sweepAngle = 140f,
+        useCenter = false,
+        topLeft = Offset(cx - baseR * 0.74f, cy - baseR * 0.74f),
+        size = Size(baseR * 1.48f, baseR * 1.48f),
+        style = Stroke(1.2.dp.toPx(), cap = StrokeCap.Round),
+    )
+    drawArc(
+        color = white.copy(alpha = 0.12f),
+        startAngle = rot * 0.5f + 180f,
+        sweepAngle = 90f,
+        useCenter = false,
+        topLeft = Offset(cx - baseR * 1.02f, cy - baseR * 1.02f),
+        size = Size(baseR * 2.04f, baseR * 2.04f),
+        style = Stroke(1.dp.toPx(), cap = StrokeCap.Round),
+    )
+
+    // Marcas de interfaz
+    for (i in 0 until 12) {
+        val a = (i * 30f - 90f) * (PI / 180f).toFloat()
+        val inner = baseR * 0.82f
+        val outer = baseR * (if (i % 3 == 0) 0.95f else 0.90f)
+        val c = if (i % 3 == 0) gold.copy(alpha = 0.35f) else steel.copy(alpha = 0.20f)
+        drawLine(
+            c,
+            Offset(cx + kotlin.math.cos(a) * inner, cy + kotlin.math.sin(a) * inner),
+            Offset(cx + kotlin.math.cos(a) * outer, cy + kotlin.math.sin(a) * outer),
+            (if (i % 3 == 0) 2f else 1f).dp.toPx(),
+            cap = StrokeCap.Round,
+        )
     }
-    // núcleo blanco
+
+    // Núcleo reactor prominente
+    val coreR = hubR * 0.28f * reactorPulse
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(Color.White, white.copy(alpha = 0.9f), white.copy(alpha = 0.3f)),
-            center = Offset(cx, coreCy), radius = coreR * 0.55f,
+            colors = listOf(white.copy(alpha = activeGlow), white.copy(alpha = activeGlow * 0.20f), Color.Transparent),
+            center = Offset(cx, cy), radius = coreR * 3.2f,
         ),
-        radius = coreR * 0.55f, center = Offset(cx, coreCy),
+        radius = coreR * 3.2f, center = Offset(cx, cy),
     )
+    drawCircle(gold.copy(alpha = 0.75f), radius = coreR * 1.45f, center = Offset(cx, cy), style = Stroke(3.dp.toPx()))
+    drawCircle(Color(0xFF0E151C), radius = coreR * 1.32f, center = Offset(cx, cy))
+    drawCircle(goldLight.copy(alpha = 0.55f), radius = coreR * 1.32f, center = Offset(cx, cy), style = Stroke(1.dp.toPx()))
+    for (i in 0 until 10) {
+        val a = i * 36f - 90f + rot * 0.2f
+        drawArc(white.copy(alpha = 0.85f), a + 5f, 26f, false,
+            Offset(cx - coreR, cy - coreR), Size(coreR * 2f, coreR * 2f),
+            style = Stroke(coreR * 0.26f, cap = StrokeCap.Butt))
+    }
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color.White, white.copy(alpha = 0.95f), white.copy(alpha = 0.25f)),
+            center = Offset(cx, cy), radius = coreR * 0.58f,
+        ),
+        radius = coreR * 0.58f, center = Offset(cx, cy),
+    )
+
+    // Barrido HUD sobre el hub
+    val sweepY = top + h * 0.08f + h * 0.84f * scan
+    drawRect(
+        brush = Brush.verticalGradient(
+            colors = listOf(Color.Transparent, white.copy(alpha = 0.05f), Color.Transparent),
+            startY = sweepY - h * 0.04f, endY = sweepY + h * 0.04f,
+        ),
+        topLeft = Offset(cx - hubW / 2f, sweepY - h * 0.04f),
+        size = Size(hubW, h * 0.08f),
+    )
+
+    // Indicadores laterales tipo hub (reaccionan al habla)
+    val wave = (sin(speakWave.toDouble()).toFloat() * 0.5f + 0.5f)
+    val bars = 4
+    for (side in listOf(-1f, 1f)) {
+        for (i in 0 until bars) {
+            val t = i / (bars - 1).toFloat()
+            val bx = cx + side * (hubR * 0.62f + i * hubR * 0.08f)
+            val bh = h * (0.05f + 0.10f * (if (state == AssistantState.SPEAKING) (0.4f + 0.6f * ((wave + t) % 1f)) else 0.25f))
+            val by = cy - bh / 2f
+            val bc = if (state == AssistantState.SPEAKING || state == AssistantState.LISTENING) white.copy(alpha = 0.35f) else steel.copy(alpha = 0.20f)
+            drawRoundRect(bc, topLeft = Offset(bx - 2.dp.toPx(), by), size = Size(4.dp.toPx(), bh), cornerRadius = CornerRadius(2.dp.toPx()))
+        }
+    }
 }
 
 private fun DrawScope.drawPauldron(

@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.drawOval
 import androidx.compose.ui.unit.dp
 import com.example.jarvis.domain.model.AssistantState
 import kotlin.math.PI

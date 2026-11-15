@@ -413,22 +413,22 @@ private fun DrawScope.drawChest(
     reactorPulse: Float, state: AssistantState,
 ) {
     val h = bottom - top
-    // Silueta más humana: clavículas estrechas, pectorales anchos, cintura recogida
-    val collar = chestW * 0.40f
-    val pec = chestW * 0.64f
-    val waist = chestW * 0.30f
+    // Silueta más humana: clavículas estrechas, pectorales anchos, cintura suave
+    val collar = chestW * 0.42f
+    val pec = chestW * 0.60f
+    val waist = chestW * 0.40f
     val hip = chestW * 0.46f
 
     val path = Path().apply {
         moveTo(cx - collar, top)
         // hombro/pectoral izquierdo
         cubicTo(cx - chestW * 0.56f, top + h * 0.10f, cx - pec, top + h * 0.30f, cx - pec * 0.98f, top + h * 0.46f)
-        // cintura izquierda (más marcada)
-        cubicTo(cx - chestW * 0.54f, top + h * 0.62f, cx - waist * 1.05f, top + h * 0.76f, cx - hip, bottom)
+        // cintura izquierda (suave)
+        cubicTo(cx - chestW * 0.55f, top + h * 0.64f, cx - waist, top + h * 0.78f, cx - hip, bottom)
         // base ligeramente curva
         quadraticTo(cx, bottom + h * 0.03f, cx + hip, bottom)
-        // cintura derecha (más marcada)
-        cubicTo(cx + waist * 1.05f, top + h * 0.76f, cx + chestW * 0.54f, top + h * 0.62f, cx + pec * 0.98f, top + h * 0.46f)
+        // cintura derecha (suave)
+        cubicTo(cx + waist, top + h * 0.78f, cx + chestW * 0.55f, top + h * 0.64f, cx + pec * 0.98f, top + h * 0.46f)
         // pectoral/hombro derecho
         cubicTo(cx + pec, top + h * 0.30f, cx + chestW * 0.56f, top + h * 0.10f, cx + collar, top)
         // clavícula curva

@@ -26,34 +26,35 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.unit.dp
 import com.example.jarvis.domain.model.AssistantState
 import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Interfaz estilo JARVIS: cabeza androide sobre un núcleo/hub tecnológico.
- * Más "hub" que torso humano: núcleo reactor prominente, anillos HUD y base
- * de chasis, con reacción visual al estado (ojos, reactor, anillos).
+ * Núcleo holográfico estilo JARVIS (sin cabeza): reactor central, anillos HUD
+ * y efectos de holograma que reaccionan al estado y al habla.
  */
 @Composable
 fun JarvisFace(
     state: AssistantState,
     modifier: Modifier = Modifier,
 ) {
-    val transition = rememberInfiniteTransition(label = "jarvis-armor")
+    val transition = rememberInfiniteTransition(label = "jarvis-holo")
 
     val breathe by transition.animateFloat(
-        initialValue = 0.995f,
-        targetValue = 1.005f,
+        initialValue = 0.985f,
+        targetValue = 1.015f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3600, easing = FastOutSlowInEasing),
+            animation = tween(3200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "respirar",
     )
     val reactorPulse by transition.animateFloat(
-        initialValue = 0.88f,
+        initialValue = 0.90f,
         targetValue = 1.12f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
+            animation = tween(1400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "reactor",
@@ -62,15 +63,23 @@ fun JarvisFace(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(5000, easing = LinearEasing),
+            animation = tween(4200, easing = LinearEasing),
         ),
         label = "scan",
+    )
+    val orbit by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(9000, easing = LinearEasing),
+        ),
+        label = "orbit",
     )
     val speakWave by transition.animateFloat(
         initialValue = 0f,
         targetValue = (2f * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(700, easing = LinearEasing),
+            animation = tween(650, easing = LinearEasing),
         ),
         label = "habla",
     )
@@ -78,108 +87,177 @@ fun JarvisFace(
     // Intensidad según estado
     val active = when (state) {
         AssistantState.LISTENING -> 1.05f
-        AssistantState.THINKING -> 1.15f
-        AssistantState.SPEAKING -> 1.2f
-        AssistantState.ERROR -> 0.9f
+        AssistantState.THINKING -> 1.18f
+        AssistantState.SPEAKING -> 1.25f
+        AssistantState.ERROR -> 0.85f
         AssistantState.IDLE -> 0.95f
     }
-    val eyeGlow = when (state) {
-        AssistantState.SPEAKING -> 0.85f + 0.15f * ((sin(speakWave.toDouble()).toFloat() * 0.5f) + 0.5f)
-        AssistantState.THINKING -> 1f
-        AssistantState.LISTENING -> 0.95f
-        AssistantState.ERROR -> 0.5f
-        AssistantState.IDLE -> 0.8f
-    }
 
-    // Paleta armadura
-    val red = Color(0xFFB01018)
-    val redBright = Color(0xFFD51C24)
-    val redDark = Color(0xFF5E0A0E)
-    val gold = Color(0xFFD4A017)
-    val goldLight = Color(0xFFF2C94C)
-    val goldDark = Color(0xFF8A6510)
-    val white = Color(0xFFF8FCFF)
-    val steel = Color(0xFFB8C4CC)
+    // Paleta holográfica (cian/blanco con acentos cálidos)
+    val cyan = Color(0xFF37D7FF)
+    val cyanBright = Color(0xFF9CF3FF)
+    val blue = Color(0xFF1A6FA3)
+    val white = Color(0xFFF4FCFF)
+    val gold = Color(0xFFF2C94C)
+    val steel = Color(0xFF86A6B8)
 
     Canvas(modifier) {
         val w = size.width
         val h = size.height
         val cx = w / 2f
+        val cy = h * 0.50f
+        val R = minOf(w, h) * 0.36f * breathe
 
-        // Proporciones: cabeza arriba y núcleo/hub debajo
-        val scale = h * 0.98f * breathe
-        val headH = scale * 0.34f
-        val headW = headH * 0.78f
-        val headCy = h * 0.22f
-        val neckTop = headCy + headH * 0.46f
-        val hubTop = neckTop + scale * 0.03f
-        val hubBottom = h * 0.97f
-        val hubW = scale * 0.70f
-        val hubH = hubBottom - hubTop
-        val hubCy = hubTop + hubH * 0.48f
-        val hubR = minOf(hubW, hubH) * 0.46f
+        val activeGlow = when (state) {
+            AssistantState.THINKING, AssistantState.SPEAKING -> 0.70f
+            AssistantState.LISTENING -> 0.55f
+            AssistantState.ERROR -> 0.30f
+            else -> 0.42f
+        }
+        val wave = (sin(speakWave.toDouble()).toFloat() * 0.5f + 0.5f)
+        val speakAmp = when (state) {
+            AssistantState.SPEAKING -> 0.45f + 0.55f * wave
+            AssistantState.LISTENING -> 0.20f + 0.15f * wave
+            AssistantState.THINKING -> 0.18f
+            else -> 0.08f
+        }
 
-        // Fondo HUD sutil
+        // Halo holográfico general
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(white.copy(alpha = 0.06f), Color.Transparent),
-                center = Offset(cx, hubCy),
-                radius = w * 0.52f,
+                colors = listOf(cyan.copy(alpha = 0.18f * activeGlow), blue.copy(alpha = 0.08f), Color.Transparent),
+                center = Offset(cx, cy),
+                radius = R * 2.4f,
             ),
-            radius = w * 0.52f,
-            center = Offset(cx, hubCy),
+            radius = R * 2.4f,
+            center = Offset(cx, cy),
         )
 
-        // Núcleo/hub tecnológico
-        drawHub(cx, hubTop, hubW, hubBottom, hubR, red, redBright, redDark, gold, goldLight, white, steel, reactorPulse * active, state, scan, speakWave)
+        // Rejilla/proyección holográfica tenue
+        val gridAlpha = 0.05f + 0.04f * activeGlow
+        val gridStep = R * 0.22f
+        var gx = cx - R * 1.6f
+        while (gx <= cx + R * 1.6f) {
+            drawLine(cyan.copy(alpha = gridAlpha), Offset(gx, cy - R * 1.5f), Offset(gx, cy + R * 1.5f), 1.dp.toPx())
+            gx += gridStep
+        }
+        var gy = cy - R * 1.5f
+        while (gy <= cy + R * 1.5f) {
+            drawLine(cyan.copy(alpha = gridAlpha), Offset(cx - R * 1.6f, gy), Offset(cx + R * 1.6f, gy), 1.dp.toPx())
+            gy += gridStep
+        }
 
-        // Cuello/soporte hacia el hub
-        drawNeck(cx, neckTop, headW, hubTop + hubH * 0.10f, red, redBright, redDark, gold, steel)
-
-        // Casco
-        val helmet = helmetPath(cx, headCy, headW, headH)
-        // Base roja
-        drawPath(helmet, Brush.linearGradient(
-            colors = listOf(redBright, red, redDark),
-            start = Offset(cx - headW / 2f, headCy - headH / 2f),
-            end = Offset(cx + headW / 2f, headCy + headH / 2f),
-        ))
-        clipPath(helmet) {
-            // Placa frontal dorada
-            drawFacePlate(cx, headCy, headW, headH, gold, goldLight, goldDark)
-            // Brillo metálico
-            drawPath(helmet, Brush.verticalGradient(
-                colors = listOf(Color.White.copy(alpha = 0.10f), Color.Transparent, Color.Black.copy(alpha = 0.18f)),
-                startY = headCy - headH / 2f, endY = headCy + headH / 2f,
-            ))
-            // Reflejo
-            drawPath(helmet, Brush.radialGradient(
-                colors = listOf(Color.White.copy(alpha = 0.12f), Color.Transparent),
-                center = Offset(cx - headW * 0.18f, headCy - headH * 0.20f),
-                radius = headW * 0.55f,
-            ))
-            // Barrido sutil
-            val scanY = headCy - headH * 0.5f + headH * scan
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, white.copy(alpha = 0.06f), Color.Transparent),
-                    startY = scanY - headH * 0.05f, endY = scanY + headH * 0.05f,
-                ),
-                topLeft = Offset(cx - headW, scanY - headH * 0.05f),
-                size = Size(headW * 2f, headH * 0.1f),
+        // Anillos exteriores (holograma)
+        fun ring(radius: Float, width: Float, color: Color, start: Float, sweep: Float) {
+            drawArc(
+                color = color,
+                startAngle = start,
+                sweepAngle = sweep,
+                useCenter = false,
+                topLeft = Offset(cx - radius, cy - radius),
+                size = Size(radius * 2f, radius * 2f),
+                style = Stroke(width, cap = StrokeCap.Round),
             )
         }
-        // Contorno casco
-        drawPath(helmet, Brush.verticalGradient(
-            colors = listOf(goldLight.copy(alpha = 0.5f), goldDark.copy(alpha = 0.4f), redDark.copy(alpha = 0.5f)),
-            startY = headCy - headH / 2f, endY = headCy + headH / 2f,
-        ), style = Stroke(2.dp.toPx(), join = StrokeJoin.Round))
+        ring(R * 1.55f, 1.2.dp.toPx(), cyan.copy(alpha = 0.18f), orbit, 300f)
+        ring(R * 1.55f, 1.2.dp.toPx(), cyanBright.copy(alpha = 0.10f), orbit + 180f, 120f)
+        ring(R * 1.32f, 1.6.dp.toPx(), cyan.copy(alpha = 0.22f + 0.10f * speakAmp), -orbit * 0.8f, 240f)
+        ring(R * 1.32f, 2.dp.toPx(), white.copy(alpha = 0.10f), -orbit * 0.8f + 40f, 60f)
+        ring(R * 1.12f, 1.dp.toPx(), steel.copy(alpha = 0.25f), orbit * 0.6f, 360f)
+        ring(R * 0.92f, 1.4.dp.toPx(), cyanBright.copy(alpha = 0.18f), -orbit * 1.1f + 20f, 200f)
 
-        // Líneas angulares de máscara y ojos
-        drawMaskDetails(cx, headCy, headW, headH, goldDark, redDark)
-        drawEyeSlits(cx, headCy, headW, headH, white, eyeGlow)
-        // Boca/mentón de máscara (animada al hablar)
-        drawMouthPlate(cx, headCy, headW, headH, gold, goldDark, redDark, white, state, speakWave)
+        // Segmentos/ticks tipo HUD
+        for (i in 0 until 36) {
+            val aDeg = i * 10f + orbit * 0.15f
+            val a = (aDeg - 90f) * (PI / 180f).toFloat()
+            val major = i % 3 == 0
+            val r1 = R * (if (major) 1.00f else 1.04f)
+            val r2 = R * 1.10f
+            val col = when {
+                major -> cyanBright.copy(alpha = 0.30f + 0.20f * activeGlow)
+                else -> steel.copy(alpha = 0.18f)
+            }
+            drawLine(
+                col,
+                Offset(cx + kotlin.math.cos(a) * r1, cy + kotlin.math.sin(a) * r1),
+                Offset(cx + kotlin.math.cos(a) * r2, cy + kotlin.math.sin(a) * r2),
+                (if (major) 1.8f else 1f).dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+
+        // Arcos de datos (más holograma)
+        drawArc(cyan.copy(alpha = 0.22f), orbit + 10f, 70f, false, Offset(cx - R * 1.45f, cy - R * 1.45f), Size(R * 2.9f, R * 2.9f), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(gold.copy(alpha = 0.18f), -orbit * 0.9f + 200f, 40f, false, Offset(cx - R * 1.45f, cy - R * 1.45f), Size(R * 2.9f, R * 2.9f), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(cyanBright.copy(alpha = 0.16f), orbit * 1.3f + 120f, 55f, false, Offset(cx - R * 1.22f, cy - R * 1.22f), Size(R * 2.44f, R * 2.44f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+
+        // Ecualizador orbital (reacciona al habla)
+        val bars = 24
+        for (i in 0 until bars) {
+            val t = i / bars.toFloat()
+            val ang = (t * 360f + orbit * 0.4f - 90f) * (PI / 180f).toFloat()
+            val phase = speakWave + t * (2f * PI).toFloat() * 2f
+            val v = (sin(phase.toDouble()).toFloat() * 0.5f + 0.5f)
+            val level = if (state == AssistantState.SPEAKING || state == AssistantState.LISTENING) (0.25f + 0.75f * v) else (0.12f + 0.10f * ((i % 3) / 2f))
+            val len = R * (0.10f + 0.22f * level * speakAmp / (if (state == AssistantState.IDLE) 0.08f else 1f).coerceAtLeast(0.3f))
+            val rIn = R * 0.72f
+            val rOut = rIn + len
+            val alpha = 0.12f + 0.45f * level * activeGlow
+            drawLine(
+                cyanBright.copy(alpha = alpha),
+                Offset(cx + kotlin.math.cos(ang) * rIn, cy + kotlin.math.sin(ang) * rIn),
+                Offset(cx + kotlin.math.cos(ang) * rOut, cy + kotlin.math.sin(ang) * rOut),
+                2.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+
+        // Núcleo central
+        val coreR = R * 0.34f * reactorPulse
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(cyanBright.copy(alpha = 0.55f * activeGlow), cyan.copy(alpha = 0.18f), Color.Transparent),
+                center = Offset(cx, cy), radius = coreR * 3.4f,
+            ),
+            radius = coreR * 3.4f, center = Offset(cx, cy),
+        )
+        drawCircle(cyan.copy(alpha = 0.55f), radius = coreR * 1.55f, center = Offset(cx, cy), style = Stroke(2.5.dp.toPx()))
+        drawCircle(Color(0xFF071018), radius = coreR * 1.40f, center = Offset(cx, cy))
+        drawCircle(cyanBright.copy(alpha = 0.35f), radius = coreR * 1.40f, center = Offset(cx, cy), style = Stroke(1.dp.toPx()))
+        for (i in 0 until 12) {
+            val a = i * 30f - 90f + orbit * 0.3f
+            drawArc(white.copy(alpha = 0.80f), a + 6f, 18f, false,
+                Offset(cx - coreR, cy - coreR), Size(coreR * 2f, coreR * 2f),
+                style = Stroke(coreR * 0.22f, cap = StrokeCap.Butt))
+        }
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(Color.White, cyanBright.copy(alpha = 0.95f), cyan.copy(alpha = 0.20f)),
+                center = Offset(cx, cy), radius = coreR * 0.60f,
+            ),
+            radius = coreR * 0.60f, center = Offset(cx, cy),
+        )
+
+        // Barrido holográfico
+        val sweepY = cy - R * 1.6f + R * 3.2f * scan
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Transparent, cyanBright.copy(alpha = 0.08f), Color.Transparent),
+                startY = sweepY - R * 0.18f, endY = sweepY + R * 0.18f,
+            ),
+            topLeft = Offset(cx - R * 1.7f, sweepY - R * 0.18f),
+            size = Size(R * 3.4f, R * 0.36f),
+        )
+
+        // Partículas/nodos holográficos
+        val nodes = 8
+        for (i in 0 until nodes) {
+            val a = ((i * (360f / nodes) + orbit * (if (i % 2 == 0) 0.5f else -0.35f)) - 90f) * (PI / 180f).toFloat()
+            val rr = R * (1.18f + 0.10f * sin((scan * 2f * PI + i).toDouble()).toFloat())
+            val p = Offset(cx + kotlin.math.cos(a) * rr, cy + kotlin.math.sin(a) * rr)
+            drawCircle(cyanBright.copy(alpha = 0.35f * activeGlow), radius = 3.dp.toPx(), center = p)
+            drawCircle(cyan.copy(alpha = 0.18f), radius = 7.dp.toPx(), center = p, style = Stroke(1.dp.toPx()))
+        }
     }
 }
 

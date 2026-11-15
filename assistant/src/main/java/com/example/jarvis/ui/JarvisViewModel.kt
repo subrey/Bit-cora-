@@ -261,19 +261,24 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                         JarvisBus.speaking.value = false
                     }
                 } else {
+                    val autoListen = VoicePolicy.shouldAutoListen(
+                        continuous = continuousVoice.value,
+                        fromVoice = fromVoice,
+                        appVisible = appVisible,
+                        interrupted = interrupted,
+                    )
+                    if (autoListen) {
+                        // Reclamar el micro antes de soltar "speaking" para que el
+                        // servicio de escucha permanente no se reabra y compita.
+                        JarvisBus.appMic.value = true
+                    }
                     JarvisBus.speaking.value = false
                     if (_state.value == AssistantState.SPEAKING ||
                         _state.value == AssistantState.THINKING
                     ) {
                         _state.value = AssistantState.IDLE
                     }
-                    if (VoicePolicy.shouldAutoListen(
-                            continuous = continuousVoice.value,
-                            fromVoice = fromVoice,
-                            appVisible = appVisible,
-                            interrupted = interrupted,
-                        )
-                    ) {
+                    if (autoListen) {
                         // Pequeña pausa: deja que el motor de voz y el altavoz
                         // se liberen antes de reabrir el micrófono.
                         startVoice(delayMillis = 500)

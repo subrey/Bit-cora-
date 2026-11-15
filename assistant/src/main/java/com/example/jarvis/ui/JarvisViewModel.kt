@@ -242,12 +242,16 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 runCatching { repository.addChat(response.text, fromUser = false) }
                 if (response.speak && ttsEnabled.value) {
-                    // Mientras Jarvis habla, el micro se pausa: así no se oye a
-                    // sí mismo ni se pierde la siguiente orden.
+                    // Mientras Jarvis habla, el micro se pausa y la cara se anima.
                     _state.value = AssistantState.SPEAKING
-                    JarvisBus.speaking.value = true
                     app.musicPlayer.duckForWakeWord()
-                    runCatching { app.speaker.speak(response.text) }
+                    val spoke = runCatching { app.speaker.speak(response.text) }.getOrDefault(false)
+                    if (!spoke) {
+                        // Si no llegó a hablar, no mantener el estado de habla.
+                        if (_state.value == AssistantState.SPEAKING) {
+                            _state.value = AssistantState.THINKING
+                        }
+                    }
                     app.musicPlayer.restoreAfterWakeWord()
                 }
             } finally {

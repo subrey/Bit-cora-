@@ -57,11 +57,11 @@ class Speaker(context: Context) {
         }
     }
 
-    /** Habla y espera al final de la locución. */
-    suspend fun speak(text: String) {
-        if (text.isBlank()) return
+    /** Habla y espera al final de la locución. Devuelve true si llegó a iniciarse. */
+    suspend fun speak(text: String): Boolean {
+        if (text.isBlank()) return false
         val available = withTimeoutOrNull(4_000) { ready.await() } ?: false
-        if (!available) return
+        if (!available) return false
 
         val done = CompletableDeferred<Unit>()
         val id = "jarvis-${++counter}"
@@ -71,15 +71,26 @@ class Speaker(context: Context) {
         val result = withContext(Dispatchers.Main) {
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
         }
-        if (result != TextToSpeech.SUCCESS) done.complete(Unit)
-
-        // Límite de seguridad por si el motor de voz nunca avisa del final.
-        withTimeoutOrNull(90_000) { done.await() }
-
-        if (pending === done) {
-            pending = null
-            currentUtterance = null
+        if (result != TextToSpeech.SUCCESS) {
+            if (pending === done) {
+                pending = null
+                currentUtterance = null
+            }
+            return false
         }
+
+        JarvisBus.speaking.value = true
+        try {
+            // Límite de seguridad por si el motor de voz nunca avisa del final.
+            withTimeoutOrNull(90_000) { done.await() }
+        } finally {
+            if (pending === done) {
+                pending = null
+                currentUtterance = null
+            }
+            JarvisBus.speaking.value = false
+        }
+        return true
     }
 
     /** Detiene la locución actual; [speak] termina en el acto. */
@@ -88,6 +99,7 @@ class Speaker(context: Context) {
         currentUtterance = null
         pending?.complete(Unit)
         pending = null
+        JarvisBus.speaking.value = false
     }
 
     fun shutdown() {
@@ -97,7 +109,11 @@ class Speaker(context: Context) {
     }
 
     private val listener = object : UtteranceProgressListener() {
-        override fun onStart(utteranceId: String?) = Unit
+        override fun onStart(utteranceId: String?) {
+            if (utteranceId != null && utteranceId == currentUtterance) {
+                JarvisBus.speaking.value = true
+            }
+        }
 
         override fun onDone(utteranceId: String?) = finish(utteranceId)
 
@@ -111,6 +127,7 @@ class Speaker(context: Context) {
 
     private fun finish(utteranceId: String?) {
         if (utteranceId != null && utteranceId == currentUtterance) {
+            JarvisBus.speaking.value = false
             pending?.complete(Unit)
         }
     }

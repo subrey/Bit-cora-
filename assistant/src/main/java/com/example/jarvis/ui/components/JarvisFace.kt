@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawOval
 import androidx.compose.ui.unit.dp
 import com.example.jarvis.domain.model.AssistantState
 import kotlin.math.PI
@@ -412,40 +413,76 @@ private fun DrawScope.drawChest(
     red: Color, redBright: Color, redDark: Color, gold: Color, goldLight: Color, white: Color,
     reactorPulse: Float, state: AssistantState,
 ) {
-    val tw = chestW * 0.52f
-    val mw = chestW * 0.58f
-    val bw = chestW * 0.45f
+    val h = bottom - top
+    // Silueta más humana: clavículas estrechas, pectorales anchos, cintura recogida
+    val collar = chestW * 0.42f
+    val pec = chestW * 0.62f
+    val waist = chestW * 0.38f
+    val hip = chestW * 0.46f
+
     val path = Path().apply {
-        moveTo(cx - tw, top)
-        cubicTo(cx - mw, top + (bottom - top) * 0.35f, cx - bw, top + (bottom - top) * 0.75f, cx - bw * 0.85f, bottom)
-        lineTo(cx + bw * 0.85f, bottom)
-        cubicTo(cx + bw, top + (bottom - top) * 0.75f, cx + mw, top + (bottom - top) * 0.35f, cx + tw, top)
+        moveTo(cx - collar, top)
+        // hombro/pectoral izquierdo
+        cubicTo(cx - chestW * 0.56f, top + h * 0.10f, cx - pec, top + h * 0.30f, cx - pec * 0.98f, top + h * 0.46f)
+        // cintura izquierda
+        cubicTo(cx - chestW * 0.56f, top + h * 0.64f, cx - waist, top + h * 0.78f, cx - hip, bottom)
+        // base ligeramente curva
+        quadraticTo(cx, bottom + h * 0.03f, cx + hip, bottom)
+        // cintura derecha
+        cubicTo(cx + waist, top + h * 0.78f, cx + chestW * 0.56f, top + h * 0.64f, cx + pec * 0.98f, top + h * 0.46f)
+        // pectoral/hombro derecho
+        cubicTo(cx + pec, top + h * 0.30f, cx + chestW * 0.56f, top + h * 0.10f, cx + collar, top)
+        // clavícula curva
+        quadraticTo(cx, top - h * 0.05f, cx - collar, top)
         close()
     }
-    drawPath(path, Brush.verticalGradient(listOf(redBright, red, redDark), top, bottom))
-    // Placas curvas
+    drawPath(path, Brush.verticalGradient(listOf(redBright, red, redDark), top - h * 0.05f, bottom))
+    // Placas curvas y sombreado anatómico
     clipPath(path) {
         drawPath(path, Brush.horizontalGradient(
-            listOf(Color.Black.copy(alpha = 0.15f), Color.Transparent, Color.White.copy(alpha = 0.06f), Color.Transparent, Color.Black.copy(alpha = 0.15f)),
-            cx - mw, cx + mw,
+            listOf(Color.Black.copy(alpha = 0.18f), Color.Transparent, Color.White.copy(alpha = 0.07f), Color.Transparent, Color.Black.copy(alpha = 0.18f)),
+            cx - pec, cx + pec,
         ))
-        // líneas de placas
+        // volumen pectoral
+        drawOval(
+            brush = Brush.radialGradient(
+                colors = listOf(Color.White.copy(alpha = 0.08f), Color.Transparent),
+                center = Offset(cx - chestW * 0.22f, top + h * 0.28f),
+                radius = chestW * 0.28f,
+            ),
+            topLeft = Offset(cx - chestW * 0.50f, top + h * 0.05f),
+            size = Size(chestW * 0.52f, h * 0.46f),
+        )
+        drawOval(
+            brush = Brush.radialGradient(
+                colors = listOf(Color.White.copy(alpha = 0.08f), Color.Transparent),
+                center = Offset(cx + chestW * 0.22f, top + h * 0.28f),
+                radius = chestW * 0.28f,
+            ),
+            topLeft = Offset(cx - chestW * 0.02f, top + h * 0.05f),
+            size = Size(chestW * 0.52f, h * 0.46f),
+        )
+        // líneas de placas siguiendo el torso
         val plateLine = redDark.copy(alpha = 0.45f)
-        drawArc(plateLine, 200f, 140f, false,
-            Offset(cx - chestW * 0.34f, top + (bottom - top) * 0.05f), Size(chestW * 0.68f, (bottom - top) * 0.55f),
-            style = Stroke(1.5.dp.toPx()))
         drawArc(plateLine, 210f, 120f, false,
-            Offset(cx - chestW * 0.26f, top + (bottom - top) * 0.18f), Size(chestW * 0.52f, (bottom - top) * 0.45f),
+            Offset(cx - chestW * 0.30f, top + h * 0.02f), Size(chestW * 0.60f, h * 0.38f),
+            style = Stroke(1.5.dp.toPx()))
+        drawArc(plateLine, 205f, 130f, false,
+            Offset(cx - chestW * 0.24f, top + h * 0.18f), Size(chestW * 0.48f, h * 0.34f),
             style = Stroke(1.2.dp.toPx()))
-        drawLine(plateLine, Offset(cx, top + (bottom - top) * 0.02f), Offset(cx, bottom - (bottom - top) * 0.08f), 1.dp.toPx())
-        // bordes dorados superiores
-        drawLine(gold.copy(alpha = 0.35f), Offset(cx - tw, top), Offset(cx - mw * 0.55f, top + (bottom - top) * 0.18f), 2.dp.toPx(), cap = StrokeCap.Round)
-        drawLine(gold.copy(alpha = 0.35f), Offset(cx + tw, top), Offset(cx + mw * 0.55f, top + (bottom - top) * 0.18f), 2.dp.toPx(), cap = StrokeCap.Round)
+        drawArc(redDark.copy(alpha = 0.30f), 20f, 140f, false,
+            Offset(cx - chestW * 0.22f, top + h * 0.52f), Size(chestW * 0.44f, h * 0.30f),
+            style = Stroke(1.dp.toPx()))
+        drawLine(plateLine, Offset(cx, top - h * 0.02f), Offset(cx, top + h * 0.22f), 1.dp.toPx())
+        drawLine(plateLine, Offset(cx, top + h * 0.58f), Offset(cx, bottom - h * 0.02f), 1.dp.toPx())
+        // bordes dorados de clavícula/hombro
+        drawLine(gold.copy(alpha = 0.35f), Offset(cx - collar, top), Offset(cx - pec * 0.72f, top + h * 0.22f), 2.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(gold.copy(alpha = 0.35f), Offset(cx + collar, top), Offset(cx + pec * 0.72f, top + h * 0.22f), 2.dp.toPx(), cap = StrokeCap.Round)
     }
-    drawPath(path, redDark.copy(alpha = 0.5f), style = Stroke(1.5.dp.toPx(), join = StrokeJoin.Round))
+    drawPath(path, redDark.copy(alpha = 0.55f), style = Stroke(1.5.dp.toPx(), join = StrokeJoin.Round))
 
     // Reactor circular blanco central
-    val coreCy = top + (bottom - top) * 0.46f
+    val coreCy = top + h * 0.46f
     val coreR = chestW * 0.12f * reactorPulse
     val glowAlpha = when (state) {
         AssistantState.THINKING, AssistantState.SPEAKING -> 0.45f

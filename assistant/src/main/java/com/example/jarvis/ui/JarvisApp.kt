@@ -76,6 +76,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val alwaysListening by viewModel.alwaysListening.collectAsStateWithLifecycle()
     val wakeWord by viewModel.wakeWord.collectAsStateWithLifecycle()
     val capturing by JarvisBus.listening.collectAsStateWithLifecycle()
+    val busSpeaking by JarvisBus.speaking.collectAsStateWithLifecycle()
     val onDeviceVoice by viewModel.onDeviceVoice.collectAsStateWithLifecycle()
     val continuousVoice by viewModel.continuousVoice.collectAsStateWithLifecycle()
     val aiConfigured by viewModel.aiConfigured.collectAsStateWithLifecycle()
@@ -89,7 +90,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     // aunque el servicio de escucha esté abierto en segundo plano.
     val visualState = when {
         assistantState == AssistantState.THINKING -> AssistantState.THINKING
-        assistantState == AssistantState.SPEAKING -> AssistantState.SPEAKING
+        assistantState == AssistantState.SPEAKING || busSpeaking -> AssistantState.SPEAKING
         assistantState == AssistantState.LISTENING || capturing -> AssistantState.LISTENING
         else -> AssistantState.IDLE
     }

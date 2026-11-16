@@ -284,7 +284,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                     if (autoListen) {
                         // Pausa: deja que el motor de voz y el altavoz se liberen
                         // antes de reabrir el micrófono.
-                        startVoice(delayMillis = 900)
+                        startVoice(delayMillis = 1100)
                     } else {
                         releaseServiceMic()
                     }
@@ -399,7 +399,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
      * app: si algo va mal, se anota y se trata como un error de voz normal.
      */
     private fun beginListening() {
-        runCatching { ensureRecognizer().start(onDeviceVoice.value) }
+        // Si la voz en dispositivo falla en silencio, reintentar con el motor normal.
+        val preferOnDevice = onDeviceVoice.value && silenceRetries == 0
+        runCatching { ensureRecognizer().start(preferOnDevice) }
             .onFailure {
                 CrashReporter.note(getApplication<Application>(), "Abrir micrófono", it)
                 handleVoiceError(SpeechRecognizer.ERROR_CLIENT)
@@ -431,11 +433,11 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                 _liveTranscript.value = ""
                 if (_state.value == AssistantState.LISTENING) {
                     if (text.isBlank()) {
-                        // Resultado vacío: un reintento rápido antes de rendirse.
-                        if (silenceRetries < 1) {
+                        // Resultado vacío: reintentos antes de rendirse.
+                        if (silenceRetries < 2) {
                             silenceRetries++
                             viewModelScope.launch {
-                                delay(350)
+                                delay(if (silenceRetries == 1) 400 else 600)
                                 if (_state.value == AssistantState.LISTENING) beginListening()
                             }
                         } else {
@@ -481,11 +483,11 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         if (VoicePolicy.isSilenceError(error)) {
-            // A veces el motor abre tarde o no capta a la primera: un reintento.
-            if (_state.value == AssistantState.LISTENING && silenceRetries < 1) {
+            // A veces el motor abre tarde o no capta a la primera: reintentos.
+            if (_state.value == AssistantState.LISTENING && silenceRetries < 2) {
                 silenceRetries++
                 viewModelScope.launch {
-                    delay(400)
+                    delay(if (silenceRetries == 1) 500 else 700)
                     if (_state.value == AssistantState.LISTENING) beginListening()
                 }
                 return

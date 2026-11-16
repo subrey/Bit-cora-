@@ -53,6 +53,8 @@ class AlwaysListeningService : Service() {
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
+            // El micro se abrió bien: el sistema responde, así que se recupera.
+            consecutiveFailures = 0
             JarvisBus.listening.value = true
         }
 
@@ -84,29 +86,29 @@ class AlwaysListeningService : Service() {
                     stopSelf()
                 }
 
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
+                SpeechRecognizer.ERROR_CLIENT,
+                SpeechRecognizer.ERROR_AUDIO -> {
                     consecutiveFailures++
-                    if (consecutiveFailures >= 3) {
-                        // Un reconocedor ocupado varias veces puede quedarse
-                        // bloqueado: se recrea en la siguiente sesión.
+                    if (consecutiveFailures >= 2) {
                         runCatching { recognizer?.destroy() }
                         recognizer = null
                     }
-                    scheduleRestart(900L)
+                    scheduleRestart(if (consecutiveFailures > 6) 8_000L else 1_500L)
                 }
 
                 else -> {
                     consecutiveFailures++
-                    if (consecutiveFailures > 10) {
+                    if (consecutiveFailures == 10) {
                         JarvisBus.notice(
-                            "⚠ El sistema sigue cortando el micrófono en segundo plano. " +
-                                "Deja la app abierta en pantalla para hablar con Jarvis, " +
-                                "o usa el botón del micrófono para darle órdenes."
+                            "⚠ El sistema está cortando el micrófono en segundo plano. " +
+                                "Seguiré reintentando, pero funciona mejor con la app abierta " +
+                                "y sin restricciones de batería."
                         )
-                        stopSelf()
-                    } else {
-                        scheduleRestart(backoff())
                     }
+                    // No se detiene: en muchos móviles el corte es temporal
+                    // (pantalla apagada/batería) y conviene seguir intentando.
+                    scheduleRestart(if (consecutiveFailures > 10) longBackoff() else backoff())
                 }
             }
         }
@@ -199,6 +201,13 @@ class AlwaysListeningService : Service() {
         consecutiveFailures <= 2 -> 1_500L
         consecutiveFailures <= 5 -> 3_000L
         else -> 6_000L
+    }
+
+    /** Espera larga cuando el sistema bloquea el micro en segundo plano. */
+    private fun longBackoff(): Long = when {
+        consecutiveFailures <= 15 -> 15_000L
+        consecutiveFailures <= 25 -> 30_000L
+        else -> 60_000L
     }
 
     private fun isMusicPlaying(): Boolean =

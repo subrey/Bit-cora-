@@ -363,11 +363,15 @@ class AlwaysListeningService : Service() {
      */
     private fun createRecognizer(onDevice: Boolean): SpeechRecognizer? {
         if (onDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            runCatching {
-                SpeechRecognizer.createOnDeviceSpeechRecognizer(this).also {
-                    it.setRecognitionListener(listener)
-                }
-            }.getOrNull()?.let { return it }
+            val available = runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(this) }
+                .getOrDefault(false)
+            if (available) {
+                runCatching {
+                    SpeechRecognizer.createOnDeviceSpeechRecognizer(this).also {
+                        it.setRecognitionListener(listener)
+                    }
+                }.getOrNull()?.let { return it }
+            }
         }
         return runCatching {
             SpeechRecognizer.createSpeechRecognizer(this).also {

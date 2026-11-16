@@ -190,6 +190,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     /** Reintentos silenciosos cuando el micrófono aún está ocupado. */
     private var busyRetries = 0
 
+    /** Reintentos cuando el motor no detecta voz útil (apertura lenta, eco, etc.). */
+    private var silenceRetries = 0
+
     /** Evita cerrar el micro por un onStop pasajero (permiso, overlay…). */
     private var visibilityJob: Job? = null
 
@@ -279,9 +282,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                         _state.value = AssistantState.IDLE
                     }
                     if (autoListen) {
-                        // Pequeña pausa: deja que el motor de voz y el altavoz
-                        // se liberen antes de reabrir el micrófono.
-                        startVoice(delayMillis = 500)
+                        // Pausa: deja que el motor de voz y el altavoz se liberen
+                        // antes de reabrir el micrófono.
+                        startVoice(delayMillis = 900)
                     } else {
                         releaseServiceMic()
                     }
@@ -315,6 +318,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
         interrupted = false
         busyRetries = 0
+        silenceRetries = 0
         _liveTranscript.value = ""
         _state.value = AssistantState.LISTENING
 
@@ -408,6 +412,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             context = getApplication<Application>(),
             onReady = {},
             onSpeechStart = {
+                silenceRetries = 0
                 // Si estaba hablando y empieza una voz, se calla para escuchar.
                 if (JarvisBus.speaking.value) {
                     interrupted = true
@@ -417,12 +422,29 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                 // que el reconocedor entienda la orden.
                 app.musicPlayer.duckForWakeWord()
             },
-            onPartial = { text -> _liveTranscript.value = text },
+            onPartial = { text ->
+                silenceRetries = 0
+                _liveTranscript.value = text
+            },
             onResult = { text ->
                 busyRetries = 0
                 _liveTranscript.value = ""
                 if (_state.value == AssistantState.LISTENING) {
-                    if (text.isBlank()) stopVoice() else submit(text, fromVoice = true)
+                    if (text.isBlank()) {
+                        // Resultado vacío: un reintento rápido antes de rendirse.
+                        if (silenceRetries < 1) {
+                            silenceRetries++
+                            viewModelScope.launch {
+                                delay(350)
+                                if (_state.value == AssistantState.LISTENING) beginListening()
+                            }
+                        } else {
+                            stopVoice()
+                        }
+                    } else {
+                        silenceRetries = 0
+                        submit(text, fromVoice = true)
+                    }
                 }
             },
             onError = ::handleVoiceError,
@@ -459,6 +481,15 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         if (VoicePolicy.isSilenceError(error)) {
+            // A veces el motor abre tarde o no capta a la primera: un reintento.
+            if (_state.value == AssistantState.LISTENING && silenceRetries < 1) {
+                silenceRetries++
+                viewModelScope.launch {
+                    delay(400)
+                    if (_state.value == AssistantState.LISTENING) beginListening()
+                }
+                return
+            }
             stopVoice()
             return
         }

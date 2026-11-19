@@ -153,3 +153,15 @@
 - Fase 11.15: «diagnóstico de red» muestra también si la clave principal y la
   de respaldo están guardadas, para comprobar que la conmutación tiene dos
   claves reales disponibles.
+
+## Fase 11.16 — proveedor Groq de respaldo
+
+- **Nueva clave opcional de Groq** en Ajustes. Se guarda cifrada igual que las
+  de Gemini y se consigue gratis en `console.groq.com/keys`.
+- `FallbackAiProvider` prueba Gemini (con sus dos claves) y, si agota la cuota
+  o falla, pasa automáticamente a Groq en la misma petición. El aviso indica
+  `[Gemini]` o `[Groq]` según quién fallara.
+- Para las búsquedas, Groq usa el modelo `openai/gpt-oss-20b` con la
+  herramienta integrada **browser_search** (búsqueda real en la web, con
+  cuota propia); para conversar usa `llama-3.1-8b-instant`, muy rápido.
+- El diagnóstico muestra el estado de Gemini y de Groq.

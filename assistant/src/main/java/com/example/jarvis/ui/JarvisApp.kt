@@ -81,6 +81,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val continuousVoice by viewModel.continuousVoice.collectAsStateWithLifecycle()
     val aiConfigured by viewModel.aiConfigured.collectAsStateWithLifecycle()
     val aiBackupConfigured by viewModel.aiBackupConfigured.collectAsStateWithLifecycle()
+    val groqConfigured by viewModel.groqConfigured.collectAsStateWithLifecycle()
     val aiModel by viewModel.aiModel.collectAsStateWithLifecycle()
     val aiStatus by viewModel.aiStatus.collectAsStateWithLifecycle()
     val city by viewModel.city.collectAsStateWithLifecycle()
@@ -286,6 +287,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         onDeviceVoice = onDeviceVoice,
                         aiConfigured = aiConfigured,
                         aiBackupConfigured = aiBackupConfigured,
+                        groqConfigured = groqConfigured,
                         aiModel = aiModel,
                         aiStatus = aiStatus,
                         city = city,
@@ -304,6 +306,8 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         onClearAiKey = viewModel::clearAiKey,
                         onSaveAiBackupKey = viewModel::saveAiBackupKey,
                         onClearAiBackupKey = viewModel::clearAiBackupKey,
+                        onSaveGroqKey = viewModel::saveGroqKey,
+                        onClearGroqKey = viewModel::clearGroqKey,
                         onSaveAiModel = viewModel::saveAiModel,
                         onTestAi = viewModel::testAi,
                         onSaveCity = viewModel::setCity,

@@ -107,6 +107,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     private val _aiBackupConfigured = MutableStateFlow(secure.hasBackupKey())
     val aiBackupConfigured: StateFlow<Boolean> = _aiBackupConfigured.asStateFlow()
 
+    /** ¿Hay una clave de Groq configurada como proveedor de respaldo? */
+    private val _groqConfigured = MutableStateFlow(secure.hasGroqKey())
+    val groqConfigured: StateFlow<Boolean> = _groqConfigured.asStateFlow()
+
     /** Modelo configurado, o el gratuito por defecto. */
     private val _aiModel = MutableStateFlow(
         GeminiProvider.effectiveModel(secure.model()),
@@ -176,6 +180,38 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             _aiBackupConfigured.value = false
             _aiConfigured.value = secure.hasAnyKey()
             _aiStatus.value = "Clave de respaldo borrada."
+        }
+    }
+
+    fun saveGroqKey(key: String) {
+        val clean = key.trim()
+        if (clean.isBlank()) {
+            _aiStatus.value = "Pegue una clave de Groq válida."
+            return
+        }
+        if (!secure.available) {
+            _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
+            return
+        }
+        viewModelScope.launch {
+            runCatching { secure.setGroqApiKey(clean) }
+                .onSuccess {
+                    _groqConfigured.value = true
+                    _aiConfigured.value = true
+                    _aiStatus.value = "Clave de Groq guardada de forma cifrada."
+                }
+                .onFailure {
+                    _aiStatus.value = "No se pudo guardar la clave de Groq."
+                }
+        }
+    }
+
+    fun clearGroqKey() {
+        viewModelScope.launch {
+            runCatching { secure.setGroqApiKey("") }
+            _groqConfigured.value = false
+            _aiConfigured.value = secure.hasAnyKey()
+            _aiStatus.value = "Clave de Groq borrada."
         }
     }
 

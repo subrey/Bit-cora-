@@ -49,7 +49,16 @@ class SecureSettings(context: Context) {
         prefs?.edit()?.putString(KEY_API_BACKUP, value.trim())?.apply()
     }
 
-    fun hasAnyKey(): Boolean = hasKey() || hasBackupKey()
+    fun hasAnyKey(): Boolean = hasKey() || hasBackupKey() || hasGroqKey()
+
+    /** Clave de Groq: segundo proveedor gratuito con búsqueda en navegador. */
+    fun groqApiKey(): String = prefs?.getString(KEY_GROQ, "").orEmpty()
+
+    fun hasGroqKey(): Boolean = groqApiKey().isNotBlank()
+
+    fun setGroqApiKey(value: String) {
+        prefs?.edit()?.putString(KEY_GROQ, value.trim())?.apply()
+    }
 
     fun model(): String = prefs?.getString(KEY_MODEL, "").orEmpty()
 
@@ -61,6 +70,7 @@ class SecureSettings(context: Context) {
         const val FILE = "jarvis_secure"
         const val KEY_API = "gemini_api_key"
         const val KEY_API_BACKUP = "gemini_api_key_backup"
+        const val KEY_GROQ = "groq_api_key"
         const val KEY_MODEL = "gemini_model"
     }
 }

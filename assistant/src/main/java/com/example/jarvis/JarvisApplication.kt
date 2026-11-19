@@ -2,7 +2,9 @@ package com.example.jarvis
 
 import android.app.Application
 import com.example.jarvis.ai.AiProvider
+import com.example.jarvis.ai.FallbackAiProvider
 import com.example.jarvis.ai.GeminiProvider
+import com.example.jarvis.ai.GroqProvider
 import com.example.jarvis.assistant.AlarmScheduler
 import com.example.jarvis.assistant.AssistantEngine
 import com.example.jarvis.assistant.CrashReporter
@@ -42,10 +44,17 @@ class JarvisApplication : Application() {
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
     val secureSettings: SecureSettings by lazy { SecureSettings(this) }
     val aiProvider: AiProvider by lazy {
-        GeminiProvider(
-            apiKey = { secureSettings.apiKey() },
-            backupApiKey = { secureSettings.backupApiKey() },
-            model = { secureSettings.model() },
+        FallbackAiProvider(
+            listOf(
+                GeminiProvider(
+                    apiKey = { secureSettings.apiKey() },
+                    backupApiKey = { secureSettings.backupApiKey() },
+                    model = { secureSettings.model() },
+                ),
+                GroqProvider(
+                    apiKey = { secureSettings.groqApiKey() },
+                ),
+            ),
         )
     }
     val musicPlayer: MusicPlayer by lazy { MusicPlayer(this) }

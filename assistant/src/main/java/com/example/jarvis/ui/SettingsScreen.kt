@@ -40,6 +40,7 @@ fun SettingsScreen(
     onDeviceVoice: Boolean,
     aiConfigured: Boolean,
     aiBackupConfigured: Boolean,
+    groqConfigured: Boolean,
     aiModel: String,
     aiStatus: String?,
     city: String,
@@ -52,6 +53,8 @@ fun SettingsScreen(
     onClearAiKey: () -> Unit,
     onSaveAiBackupKey: (String) -> Unit,
     onClearAiBackupKey: () -> Unit,
+    onSaveGroqKey: (String) -> Unit,
+    onClearGroqKey: () -> Unit,
     onSaveAiModel: (String) -> Unit,
     onTestAi: () -> Unit,
     onSaveCity: (String) -> Unit,
@@ -61,6 +64,7 @@ fun SettingsScreen(
     var wordInput by remember(wakeWord) { mutableStateOf(wakeWord) }
     var keyInput by remember { mutableStateOf("") }
     var backupKeyInput by remember { mutableStateOf("") }
+    var groqKeyInput by remember { mutableStateOf("") }
     var modelInput by remember(aiModel) { mutableStateOf(aiModel) }
     var cityInput by remember(city) { mutableStateOf(city) }
     val uriHandler = LocalUriHandler.current
@@ -257,6 +261,47 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Amber,
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Clave de Groq (proveedor alternativo con búsqueda propia):",
+            style = MaterialTheme.typography.bodySmall,
+            color = JarvisColors.Muted,
+        )
+        OutlinedTextField(
+            value = groqKeyInput,
+            onValueChange = { groqKeyInput = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Clave de Groq") },
+            placeholder = {
+                Text(if (groqConfigured) "•••••••• (guardada)" else "gsk_…")
+            },
+            visualTransformation = PasswordVisualTransformation(),
+            textStyle = TextStyle(fontFamily = FontFamily.Monospace, color = JarvisColors.Green),
+            colors = fieldColors(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(
+                onClick = {
+                    if (groqKeyInput.isNotBlank()) {
+                        onSaveGroqKey(groqKeyInput)
+                        groqKeyInput = ""
+                    }
+                },
+            ) {
+                Text("Guardar Groq", color = JarvisColors.Green)
+            }
+            if (groqConfigured) {
+                TextButton(onClick = onClearGroqKey) {
+                    Text("Borrar", color = JarvisColors.Amber)
+                }
+            }
+        }
+        Text(
+            text = "Se usa cuando Gemini se queda sin cuota. Consíguela gratis en console.groq.com/keys.",
+            style = MaterialTheme.typography.bodySmall,
+            color = JarvisColors.Amber,
+        )
         OutlinedTextField(
             value = modelInput,
             onValueChange = { modelInput = it },
@@ -335,7 +380,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · v2.0-fase11.15",
+            text = "JARVIS · v2.0-fase11.16",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

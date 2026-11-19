@@ -1,4 +1,4 @@
-# Fase 11.2 — respuestas de conocimiento
+# Fase 11 — conocimiento y conversación
 
 ## Correcciones
 
@@ -25,3 +25,21 @@
   negro» se interpreta como conocimiento.
 - `AiPromptTest` comprueba el prompt factual.
 - `GeminiJsonTest` comprueba que la temperatura de la petición llega al JSON.
+
+## Fase 11.3 — conversación libre
+
+- **Cualquier frase que no sea una orden local** se envía a la IA cuando hay una
+  clave configurada. JARVIS ya no responde «No he entendido esa orden» a una
+  frase normal: la trata como conversación.
+- **Ventana de conversación de 5 minutos.** Las preguntas de seguimiento
+  («¿y por qué?», «cuéntame más») usan los últimos turnos y los recuerdos. Las
+  preguntas factuales aisladas siguen yendo sin historial y con temperatura
+  baja para no mezclar temas.
+- **Las órdenes locales tienen prioridad.** Al ejecutar una orden del teléfono,
+  el contexto conversacional se cierra para que el siguiente mensaje no
+  arrastre la charla anterior.
+- **Reiniciar conversación** limpia también el estado interno del motor, no solo
+  los mensajes de la pantalla.
+- **Prompt de conversación:** la personalidad de JARVIS pide mantener el hilo,
+  usar los turnos anteriores y conversar con naturalidad sin convertir cada
+  frase en una orden.

@@ -53,7 +53,7 @@ object Knowledge {
             text = "El alunizaje fue la llegada a la Luna de la tripulación del Apolo 11 el 20 de julio de 1969. " +
                 "Neil Armstrong y Buzz Aldrin fueron los primeros humanos en caminar por la superficie lunar, " +
                 "mientras Michael Collins orbitaba en el módulo de comando.",
-            keywords = listOf("alunizaje", "apollo 11", "luna", "armstrong", "aldrin", "collin", "nasa"),
+            keywords = listOf("alunizaje", "apollo 11", "armstrong", "aldrin", "collin", "nasa"),
         ),
         Entry(
             title = "Antiguo Egitto",

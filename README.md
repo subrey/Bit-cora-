@@ -95,14 +95,18 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 
 ## IA conversacional
 
-- **Conversación libre** con Google Gemini (nivel gratuito): preguntas abiertas,
-  explicaciones y charla, además de las órdenes del teléfono.
+- **Conversación libre** con Google Gemini (nivel gratuito): cualquier frase que
+  no sea una orden local se envía a la IA, que responde preguntas abiertas,
+  explica temas y charla.
 - **Clave cifrada**: se guarda con el Keystore de Android y se puede borrar desde
   Ajustes. Nunca se escribe en el historial ni en git.
+- **Modo conversación**: durante 5 minutos, las preguntas de seguimiento
+  («¿y por qué?», «cuéntame más») usan el historial. Al ejecutar una orden local,
+  el contexto se cierra para no mezclar la conversación con el teléfono.
 - **Contexto**: en conversación, la IA recibe la personalidad de JARVIS, los
   últimos 12 turnos y hasta 10 recuerdos guardados con «memoriza…». En preguntas
-  factuales («qué es…») no se envía el historial y se baja la temperatura, para
-  que no mezcle el tema con la conversación anterior.
+  factuales aisladas («qué es…») no se envía el historial y se baja la
+  temperatura, para que no mezcle el tema con la conversación anterior.
 - **Conocimiento local**: los temas frecuentes (revolución mexicana, Einstein,
   agujero negro, lente gravitatoria…) se responden sin red; si no están en la
   base local, se consulta Wikipedia y, como último recurso, la IA.

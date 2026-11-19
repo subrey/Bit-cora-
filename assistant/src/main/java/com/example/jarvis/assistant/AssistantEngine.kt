@@ -50,8 +50,11 @@ class AssistantEngine(
 
     suspend fun execute(intent: ParsedIntent): AssistantResponse {
         val now = LocalDateTime.now()
+        val conversational = conversationActive()
         val effective = resolve(intent)
-        return when (effective.kind) {
+        var keepConversation = effective.kind == IntentKind.CHAT ||
+            effective.kind == IntentKind.KNOWLEDGE
+        val response = when (effective.kind) {
             IntentKind.GREETING -> AssistantResponse(
                 "Buenos días, señor. Jarvis en línea. Todo el sistema operativo."
             )
@@ -194,6 +197,7 @@ class AssistantEngine(
             IntentKind.KNOWLEDGE -> knowledge(
                 effective.payload.ifBlank { intent.raw },
                 intent.raw,
+                conversational = conversational,
             )
 
             IntentKind.BATTERY -> AssistantResponse(batteryText())
@@ -214,20 +218,48 @@ class AssistantEngine(
 
             IntentKind.SUMMARY -> AssistantResponse(summary())
 
-            IntentKind.UNKNOWN -> AssistantResponse(
-                "No he entendido esa orden, señor. Diga «ayuda» para ver lo que sé hacer."
-            )
+            IntentKind.UNKNOWN -> {
+                if (ai.isConfigured()) {
+                    // Cualquier frase que no sea una orden local se trata como
+                    // conversación: así JARVIS responde como una app de IA.
+                    keepConversation = true
+                    lastKind = IntentKind.CHAT
+                    chat(intent.raw)
+                } else {
+                    AssistantResponse(
+                        "No he entendido esa orden, señor. Diga «ayuda» para ver lo que sé hacer."
+                    )
+                }
+            }
         }
+
+        if (keepConversation) {
+            lastConversationAt = System.currentTimeMillis()
+        } else if (effective.kind != IntentKind.GREETING) {
+            lastConversationAt = 0L
+        }
+        return response
     }
 
     /**
-     * Responde una pregunta: primero la base local, después Wikipedia y, si no
-     * hay resultado, la IA conversacional con la pregunta original completa.
+     * Responde una pregunta: primero la base local; después Wikipedia para las
+     * preguntas factuales; y, si no hay resultado, la IA. En una conversación,
+     * las preguntas de seguimiento usan el historial.
      */
-    private suspend fun knowledge(subject: String, raw: String): AssistantResponse {
+    private suspend fun knowledge(
+        subject: String,
+        raw: String,
+        conversational: Boolean = false,
+    ): AssistantResponse {
         val clean = subject.trim()
         if (clean.isBlank()) {
             return AssistantResponse("Dígame sobre qué tema quiere que le informe, señor.")
+        }
+
+        // Una opinión o una frase de charla no debe resolverse con una
+        // definición local o de Wikipedia: que la responda la IA.
+        if (isConversationalQuestion(raw) && ai.isConfigured()) {
+            return chat(raw, factual = false)
         }
 
         val local = Knowledge.search(clean)
@@ -235,19 +267,31 @@ class AssistantEngine(
             return AssistantResponse("${local.title}. ${local.text}")
         }
 
-        val wiki = Wikipedia.summary(clean)
-        if (wiki != null) {
-            val short = Wikipedia.shorten(wiki)
-            return AssistantResponse("$short\n\n(Fuente: Wikipedia en español)")
+        // En una conversación, una pregunta como «¿y por qué?» no debe buscar
+        // en Wikipedia: es mejor que la IA use el historial.
+        if (!conversational) {
+            val wiki = wikipediaAnswer(clean)
+            if (wiki != null) return wiki
         }
 
-        if (ai.isConfigured()) return chat(raw, factual = true)
+        if (ai.isConfigured()) return chat(raw, factual = !conversational)
+
+        if (conversational) {
+            val wiki = wikipediaAnswer(clean)
+            if (wiki != null) return wiki
+        }
 
         return AssistantResponse(
             "No tengo ese tema en mi base local y no he podido consultar la red, señor. " +
                 "Pruebe con: «qué sabes de la Revolución Mexicana», «quién fue Einstein» " +
                 "o «explicame el sistema solar»."
         )
+    }
+
+    private suspend fun wikipediaAnswer(subject: String): AssistantResponse? {
+        val wiki = Wikipedia.summary(subject) ?: return null
+        val short = Wikipedia.shorten(wiki)
+        return AssistantResponse("$short\n\n(Fuente: Wikipedia en español)")
     }
 
     /**
@@ -801,15 +845,43 @@ class AssistantEngine(
     /** Última intención resuelta, para interpretar frases como «y sube el volumen». */
     private var lastKind: IntentKind? = null
 
+    /**
+     * Marca del último turno conversacional. Durante unos minutos, las
+     * preguntas de seguimiento usan el historial en lugar de consultar
+     * Wikipedia como si fueran temas nuevos.
+     */
+    private var lastConversationAt: Long = 0L
+
+    /** Vuelve al modo de órdenes: la próxima pregunta será factual. */
+    fun resetConversation() {
+        lastKind = null
+        lastConversationAt = 0L
+    }
+
+    private fun conversationActive(): Boolean =
+        lastConversationAt > 0L &&
+            System.currentTimeMillis() - lastConversationAt < CONVERSATION_WINDOW_MS
+
     companion object {
         /** Mensajes máximos que se exportan al archivo de texto. */
         const val EXPORT_MAX_MESSAGES = 500
+
+        /** Tiempo durante el que se recuerda que hay una conversación abierta. */
+        private const val CONVERSATION_WINDOW_MS = 5 * 60_000L
     }
 
     private fun resolve(intent: ParsedIntent): ParsedIntent {
         if (intent.kind == IntentKind.UNKNOWN && isFollowUp(intent.raw)) {
             val previous = lastKind
-            if (previous != null && previous != IntentKind.UNKNOWN) {
+            if (previous == IntentKind.CHAT || previous == IntentKind.KNOWLEDGE) {
+                lastKind = IntentKind.CHAT
+                return intent.copy(kind = IntentKind.CHAT)
+            }
+            if (previous != null &&
+                previous != IntentKind.UNKNOWN &&
+                previous != IntentKind.GREETING &&
+                previous != IntentKind.HELP
+            ) {
                 return intent.copy(kind = previous)
             }
         }
@@ -817,6 +889,18 @@ class AssistantEngine(
             lastKind = intent.kind
         }
         return intent
+    }
+
+    private fun isConversationalQuestion(text: String): Boolean {
+        val n = IntentParser.normalize(text)
+        val markers = listOf(
+            "que opinas", "que piensas", "que crees", "crees", "que sientes",
+            "prefieres", "te gusta", "te gustan", "tu opinion", "tu punto de vista",
+            "como te sientes", "quien eres", "hablame de ti", "cuentame de ti",
+            "me ayudas", "puedes ayudarme", "tienes tiempo", "que tal", "como estas",
+            "que haces", "en que piensas", "que te parece", "recomiendas", "deberia",
+        )
+        return markers.any { n.contains(it) }
     }
 
     private fun isFollowUp(text: String): Boolean {

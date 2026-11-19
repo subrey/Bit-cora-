@@ -550,6 +550,7 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearChat() {
         viewModelScope.launch {
+            engine.resetConversation()
             repository.clearChat()
             repository.addChat("Sesión reiniciada. ¿En qué puedo ayudarle?", fromUser = false)
         }

@@ -175,7 +175,7 @@ private fun CommandBar(
             modifier = Modifier.weight(1f),
             placeholder = {
                 Text(
-                    text = "Escriba o hable…",
+                    text = "Pregúnteme lo que quiera…",
                     style = MaterialTheme.typography.bodyMedium,
                     color = JarvisColors.Muted,
                 )

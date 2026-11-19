@@ -103,6 +103,47 @@ class IntentParserTest {
     }
 
     @Test
+    fun `las preguntas no se confunden con ordenes`() {
+        assertEquals(IntentKind.KNOWLEDGE, IntentParser.parse("¿Qué es la música?").kind)
+        assertEquals(IntentKind.CHAT, IntentParser.parse("¿Qué opinas de la música?").kind)
+        assertEquals(IntentKind.CHAT, IntentParser.parse("Me gusta la música").kind)
+        assertEquals(IntentKind.CHAT, IntentParser.parse("La música es genial").kind)
+        assertEquals(IntentKind.STORAGE, IntentParser.parse("¿Cuánto espacio libre tengo?").kind)
+        assertEquals(IntentKind.KNOWLEDGE, IntentParser.parse("¿Tienes una calculadora?").kind)
+        assertEquals(IntentKind.KNOWLEDGE, IntentParser.parse("¿Por qué los chistes son graciosos?").kind)
+    }
+
+    @Test
+    fun `las ordenes en forma de pregunta siguen funcionando`() {
+        assertEquals(IntentKind.MUSIC_PLAY, IntentParser.parse("¿Puedes poner música?").kind)
+        assertEquals(IntentKind.MUSIC_PLAY, IntentParser.parse("¿Me pones música?").kind)
+        assertEquals(IntentKind.MUSIC_PLAY, IntentParser.parse("Hola, pon música").kind)
+        assertEquals(IntentKind.VOLUME_UP, IntentParser.parse("¿Puedes subir el volumen?").kind)
+        assertEquals(IntentKind.VOLUME_DOWN, IntentParser.parse("¿Me bajas el volumen?").kind)
+        assertEquals(IntentKind.ALARM_CREATE, IntentParser.parse("¿Puedes despertarme a las 7?").kind)
+        assertEquals(IntentKind.REMINDER, IntentParser.parse("¿Me recuerdas comprar pan?").kind)
+        assertEquals("comprar pan", IntentParser.parse("¿Me recuerdas comprar pan?").payload)
+        assertEquals(IntentKind.OPEN_APP, IntentParser.parse("¿Me abres WhatsApp?").kind)
+        assertEquals("whatsapp", IntentParser.parse("¿Me abres WhatsApp?").payload)
+        assertEquals(IntentKind.CHAT, IntentParser.parse("Hola, ¿cómo estás?").kind)
+    }
+
+    @Test
+    fun `limpia la puntuacion de las ordenes`() {
+        val calc = IntentParser.parse("¿Puedes calcular 2+2?")
+        assertEquals(IntentKind.CALCULATE, calc.kind)
+        assertEquals("2+2", calc.payload)
+
+        val convert = IntentParser.parse("¿Puedes convertir 2 km a millas?")
+        assertEquals(IntentKind.CONVERT, convert.kind)
+        assertEquals("2 km a millas", convert.payload)
+
+        assertEquals("rock", IntentParser.parse("¿Puedes poner algo de rock?").payload)
+        assertEquals(IntentKind.CHAT, IntentParser.parse("¿Puedes añadir una tarea?").kind)
+        assertEquals(IntentKind.CHAT, IntentParser.parse("¿Puedes memorizar esto?").kind)
+    }
+
+    @Test
     fun `detecta la busqueda de musica`() {
         val genre = IntentParser.parse("pon algo de rock")
         assertEquals(IntentKind.MUSIC_SEARCH, genre.kind)

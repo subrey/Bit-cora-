@@ -24,7 +24,7 @@ data class AlarmSpec(
 object AlarmParser {
 
     private val words = listOf(
-        "despiertame", "despierta", "alarma", "levantame", "avisame a las",
+        "despiertame", "despertarme", "despierta", "alarma", "levantame", "avisame a las",
         "pon una alarma", "pon alarma", "pon la alarma",
     )
 
@@ -92,10 +92,11 @@ object AlarmParser {
 
     private fun labelOf(clean: String): String {
         val stripped = clean
-            .replace(Regex("\\b(despiertame|despierta|levantame|pon una alarma|pon la alarma|pon alarma|alarma|por favor)\\b"), " ")
+            .replace(Regex("\\b(me despiertas|me pones una|me pones|despiertame|despertarme|despiertas|despierta|levantame|pon una alarma|pon la alarma|pon alarma|alarma|puedes|podrias|por favor)\\b"), " ")
             .replace(Regex("\\ba\\s+las?\\s+\\d{1,2}(:\\d{2})?(\\s*(de la tarde|de la manana|de la noche|de la madrugada|pm|am))?\\b"), " ")
             .replace(Regex("\\ben\\s+\\d+\\s*(minutos?|min|horas?|h)\\b"), " ")
             .replace(Regex("\\b(manana|pasado manana|hoy|para|de|que)\\b"), " ")
+            .replace(Regex("[¿?¡!.,]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
         return stripped.take(40)

@@ -147,3 +147,6 @@
   + modelo) sigue funcionando aunque la búsqueda en directo esté agotada.
 - Fase 11.13: Ajustes avisa explícitamente que la segunda clave debe ser de
   otro proyecto.
+- Fase 11.14: el aviso de búsqueda muestra el error de **cada clave**
+  (`[principal]` y `[respaldo]`) y el detalle que devuelve Google en el 429,
+  para identificar qué cuota concreta se está agotando.

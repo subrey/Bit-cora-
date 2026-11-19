@@ -55,7 +55,7 @@ class GeminiProvider(
         val ordered = if (preferredKeyIndex == 0) keys else keys.reversed()
         val modelName = effectiveModel(request.model ?: model())
         val body = GeminiJson.requestBody(request).toString()
-        var lastFailure: AiResult.Failure? = null
+        val failures = mutableListOf<String>()
 
         for (entry in ordered.withIndex()) {
             val key = entry.value
@@ -86,12 +86,15 @@ class GeminiProvider(
                 return@withContext result
             }
             val failure = result as AiResult.Failure
-            lastFailure = failure
+            val label = if (key == keys.first()) "principal" else "respaldo"
+            failures += "[$label] ${failure.message}"
             if (!isRetryableWithOtherKey(failure.message) || entry.index == ordered.lastIndex) {
-                return@withContext failure
+                return@withContext AiResult.Failure(failures.joinToString(" | "))
             }
         }
-        return@withContext lastFailure ?: AiResult.Failure("La IA no ha devuelto ninguna respuesta.")
+        return@withContext AiResult.Failure(
+            failures.joinToString(" | ").ifBlank { "La IA no ha devuelto ninguna respuesta." },
+        )
     }
 
     /** Errores que pueden resolverse usando la otra clave. */
@@ -118,13 +121,11 @@ class GeminiProvider(
                         "El modelo «$modelName» no existe o ya no está disponible. " +
                             "Use «$DEFAULT_MODEL» en Ajustes."
                     429 ->
-                        if (search) {
-                            "He alcanzado el límite gratuito de búsqueda en internet. " +
-                                "Espere un minuto y vuelva a intentarlo."
+                        (if (search) {
+                            "He alcanzado el límite gratuito de búsqueda en internet. "
                         } else {
-                            "He alcanzado el límite gratuito de la IA. " +
-                                "Espere un minuto y vuelva a intentarlo."
-                        }
+                            "He alcanzado el límite gratuito de la IA. "
+                        }) + (detail ?: "Espere un minuto y vuelva a intentarlo.")
                     in 500..599 ->
                         "El servicio de IA no está disponible (${response.code}). " +
                             (detail ?: "Inténtelo de nuevo en unos segundos.")

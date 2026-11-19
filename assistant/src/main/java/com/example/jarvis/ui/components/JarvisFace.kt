@@ -45,7 +45,7 @@ fun JarvisFace(
         initialValue = 0.985f,
         targetValue = 1.015f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3200, easing = FastOutSlowInEasing),
+            animation = tween(2600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "respirar",
@@ -54,7 +54,7 @@ fun JarvisFace(
         initialValue = 0.90f,
         targetValue = 1.12f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = FastOutSlowInEasing),
+            animation = tween(1100, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "reactor",
@@ -63,7 +63,7 @@ fun JarvisFace(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4200, easing = LinearEasing),
+            animation = tween(3400, easing = LinearEasing),
         ),
         label = "scan",
     )
@@ -71,7 +71,7 @@ fun JarvisFace(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(9000, easing = LinearEasing),
+            animation = tween(7000, easing = LinearEasing),
         ),
         label = "orbit",
     )
@@ -79,16 +79,24 @@ fun JarvisFace(
         initialValue = 0f,
         targetValue = (2f * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(650, easing = LinearEasing),
+            animation = tween(500, easing = LinearEasing),
         ),
         label = "habla",
+    )
+    val answerPulse by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = LinearEasing),
+        ),
+        label = "respuesta",
     )
 
     // Intensidad según estado
     val active = when (state) {
         AssistantState.LISTENING -> 1.05f
-        AssistantState.THINKING -> 1.18f
-        AssistantState.SPEAKING -> 1.25f
+        AssistantState.THINKING -> 1.22f
+        AssistantState.SPEAKING -> 1.35f
         AssistantState.ERROR -> 0.85f
         AssistantState.IDLE -> 0.95f
     }
@@ -107,9 +115,16 @@ fun JarvisFace(
         val cx = w / 2f
         val cy = h * 0.50f
         val R = minOf(w, h) * 0.36f * breathe
+        val motion = orbit * when (state) {
+            AssistantState.SPEAKING -> 1.85f
+            AssistantState.THINKING -> 1.25f
+            AssistantState.LISTENING -> 1.12f
+            else -> 1f
+        }
 
         val activeGlow = when (state) {
-            AssistantState.THINKING, AssistantState.SPEAKING -> 0.95f
+            AssistantState.SPEAKING -> 1.0f
+            AssistantState.THINKING -> 0.95f
             AssistantState.LISTENING -> 0.75f
             AssistantState.ERROR -> 0.40f
             else -> 0.58f
@@ -173,18 +188,30 @@ fun JarvisFace(
                 style = Stroke(width, cap = StrokeCap.Round),
             )
         }
-        ring(R * 1.72f, 1.4.dp.toPx(), cyan.copy(alpha = 0.22f), orbit * 0.9f, 320f)
-        ring(R * 1.55f, 1.8.dp.toPx(), cyan.copy(alpha = 0.30f), orbit, 300f)
-        ring(R * 1.55f, 1.8.dp.toPx(), cyanBright.copy(alpha = 0.22f), orbit + 180f, 140f)
-        ring(R * 1.32f, 2.2.dp.toPx(), cyan.copy(alpha = 0.38f + 0.18f * speakAmp), -orbit * 0.8f, 260f)
-        ring(R * 1.32f, 2.6.dp.toPx(), white.copy(alpha = 0.18f), -orbit * 0.8f + 40f, 70f)
-        ring(R * 1.12f, 1.4.dp.toPx(), steel.copy(alpha = 0.35f), orbit * 0.6f, 360f)
-        ring(R * 0.92f, 2.dp.toPx(), cyanBright.copy(alpha = 0.32f), -orbit * 1.1f + 20f, 220f)
-        ring(R * 0.78f, 1.2.dp.toPx(), cyan.copy(alpha = 0.22f), orbit * 1.25f, 180f)
+        ring(R * 1.72f, 1.4.dp.toPx(), cyan.copy(alpha = 0.22f), motion * 0.9f, 320f)
+        ring(R * 1.55f, 1.8.dp.toPx(), cyan.copy(alpha = 0.30f), motion, 300f)
+        ring(R * 1.55f, 1.8.dp.toPx(), cyanBright.copy(alpha = 0.22f), motion + 180f, 140f)
+        ring(R * 1.32f, 2.2.dp.toPx(), cyan.copy(alpha = 0.38f + 0.18f * speakAmp), -motion * 0.8f, 260f)
+        ring(R * 1.32f, 2.6.dp.toPx(), white.copy(alpha = 0.18f), -motion * 0.8f + 40f, 70f)
+        ring(R * 1.12f, 1.4.dp.toPx(), steel.copy(alpha = 0.35f), motion * 0.6f, 360f)
+        ring(R * 0.92f, 2.dp.toPx(), cyanBright.copy(alpha = 0.32f), -motion * 1.1f + 20f, 220f)
+        ring(R * 0.78f, 1.2.dp.toPx(), cyan.copy(alpha = 0.22f), motion * 1.25f, 180f)
+        if (state == AssistantState.SPEAKING) {
+            ring(
+                R * 1.45f, 2.8.dp.toPx(),
+                gold.copy(alpha = 0.32f + 0.26f * wave),
+                -motion * 1.5f, 70f,
+            )
+            ring(
+                R * 1.22f, 2.2.dp.toPx(),
+                white.copy(alpha = 0.28f + 0.30f * wave),
+                motion * 1.9f, 46f,
+            )
+        }
 
         // Segmentos/ticks tipo HUD
         for (i in 0 until 48) {
-            val aDeg = i * 7.5f + orbit * 0.15f
+            val aDeg = i * 7.5f + motion * 0.15f
             val a = (aDeg - 90f) * (PI / 180f).toFloat()
             val major = i % 4 == 0
             val r1 = R * (if (major) 0.98f else 1.03f)
@@ -203,38 +230,54 @@ fun JarvisFace(
         }
 
         // Arcos de datos (más holograma)
-        drawArc(cyan.copy(alpha = 0.35f), orbit + 10f, 80f, false, Offset(cx - R * 1.62f, cy - R * 1.62f), Size(R * 3.24f, R * 3.24f), style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round))
-        drawArc(gold.copy(alpha = 0.28f), -orbit * 0.9f + 200f, 50f, false, Offset(cx - R * 1.62f, cy - R * 1.62f), Size(R * 3.24f, R * 3.24f), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
-        drawArc(cyanBright.copy(alpha = 0.28f), orbit * 1.3f + 120f, 65f, false, Offset(cx - R * 1.40f, cy - R * 1.40f), Size(R * 2.80f, R * 2.80f), style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
-        drawArc(white.copy(alpha = 0.18f), -orbit * 1.4f + 300f, 35f, false, Offset(cx - R * 1.22f, cy - R * 1.22f), Size(R * 2.44f, R * 2.44f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(cyan.copy(alpha = 0.35f), motion + 10f, 80f, false, Offset(cx - R * 1.62f, cy - R * 1.62f), Size(R * 3.24f, R * 3.24f), style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(gold.copy(alpha = 0.28f), -motion * 0.9f + 200f, 50f, false, Offset(cx - R * 1.62f, cy - R * 1.62f), Size(R * 3.24f, R * 3.24f), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(cyanBright.copy(alpha = 0.28f), motion * 1.3f + 120f, 65f, false, Offset(cx - R * 1.40f, cy - R * 1.40f), Size(R * 2.80f, R * 2.80f), style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(white.copy(alpha = 0.18f), -motion * 1.4f + 300f, 35f, false, Offset(cx - R * 1.22f, cy - R * 1.22f), Size(R * 2.44f, R * 2.44f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
 
         // Ecualizador orbital (reacciona al habla)
+        // En HABLANDO las barras se alargan, se iluminan y ganan un núcleo blanco.
+        val speaking = state == AssistantState.SPEAKING
         val bars = 32
         for (i in 0 until bars) {
             val t = i / bars.toFloat()
-            val ang = (t * 360f + orbit * 0.4f - 90f) * (PI / 180f).toFloat()
+            val ang = (t * 360f + motion * 0.4f - 90f) * (PI / 180f).toFloat()
             val phase = speakWave + t * (2f * PI).toFloat() * 2f
             val v = (sin(phase.toDouble()).toFloat() * 0.5f + 0.5f)
             val level = if (state == AssistantState.SPEAKING || state == AssistantState.LISTENING) (0.30f + 0.70f * v) else (0.18f + 0.12f * ((i % 4) / 3f))
-            val len = R * (0.12f + 0.30f * level * speakAmp / (if (state == AssistantState.IDLE) 0.14f else 1f).coerceAtLeast(0.35f))
+            val len = if (speaking) {
+                R * (0.16f + 0.50f * level)
+            } else {
+                R * (0.12f + 0.30f * level * speakAmp / (if (state == AssistantState.IDLE) 0.14f else 1f).coerceAtLeast(0.35f))
+            }
             val rIn = R * 0.70f
             val rOut = rIn + len
-            val alpha = 0.22f + 0.55f * level * activeGlow
+            val alpha = if (speaking) 0.30f + 0.65f * level else 0.22f + 0.55f * level * activeGlow
             drawLine(
                 cyanBright.copy(alpha = alpha),
                 Offset(cx + kotlin.math.cos(ang) * rIn, cy + kotlin.math.sin(ang) * rIn),
                 Offset(cx + kotlin.math.cos(ang) * rOut, cy + kotlin.math.sin(ang) * rOut),
-                2.6.dp.toPx(),
+                (if (speaking) 3.4f else 2.6f).dp.toPx(),
                 cap = StrokeCap.Round,
             )
+            if (speaking) {
+                drawLine(
+                    white.copy(alpha = 0.25f + 0.45f * level),
+                    Offset(cx + kotlin.math.cos(ang) * rIn, cy + kotlin.math.sin(ang) * rIn),
+                    Offset(cx + kotlin.math.cos(ang) * (rIn + len * 0.55f), cy + kotlin.math.sin(ang) * (rIn + len * 0.55f)),
+                    1.3.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+            }
         }
 
         // Núcleo central (más intenso)
         val coreR = R * 0.36f * reactorPulse
+        val coreFlash = if (speaking) 0.18f + 0.14f * wave else 0f
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    white.copy(alpha = 0.20f * activeGlow),
+                    white.copy(alpha = (0.20f + coreFlash) * activeGlow),
                     cyanBright.copy(alpha = 0.70f * activeGlow),
                     cyan.copy(alpha = 0.28f),
                     Color.Transparent,
@@ -243,21 +286,59 @@ fun JarvisFace(
             ),
             radius = coreR * 4.0f, center = Offset(cx, cy),
         )
+        if (speaking) {
+            // Ondas de choque que salen del reactor al responder.
+            val p1 = answerPulse
+            val p2 = (answerPulse + 0.5f) % 1f
+            drawCircle(
+                color = cyanBright.copy(alpha = 0.45f * (1f - p1)),
+                radius = coreR * (1.50f + 2.40f * p1),
+                center = Offset(cx, cy),
+                style = Stroke(2.4.dp.toPx()),
+            )
+            drawCircle(
+                color = white.copy(alpha = 0.30f * (1f - p2)),
+                radius = coreR * (1.50f + 2.40f * p2),
+                center = Offset(cx, cy),
+                style = Stroke(1.4.dp.toPx()),
+            )
+        }
         drawCircle(cyan.copy(alpha = 0.75f), radius = coreR * 1.60f, center = Offset(cx, cy), style = Stroke(3.dp.toPx()))
         drawCircle(Color(0xFF071018), radius = coreR * 1.42f, center = Offset(cx, cy))
         drawCircle(cyanBright.copy(alpha = 0.55f), radius = coreR * 1.42f, center = Offset(cx, cy), style = Stroke(1.5.dp.toPx()))
+        if (speaking) {
+            drawCircle(
+                color = gold.copy(alpha = 0.35f + 0.30f * wave),
+                radius = coreR * 1.55f,
+                center = Offset(cx, cy),
+                style = Stroke(2.dp.toPx()),
+            )
+            drawCircle(
+                color = cyanBright.copy(alpha = 0.30f + 0.30f * wave),
+                radius = coreR * (1.70f + 0.16f * wave),
+                center = Offset(cx, cy),
+                style = Stroke(1.4.dp.toPx()),
+            )
+        }
         for (i in 0 until 12) {
-            val a = i * 30f - 90f + orbit * 0.3f
-            drawArc(white.copy(alpha = 0.95f), a + 5f, 20f, false,
+            val a = i * 30f - 90f + motion * 0.3f
+            val arcColor = if (speaking && i % 2 == 0) {
+                gold.copy(alpha = 0.95f)
+            } else {
+                white.copy(alpha = 0.95f)
+            }
+            val arcSweep = if (speaking) 26f else 20f
+            drawArc(arcColor, a + 5f, arcSweep, false,
                 Offset(cx - coreR, cy - coreR), Size(coreR * 2f, coreR * 2f),
                 style = Stroke(coreR * 0.24f, cap = StrokeCap.Butt))
         }
+        val coreWhiteR = coreR * (if (speaking) 0.68f + 0.06f * wave else 0.62f)
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(Color.White, cyanBright.copy(alpha = 1f), cyan.copy(alpha = 0.30f)),
-                center = Offset(cx, cy), radius = coreR * 0.62f,
+                center = Offset(cx, cy), radius = coreWhiteR,
             ),
-            radius = coreR * 0.62f, center = Offset(cx, cy),
+            radius = coreWhiteR, center = Offset(cx, cy),
         )
 
         // Barrido holográfico
@@ -274,7 +355,7 @@ fun JarvisFace(
         // Partículas/nodos holográficos
         val nodes = 12
         for (i in 0 until nodes) {
-            val a = ((i * (360f / nodes) + orbit * (if (i % 2 == 0) 0.6f else -0.4f)) - 90f) * (PI / 180f).toFloat()
+            val a = ((i * (360f / nodes) + motion * (if (i % 2 == 0) 0.6f else -0.4f)) - 90f) * (PI / 180f).toFloat()
             val rr = R * (1.18f + 0.14f * sin((scan * 2f * PI + i).toDouble()).toFloat())
             val p = Offset(cx + kotlin.math.cos(a) * rr, cy + kotlin.math.sin(a) * rr)
             drawCircle(cyanBright.copy(alpha = 0.55f * activeGlow), radius = 3.5.dp.toPx(), center = p)

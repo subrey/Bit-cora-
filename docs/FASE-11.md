@@ -43,3 +43,16 @@
 - **Prompt de conversación:** la personalidad de JARVIS pide mantener el hilo,
   usar los turnos anteriores y conversar con naturalidad sin convertir cada
   frase en una orden.
+
+## Fase 11.4 — núcleo más vivo al responder
+
+- **Movimiento más rápido.** El núcleo acelera su respiración, el pulso del
+  reactor, el barrido holográfico y la órbita de los anillos. En reposo el
+  cambio es contenido; al hablar, la rotación se multiplica para que la
+  respuesta se note.
+- **Respuesta llamativa.** Mientras JARVIS habla aparecen ondas de choque que
+  salen del reactor, anillos de voz que laten con el habla y acentos dorados
+  en los arcos. El ecualizador orbital se alarga, se ilumina y añade un núcleo
+  blanco en cada barra.
+- **Sin pérdida de fluidez.** Los efectos son trazos y degradados simples, sin
+  desenfoques ni imágenes, y solo se dibujan en el estado `SPEAKING`.

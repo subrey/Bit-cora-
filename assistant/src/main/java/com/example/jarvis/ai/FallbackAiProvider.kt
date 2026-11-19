@@ -9,14 +9,27 @@ class FallbackAiProvider(
     private val providers: List<AiProvider>,
 ) : AiProvider {
 
-    override suspend fun isConfigured(): Boolean =
-        providers.any { it.isConfigured() }
+    override suspend fun isConfigured(): Boolean {
+        for (provider in providers) {
+            if (provider.isConfigured()) return true
+        }
+        return false
+    }
 
-    override suspend fun currentModel(): String =
-        providers.firstOrNull { it.isConfigured() }?.currentModel().orEmpty()
+    override suspend fun currentModel(): String {
+        for (provider in providers) {
+            if (provider.isConfigured()) return provider.currentModel()
+        }
+        return ""
+    }
 
-    override suspend fun keyStatus(): String =
-        providers.filter { it.isConfigured() }.joinToString(" · ") { it.keyStatus() }
+    override suspend fun keyStatus(): String {
+        val parts = mutableListOf<String>()
+        for (provider in providers) {
+            if (provider.isConfigured()) parts += provider.keyStatus()
+        }
+        return parts.joinToString(" · ")
+    }
 
     override suspend fun complete(request: AiRequest): AiResult {
         val failures = mutableListOf<String>()

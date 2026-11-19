@@ -165,3 +165,12 @@
   herramienta integrada **browser_search** (búsqueda real en la web, con
   cuota propia); para conversar usa `llama-3.1-8b-instant`, muy rápido.
 - El diagnóstico muestra el estado de Gemini y de Groq.
+
+## Fase 11.17 — escucha permanente de una sola orden
+
+- Al encender el switch de **escucha permanente**, JARVIS abre el micrófono,
+  oye **una sola orden** y, en cuanto la recibe, apaga el micrófono, detiene el
+  servicio y deja el switch en OFF. No vuelve a escuchar hasta que se encienda
+  de nuevo (o se pulse el micrófono de la pantalla).
+- Así se evita que el micro siga abierto y se encadenen sesiones después de la
+  primera orden.

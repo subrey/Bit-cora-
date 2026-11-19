@@ -142,3 +142,8 @@
 - Esto no elimina el límite gratuito: para que dos claves tengan cuotas
   independientes deben pertenecer a **proyectos distintos** de Google AI
   Studio. Dos claves del mismo proyecto suelen compartir la cuota.
+- El límite que aparece es específicamente de **Google Search grounding**, no
+  de las respuestas normales de la IA. Por eso el resumen de respaldo (Wikipedia
+  + modelo) sigue funcionando aunque la búsqueda en directo esté agotada.
+- Fase 11.13: Ajustes avisa explícitamente que la segunda clave debe ser de
+  otro proyecto.

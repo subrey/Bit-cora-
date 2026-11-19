@@ -251,6 +251,12 @@ fun SettingsScreen(
                 }
             }
         }
+        Text(
+            text = "Debe ser de otro proyecto de Google AI Studio: dos claves del mismo " +
+                "proyecto comparten la cuota de búsqueda.",
+            style = MaterialTheme.typography.bodySmall,
+            color = JarvisColors.Amber,
+        )
         OutlinedTextField(
             value = modelInput,
             onValueChange = { modelInput = it },
@@ -329,7 +335,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · v2.0-fase11.12",
+            text = "JARVIS · v2.0-fase11.13",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

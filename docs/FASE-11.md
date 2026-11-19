@@ -102,3 +102,12 @@
   podía consultar si había Wi-Fi o datos activos y fallaba con un
   `SecurityException`. Con este permiso el diagnóstico muestra la red real y
   las dos pruebas HTTP.
+
+## Fase 11.9 — diagnóstico en segundo plano y doble búsqueda
+
+- El diagnóstico hace las dos peticiones HTTP con `Dispatchers.IO`; antes
+  corrían en el hilo principal y siempre fallaban con
+  `NetworkOnMainThreadException`.
+- Si la búsqueda con Google falla en el modelo configurado, se prueba una vez
+  con el otro modelo antes de caer al resumen sin búsqueda. Así se aprovecha
+  la búsqueda en directo siempre que algún modelo la admita.

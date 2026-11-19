@@ -349,35 +349,28 @@ class AssistantEngine(
             useGoogleSearch = true,
         )
 
-        val primary = ai.complete(request)
-        if (primary is AiResult.Success) {
-            val text = buildString {
-                append(primary.text.trim())
-                if (primary.sources.isNotEmpty()) {
-                    appendLine()
-                    appendLine()
-                    append("Fuentes:")
-                    primary.sources.take(3).forEachIndexed { index, source ->
-                        val host = source.url
-                            .substringAfter("://")
-                            .substringBefore("/")
-                            .removePrefix("www.")
-                        appendLine()
-                        append("${index + 1}. ${source.title} — $host")
-                    }
-                }
-            }
-            return AssistantResponse(text.trim())
+        val current = ai.currentModel()
+        val alternative = if (current == GeminiProvider.QUALITY_MODEL) {
+            GeminiProvider.DEFAULT_MODEL
+        } else {
+            GeminiProvider.QUALITY_MODEL
         }
+
+        val primary = ai.complete(request)
+        if (primary is AiResult.Success) return formatSearchResult(primary)
 
         val primaryError = (primary as AiResult.Failure).message
         if (primaryError.contains("clave", ignoreCase = true)) {
             return AssistantResponse("No he podido buscar en internet, señor. $primaryError")
         }
 
-        // La búsqueda con grounding puede fallar: modelo no compatible,
-        // cuota agotada o servicio ocupado. Se prueba sin búsqueda con el
-        // otro modelo y, si tampoco, con el actual.
+        // Si el modelo actual no admite la búsqueda, se prueba con el otro
+        // antes de renunciar a la consulta en directo.
+        val groundingRetry = ai.complete(request.copy(model = alternative))
+        if (groundingRetry is AiResult.Success) return formatSearchResult(groundingRetry)
+
+        // Sin búsqueda: se intenta el resumen con ambos modelos usando
+        // Wikipedia como apoyo.
         val wiki = Wikipedia.summary(clean)
         val support = wiki?.let {
             "Datos de Wikipedia: ${Wikipedia.shorten(it, 700)}\n\n"
@@ -386,12 +379,6 @@ class AssistantEngine(
             "sobre «$clean». $support" +
             "Usa titular, puntos con «• » y una frase final. " +
             "Si no tienes datos suficientes, dilo."
-        val current = ai.currentModel()
-        val alternative = if (current == GeminiProvider.QUALITY_MODEL) {
-            GeminiProvider.DEFAULT_MODEL
-        } else {
-            GeminiProvider.QUALITY_MODEL
-        }
         val attempts = listOf(
             AiRequest(
                 systemPrompt = AiPrompt.factualPrompt(basePrompt),
@@ -431,6 +418,27 @@ class AssistantEngine(
                     "La IA no está disponible ahora mismo. Inténtelo de nuevo en unos segundos."
             )
         }
+    }
+
+    /** Da formato al resumen encontrado y añade hasta tres fuentes web. */
+    private fun formatSearchResult(result: AiResult.Success): AssistantResponse {
+        val text = buildString {
+            append(result.text.trim())
+            if (result.sources.isNotEmpty()) {
+                appendLine()
+                appendLine()
+                append("Fuentes:")
+                result.sources.take(3).forEachIndexed { index, source ->
+                    val host = source.url
+                        .substringAfter("://")
+                        .substringBefore("/")
+                        .removePrefix("www.")
+                    appendLine()
+                    append("${index + 1}. ${source.title} — $host")
+                }
+            }
+        }
+        return AssistantResponse(text.trim())
     }
 
     /**
@@ -1010,43 +1018,47 @@ class AssistantEngine(
      * Prueba rápida de red para distinguir entre «sin internet», «la app no
      * tiene permiso de datos» y «el servicio de IA está caído».
      */
-    private fun networkTest(): AssistantResponse = runCatching {
-        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = manager.activeNetwork
-        val capabilities = network?.let { manager.getNetworkCapabilities(it) }
-        val transport = when {
-            capabilities == null -> "sin red activa"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "datos móviles"
-            else -> "otro tipo de red"
-        }
-        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        val lines = mutableListOf("Red: $transport (acceso a internet: ${if (hasInternet) "sí" else "no"})")
+    private suspend fun networkTest(): AssistantResponse = withContext(Dispatchers.IO) {
+        runCatching {
+            val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = manager.activeNetwork
+            val capabilities = network?.let { manager.getNetworkCapabilities(it) }
+            val transport = when {
+                capabilities == null -> "sin red activa"
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "datos móviles"
+                else -> "otro tipo de red"
+            }
+            val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+            val lines = mutableListOf(
+                "Red: $transport (acceso a internet: ${if (hasInternet) "sí" else "no"})",
+            )
 
-        fun probe(name: String, url: String) {
-            val result = runCatching {
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.connectTimeout = 8000
-                connection.readTimeout = 8000
-                connection.requestMethod = "GET"
-                val code = connection.responseCode
-                connection.disconnect()
-                "HTTP $code"
-            }.getOrElse { "${it.javaClass.simpleName}: ${it.message.orEmpty()}" }
-            lines += "$name: $result"
-        }
+            fun probe(name: String, url: String) {
+                val result = runCatching {
+                    val connection = URL(url).openConnection() as HttpURLConnection
+                    connection.connectTimeout = 8000
+                    connection.readTimeout = 8000
+                    connection.requestMethod = "GET"
+                    val code = connection.responseCode
+                    connection.disconnect()
+                    "HTTP $code"
+                }.getOrElse { "${it.javaClass.simpleName}: ${it.message.orEmpty()}" }
+                lines += "$name: $result"
+            }
 
-        probe("Wikipedia", "https://es.wikipedia.org/api/rest_v1/page/summary/Gatos")
-        probe("Gemini", "https://generativelanguage.googleapis.com/v1beta/models")
-        val text = buildString {
-            append("Diagnóstico de red:\n")
-            lines.forEach { appendLine(it) }
-            appendLine()
-            append("Si el navegador funciona pero Wikipedia falla aquí, " +
-                "revise Ahorro de datos o las restricciones de datos de JARVIS en Ajustes del teléfono.")
-        }
-        AssistantResponse(text)
-    }.getOrElse { AssistantResponse("No he podido hacer el diagnóstico: ${it.message}") }
+            probe("Wikipedia", "https://es.wikipedia.org/api/rest_v1/page/summary/Gatos")
+            probe("Gemini", "https://generativelanguage.googleapis.com/v1beta/models")
+            val text = buildString {
+                append("Diagnóstico de red:\n")
+                lines.forEach { appendLine(it) }
+                appendLine()
+                append("Si el navegador funciona pero Wikipedia falla aquí, " +
+                    "revise Ahorro de datos o las restricciones de datos de JARVIS en Ajustes del teléfono.")
+            }
+            AssistantResponse(text)
+        }.getOrElse { AssistantResponse("No he podido hacer el diagnóstico: ${it.message}") }
+    }
 
     // --- Conversación larga: entender continuaciones ------------------------
 

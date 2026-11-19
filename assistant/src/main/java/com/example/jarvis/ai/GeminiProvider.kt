@@ -65,10 +65,14 @@ class GeminiProvider(
             )
         }
 
-        response.use { parseResponse(it, modelName) }
+        response.use { parseResponse(it, modelName, request.useGoogleSearch) }
     }
 
-    private fun parseResponse(response: Response, modelName: String): AiResult {
+    private fun parseResponse(
+        response: Response,
+        modelName: String,
+        search: Boolean,
+    ): AiResult {
         val body = runCatching { response.body?.string().orEmpty() }.getOrDefault("")
         if (!response.isSuccessful) {
             val detail = GeminiJson.parseError(body)
@@ -81,7 +85,13 @@ class GeminiProvider(
                         "El modelo «$modelName» no existe o ya no está disponible. " +
                             "Use «$DEFAULT_MODEL» en Ajustes."
                     429 ->
-                        "He alcanzado el límite gratuito de la IA. Espere un minuto y vuelva a intentarlo."
+                        if (search) {
+                            "He alcanzado el límite gratuito de búsqueda en internet. " +
+                                "Espere un minuto y vuelva a intentarlo."
+                        } else {
+                            "He alcanzado el límite gratuito de la IA. " +
+                                "Espere un minuto y vuelva a intentarlo."
+                        }
                     in 500..599 ->
                         "El servicio de IA no está disponible (${response.code}). " +
                             (detail ?: "Inténtelo de nuevo en unos segundos.")

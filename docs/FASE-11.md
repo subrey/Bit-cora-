@@ -119,3 +119,15 @@
   permisos, tiempo de espera o sobrecarga.
 - El diagnóstico solo muestra el consejo de Ahorro de datos si Wikipedia
   falla de verdad, no cuando devuelve HTTP 200.
+
+## Fase 11.11 — ahorrar cuota de búsqueda
+
+- El motivo confirmado del fallo era un **429: límite gratuito agotado** por
+  las pruebas seguidas. Cada búsqueda llegó a lanzar hasta cuatro peticiones
+  a Gemini.
+- Cuando la búsqueda devuelve 429, ya **no se repite con el otro modelo**
+  (comparten cuota) y se pasa directamente a un único resumen sin búsqueda.
+- El mensaje de límite distingue ahora entre «límite de búsqueda en internet»
+  y «límite de IA», para saber qué cuota se ha agotado.
+- Con el uso normal (una búsqueda cada cierto tiempo) la búsqueda en directo
+  vuelve a funcionar al restablecerse la cuota por minuto.

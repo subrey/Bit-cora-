@@ -364,13 +364,17 @@ class AssistantEngine(
             return AssistantResponse("No he podido buscar en internet, señor. $primaryError")
         }
 
-        // Si el modelo actual no admite la búsqueda, se prueba con el otro
-        // antes de renunciar a la consulta en directo.
-        val groundingRetry = ai.complete(request.copy(model = alternative))
-        if (groundingRetry is AiResult.Success) return formatSearchResult(groundingRetry)
+        // Si es un límite de cuota no se gasta otra petición de búsqueda:
+        // ambos modelos comparten la misma cuota gratuita.
+        val rateLimited = primaryError.contains("límite", ignoreCase = true)
+        var groundingRetry: AiResult? = null
+        if (!rateLimited) {
+            groundingRetry = ai.complete(request.copy(model = alternative))
+            if (groundingRetry is AiResult.Success) return formatSearchResult(groundingRetry)
+        }
 
-        // Sin búsqueda: se intenta el resumen con ambos modelos usando
-        // Wikipedia como apoyo.
+        // Sin búsqueda: un solo resumen con Wikipedia como apoyo. Si no era
+        // un límite, se prueba también el otro modelo como último recurso.
         val wiki = Wikipedia.summary(clean)
         val support = wiki?.let {
             "Datos de Wikipedia: ${Wikipedia.shorten(it, 700)}\n\n"
@@ -379,20 +383,15 @@ class AssistantEngine(
             "sobre «$clean». $support" +
             "Usa titular, puntos con «• » y una frase final. " +
             "Si no tienes datos suficientes, dilo."
-        val attempts = listOf(
+        val modelAttempts = if (rateLimited) listOf(current) else listOf(current, alternative)
+        val attempts = modelAttempts.distinct().map { model ->
             AiRequest(
                 systemPrompt = AiPrompt.factualPrompt(basePrompt),
                 turns = listOf(AiTurn(fromUser = true, text = fallbackTurn)),
                 temperature = 0.2,
-                model = alternative,
-            ),
-            AiRequest(
-                systemPrompt = AiPrompt.factualPrompt(basePrompt),
-                turns = listOf(AiTurn(fromUser = true, text = fallbackTurn)),
-                temperature = 0.2,
-                model = current,
-            ),
-        ).distinctBy { it.model }
+                model = model,
+            )
+        }
 
         val searchErrors = listOfNotNull(
             primaryError.takeIf { it.isNotBlank() },

@@ -150,3 +150,6 @@
 - Fase 11.14: el aviso de búsqueda muestra el error de **cada clave**
   (`[principal]` y `[respaldo]`) y el detalle que devuelve Google en el 429,
   para identificar qué cuota concreta se está agotando.
+- Fase 11.15: «diagnóstico de red» muestra también si la clave principal y la
+  de respaldo están guardadas, para comprobar que la conmutación tiene dos
+  claves reales disponibles.

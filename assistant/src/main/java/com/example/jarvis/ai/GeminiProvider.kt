@@ -44,6 +44,11 @@ class GeminiProvider(
 
     override suspend fun currentModel(): String = effectiveModel(model())
 
+    override suspend fun keyStatus(): String = withContext(Dispatchers.IO) {
+        "principal: ${if (apiKey().isNotBlank()) "sí" else "no"}, " +
+            "respaldo: ${if (backupApiKey().isNotBlank()) "sí" else "no"}"
+    }
+
     override suspend fun complete(request: AiRequest): AiResult = withContext(Dispatchers.IO) {
         val keys = configuredKeys()
         if (keys.isEmpty()) {

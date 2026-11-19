@@ -43,6 +43,9 @@ interface AiProvider {
     /** Modelo que se está usando ahora, para poder probar el alternativo. */
     suspend fun currentModel(): String = ""
 
+    /** Estado de las claves guardadas, para el diagnóstico. */
+    suspend fun keyStatus(): String = ""
+
     /** Prueba rápida desde Ajustes. */
     suspend fun test(): AiResult = complete(
         AiRequest(

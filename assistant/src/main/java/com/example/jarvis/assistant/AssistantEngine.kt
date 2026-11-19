@@ -1038,6 +1038,7 @@ class AssistantEngine(
             val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
             val lines = mutableListOf(
                 "Red: $transport (acceso a internet: ${if (hasInternet) "sí" else "no"})",
+                "Claves: ${ai.keyStatus()}",
             )
 
             fun probe(name: String, url: String) {

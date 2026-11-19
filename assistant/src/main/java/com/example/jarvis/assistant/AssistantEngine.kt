@@ -53,7 +53,8 @@ class AssistantEngine(
         val conversational = conversationActive()
         val effective = resolve(intent)
         var keepConversation = effective.kind == IntentKind.CHAT ||
-            effective.kind == IntentKind.KNOWLEDGE
+            effective.kind == IntentKind.KNOWLEDGE ||
+            effective.kind == IntentKind.WEB_SEARCH
         val response = when (effective.kind) {
             IntentKind.GREETING -> AssistantResponse(
                 "Buenos días, señor. Jarvis en línea. Todo el sistema operativo."
@@ -216,6 +217,8 @@ class AssistantEngine(
 
             IntentKind.WEATHER_ADVICE -> weatherAdvice()
 
+            IntentKind.WEB_SEARCH -> webSearch(intent.payload)
+
             IntentKind.SUMMARY -> AssistantResponse(summary())
 
             IntentKind.UNKNOWN -> {
@@ -292,6 +295,105 @@ class AssistantEngine(
         val wiki = Wikipedia.summary(subject) ?: return null
         val short = Wikipedia.shorten(wiki)
         return AssistantResponse("$short\n\n(Fuente: Wikipedia en español)")
+    }
+
+    /**
+     * Busca en internet y devuelve un resumen estructurado. Usa el grounding
+     * de Google Search cuando está disponible; si el modelo o la cuota no lo
+     * permiten, cae a Wikipedia + el propio modelo y lo dice con claridad.
+     */
+    private suspend fun webSearch(subject: String): AssistantResponse {
+        val clean = subject.trim()
+        if (clean.isBlank()) {
+            return AssistantResponse("Dígame qué tema quiere que busque en internet, señor.")
+        }
+
+        if (!ai.isConfigured()) {
+            val wiki = Wikipedia.summary(clean)
+            return if (wiki != null) {
+                val short = Wikipedia.shorten(wiki, 700)
+                AssistantResponse(
+                    "He encontrado esto en Wikipedia:\n\n$short\n\n" +
+                        "Para buscar en toda la web y resumirlo, configure una clave gratuita " +
+                        "de Gemini en Ajustes → Inteligencia artificial."
+                )
+            } else {
+                AssistantResponse(
+                    "No puedo buscar en internet sin una clave de IA, señor. " +
+                        "Configúrela en Ajustes → Inteligencia artificial."
+                )
+            }
+        }
+
+        val basePrompt = JarvisPersona.systemPromptForToday()
+        val searchPrompt = buildString {
+            appendLine("Busca en internet información reciente y fiable sobre este tema: «$clean».")
+            appendLine()
+            appendLine("Devuelve un resumen en español de España con esta estructura:")
+            appendLine("- Una línea de titular.")
+            appendLine("- Después, de 4 a 6 puntos clave, uno por línea, cada uno empezando por «• ».")
+            appendLine("- Por último, una frase de cierre con lo esencial.")
+            appendLine("Usa solo información de las fuentes encontradas. No inventes datos ni fechas.")
+        }
+        val request = AiRequest(
+            systemPrompt = AiPrompt.factualPrompt(basePrompt),
+            turns = listOf(AiTurn(fromUser = true, text = searchPrompt)),
+            temperature = 0.2,
+            useGoogleSearch = true,
+        )
+
+        when (val result = ai.complete(request)) {
+            is AiResult.Success -> {
+                val text = buildString {
+                    append(result.text.trim())
+                    if (result.sources.isNotEmpty()) {
+                        appendLine()
+                        appendLine()
+                        append("Fuentes:")
+                        result.sources.take(3).forEachIndexed { index, source ->
+                            val host = source.url
+                                .substringAfter("://")
+                                .substringBefore("/")
+                                .removePrefix("www.")
+                            appendLine()
+                            append("${index + 1}. ${source.title} — $host")
+                        }
+                    }
+                }
+                return AssistantResponse(text.trim())
+            }
+            is AiResult.Failure -> {
+                // Algunos modelos o cuotas no permiten grounding: se intenta
+                // igualmente con Wikipedia como apoyo y se avisa al usuario.
+                val wiki = Wikipedia.summary(clean)
+                val support = wiki?.let {
+                    "Datos de Wikipedia: ${Wikipedia.shorten(it, 700)}\n\n"
+                }.orEmpty()
+                val fallbackRequest = AiRequest(
+                    systemPrompt = AiPrompt.factualPrompt(basePrompt),
+                    turns = listOf(
+                        AiTurn(
+                            fromUser = true,
+                            text = "Haz un resumen en español de los puntos más importantes " +
+                                "sobre «$clean». $support" +
+                                "Usa titular, puntos con «• » y una frase final. " +
+                                "Si no tienes datos suficientes, dilo.",
+                        ),
+                    ),
+                    temperature = 0.2,
+                )
+                return when (val fallback = ai.complete(fallbackRequest)) {
+                    is AiResult.Success -> AssistantResponse(
+                        "${fallback.text.trim()}\n\n" +
+                            "(Nota: no he podido consultar la web en directo; " +
+                            "el resumen usa Wikipedia y lo que sé.)"
+                    )
+                    is AiResult.Failure -> AssistantResponse(
+                        "No he podido buscar en internet, señor. ${fallback.message}"
+                    )
+                }
+            }
+        }
     }
 
     /**
@@ -835,10 +937,11 @@ class AssistantEngine(
             "batería y del almacenamiento, encender la linterna, abrir aplicaciones, contar un chiste, " +
             "recordar lo que hemos hablado o darme un resumen. " +
             "Si configura una clave gratuita de Gemini en Ajustes, también puedo conversar, explicar " +
-            "temas y responder preguntas abiertas. " +
+            "temas, buscar en internet y resumir lo más importante de cualquier asunto. " +
             "Inténtelo con: «pon música», «quita la música», «pon un temporizador de 10 minutos», " +
             "«recuérdame comprar pan a las 6 de la tarde», «despiértame a las 7», «qué alarmas tengo», " +
-            "«qué tiempo hace», «qué recordatorios tengo», «calcula 12 * (3 + 4)» o «explícame la fotosíntesis»."
+            "«qué tiempo hace», «qué recordatorios tengo», «calcula 12 * (3 + 4)», " +
+            "«explícame la fotosíntesis» o «busca en internet la fotosíntesis y resúmenmela»."
 
     // --- Conversación larga: entender continuaciones ------------------------
 
@@ -873,7 +976,9 @@ class AssistantEngine(
     private fun resolve(intent: ParsedIntent): ParsedIntent {
         if (intent.kind == IntentKind.UNKNOWN && isFollowUp(intent.raw)) {
             val previous = lastKind
-            if (previous == IntentKind.CHAT || previous == IntentKind.KNOWLEDGE) {
+            if (previous == IntentKind.CHAT || previous == IntentKind.KNOWLEDGE ||
+                previous == IntentKind.WEB_SEARCH
+            ) {
                 lastKind = IntentKind.CHAT
                 return intent.copy(kind = IntentKind.CHAT)
             }

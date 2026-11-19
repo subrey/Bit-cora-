@@ -56,6 +56,16 @@ object GeminiJson {
                 put("maxOutputTokens", 2048)
             },
         )
+        if (request.useGoogleSearch) {
+            // Grounding con Google Search: el modelo busca en la web y
+            // devuelve además las fuentes en groundingMetadata.
+            put(
+                "tools",
+                buildJsonArray {
+                    add(buildJsonObject { put("google_search", buildJsonObject {}) })
+                },
+            )
+        }
     }
 
     /** Texto de la primera respuesta, o null si viene vacía o bloqueada. */
@@ -95,4 +105,18 @@ object GeminiJson {
             ?.jsonPrimitive
             ?.contentOrNull
     }.getOrNull()
+
+    /** Enlaces web usados por el grounding, deduplicados y limitados. */
+    fun parseSources(body: String): List<WebSource> = runCatching {
+        val chunks = Json.parseToJsonElement(body).jsonObject
+            .get("candidates")?.jsonArray?.firstOrNull()?.jsonObject
+            ?.get("groundingMetadata")?.jsonObject
+            ?.get("groundingChunks")?.jsonArray ?: return@runCatching emptyList()
+        chunks.mapNotNull { chunk ->
+            val web = chunk.jsonObject["web"]?.jsonObject ?: return@mapNotNull null
+            val url = web["uri"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val title = web["title"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            WebSource(title.ifBlank { url }, url)
+        }.distinctBy { it.url }.take(5)
+    }.getOrDefault(emptyList())
 }

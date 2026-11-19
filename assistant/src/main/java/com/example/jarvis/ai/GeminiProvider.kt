@@ -90,7 +90,7 @@ class GeminiProvider(
 
         val text = GeminiJson.parseText(body)
             ?: return AiResult.Failure("La IA no ha devuelto ninguna respuesta. Inténtelo de nuevo.")
-        return AiResult.Success(text)
+        return AiResult.Success(text, GeminiJson.parseSources(body))
     }
 
     /** OkHttp bloquea el hilo; se envuelve para poder cancelar con la corrutina. */

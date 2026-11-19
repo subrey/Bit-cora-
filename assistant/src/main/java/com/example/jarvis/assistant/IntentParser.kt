@@ -45,6 +45,7 @@ enum class IntentKind {
     WEATHER,
     WEATHER_TOMORROW,
     WEATHER_ADVICE,
+    WEB_SEARCH,
     SUMMARY,
     AGENDA_TODAY,
     UNKNOWN,
@@ -135,6 +136,25 @@ object IntentParser {
             )
         ) {
             return ParsedIntent(IntentKind.AGENDA_TODAY, raw = raw)
+        }
+
+        // --- Búsqueda en internet con resumen ------------------------------
+        // Va antes que las preguntas generales: «busca en internet qué es X»
+        // debe buscar en la web, no contestar desde la base local.
+        if (has(
+                "busca en internet", "buscar en internet", "busca internet",
+                "buscame en internet", "busca en la web", "buscar en la web",
+                "buscame en la web", "busca en la red", "buscar en la red",
+                "buscame en la red", "buscame informacion", "busca informacion",
+                "busca info", "investiga sobre", "investiga", "investigar",
+                "resumeme lo mas importante de", "lo mas importante de",
+            )
+        ) {
+            return ParsedIntent(
+                IntentKind.WEB_SEARCH,
+                payload = searchSubject(n),
+                raw = raw,
+            )
         }
 
         // --- Preguntas y charla antes que las órdenes ambiguas -------------
@@ -623,6 +643,42 @@ object IntentParser {
             "ejecuta ", "ejecutar ", "lanza ", "lanzar ",
         )
         return phrases.any { n.contains(it) }
+    }
+
+    /**
+     * Extrae el tema de una orden de búsqueda: quita el verbo, las
+     * preposiciones iniciales y los signos de puntuación sobrantes.
+     */
+    private fun searchSubject(n: String): String {
+        val prefixes = listOf(
+            "resumeme lo mas importante de", "lo mas importante de",
+            "buscame en internet", "busca en internet", "buscar en internet", "busca internet",
+            "buscame en la web", "busca en la web", "buscar en la web",
+            "buscame en la red", "busca en la red", "buscar en la red",
+            "buscame informacion sobre", "buscame informacion de", "busca informacion sobre",
+            "busca informacion de", "busca info de", "busca info sobre",
+            "investiga sobre", "investiga", "investigar",
+        )
+        var body = n
+        for (prefix in prefixes) {
+            val idx = body.indexOf(prefix)
+            if (idx >= 0) {
+                body = body.substring(idx + prefix.length).trim()
+                break
+            }
+        }
+        val filler = listOf("sobre ", "acerca de ", "de ", "del ", "la ", "el ", "las ", "los ", "un ", "una ", "por ")
+        var changed = true
+        while (changed) {
+            changed = false
+            for (word in filler) {
+                if (body.startsWith(word)) {
+                    body = body.removePrefix(word).trim()
+                    changed = true
+                }
+            }
+        }
+        return body.trim().trim('?', '¿', '.', '!', ',', ';', ':').trim()
     }
 
     /** Quita las frases de arranque para quedarse con el asunto de la pregunta. */

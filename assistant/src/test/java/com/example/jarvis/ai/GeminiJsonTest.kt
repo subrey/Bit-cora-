@@ -5,6 +5,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeminiJsonTest {
@@ -76,5 +77,46 @@ class GeminiJsonTest {
     fun `extrae el motivo de bloqueo`() {
         val json = """{"promptFeedback":{"blockReason":"SAFETY"}}"""
         assertEquals("SAFETY", GeminiJson.blockReason(json))
+    }
+
+    @Test
+    fun `anade la busqueda de google solo cuando se pide`() {
+        val plain = GeminiJson.requestBody(
+            AiRequest(systemPrompt = "Eres JARVIS.", turns = emptyList()),
+        )
+        assertNull(plain["tools"])
+
+        val searching = GeminiJson.requestBody(
+            AiRequest(
+                systemPrompt = "Eres JARVIS.",
+                turns = emptyList(),
+                useGoogleSearch = true,
+            ),
+        )
+        val tools = searching["tools"]!!.jsonArray
+        assertEquals(1, tools.size)
+        assertTrue(tools[0].jsonObject.containsKey("google_search"))
+    }
+
+    @Test
+    fun `extrae las fuentes del grounding`() {
+        val json = """
+            {"candidates":[{"content":{"parts":[{"text":"Resumen"}]},
+             "groundingMetadata":{"groundingChunks":[
+               {"web":{"title":"NASA","uri":"https://www.nasa.gov/x"}},
+               {"web":{"title":"ESA","uri":"https://www.esa.int/y"}}
+             ]}}]}
+        """.trimIndent()
+        val sources = GeminiJson.parseSources(json)
+        assertEquals(2, sources.size)
+        assertEquals("NASA", sources[0].title)
+        assertEquals("https://www.nasa.gov/x", sources[0].url)
+        assertEquals("ESA", sources[1].title)
+    }
+
+    @Test
+    fun `devuelve fuentes vacias si no hay grounding`() {
+        val json = """{"candidates":[{"content":{"parts":[{"text":"Hola"}]}}]}"""
+        assertTrue(GeminiJson.parseSources(json).isEmpty())
     }
 }

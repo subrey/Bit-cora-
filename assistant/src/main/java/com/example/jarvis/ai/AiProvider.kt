@@ -3,17 +3,26 @@ package com.example.jarvis.ai
 /** Un turno de la conversación tal como se envía al modelo. */
 data class AiTurn(val fromUser: Boolean, val text: String)
 
+/** Fuente web encontrada por la búsqueda con grounding. */
+data class WebSource(val title: String, val url: String)
+
 /** Petición completa: personalidad + turnos de conversación. */
 data class AiRequest(
     val systemPrompt: String,
     val turns: List<AiTurn>,
     /** Más bajo para preguntas factuales: menos invención y menos deriva. */
     val temperature: Double = 0.7,
+    /** true para que el modelo consulte Google Search antes de responder. */
+    val useGoogleSearch: Boolean = false,
 )
 
 /** Resultado de una llamada a la IA, sin excepciones hacia la interfaz. */
 sealed interface AiResult {
-    data class Success(val text: String) : AiResult
+    data class Success(
+        val text: String,
+        /** Enlaces que el modelo ha usado cuando se pidió búsqueda web. */
+        val sources: List<WebSource> = emptyList(),
+    ) : AiResult
     data class Failure(val message: String) : AiResult
 }
 

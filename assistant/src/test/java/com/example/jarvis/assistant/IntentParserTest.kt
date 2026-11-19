@@ -222,4 +222,35 @@ class IntentParserTest {
     fun `normaliza acentos y mayusculas`() {
         assertEquals("pon musica", IntentParser.normalize("  ¡Pon MÚSICA!  "))
     }
+
+    @Test
+    fun `detecta busqueda en internet y extrae el tema`() {
+        val intent = IntentParser.parse("Busca en internet la fotosíntesis")
+        assertEquals(IntentKind.WEB_SEARCH, intent.kind)
+        assertEquals("fotosintesis", intent.payload)
+    }
+
+    @Test
+    fun `detecta investigar sobre un tema`() {
+        val intent = IntentParser.parse("Investiga sobre la Revolución Mexicana")
+        assertEquals(IntentKind.WEB_SEARCH, intent.kind)
+        assertEquals("revolucion mexicana", intent.payload)
+    }
+
+    @Test
+    fun `detecta resumen de lo mas importante`() {
+        val intent = IntentParser.parse("Resúmenme lo más importante de la inteligencia artificial")
+        assertEquals(IntentKind.WEB_SEARCH, intent.kind)
+        assertEquals("inteligencia artificial", intent.payload)
+    }
+
+    @Test
+    fun `buscar en la web tambien activa la busqueda`() {
+        assertEquals(IntentKind.WEB_SEARCH, IntentParser.parse("búscame en la web quién es Einstein").kind)
+    }
+
+    @Test
+    fun `buscar musica no activa la busqueda en internet`() {
+        assertEquals(IntentKind.MUSIC_PLAY, IntentParser.parse("busca la música").kind)
+    }
 }

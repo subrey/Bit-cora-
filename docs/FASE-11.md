@@ -56,3 +56,20 @@
   blanco en cada barra.
 - **Sin pérdida de fluidez.** Los efectos son trazos y degradados simples, sin
   desenfoques ni imágenes, y solo se dibujan en el estado `SPEAKING`.
+
+## Fase 11.5 — búsqueda en internet con resumen
+
+- **Nueva orden:** «busca en internet [tema]», «investiga sobre [tema]» o
+  «resúmenme lo más importante de [tema]». El motor extrae el tema, consulta
+  Google Search desde Gemini y devuelve un titular, de 4 a 6 puntos clave y
+  una frase de cierre, todo en español.
+- **Fuentes:** cuando el grounding devuelve enlaces, se añaden al final de la
+  respuesta con el dominio de cada uno. La primera fuente suele ser la más
+  relevante.
+- **Sin clave de IA:** se usa Wikipedia como apoyo y se indica cómo configurar
+  Gemini para buscar en toda la web.
+- **Si el modelo o la cuota no permiten grounding:** se cae a Wikipedia + el
+  propio modelo y se avisa de que no ha sido una consulta en directo.
+- **Continuidad:** las preguntas de seguimiento («¿y eso por qué?») siguen la
+  conversación como en una respuesta normal; las órdenes locales siguen
+  teniendo prioridad y cierran el contexto.

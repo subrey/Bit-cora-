@@ -14,6 +14,8 @@ data class AiRequest(
     val temperature: Double = 0.7,
     /** true para que el modelo consulte Google Search antes de responder. */
     val useGoogleSearch: Boolean = false,
+    /** Permite probar otro modelo sin cambiar la preferencia guardada. */
+    val model: String? = null,
 )
 
 /** Resultado de una llamada a la IA, sin excepciones hacia la interfaz. */
@@ -37,6 +39,9 @@ interface AiProvider {
 
     /** Envía la conversación y devuelve una respuesta o un error legible. */
     suspend fun complete(request: AiRequest): AiResult
+
+    /** Modelo que se está usando ahora, para poder probar el alternativo. */
+    suspend fun currentModel(): String = ""
 
     /** Prueba rápida desde Ajustes. */
     suspend fun test(): AiResult = complete(

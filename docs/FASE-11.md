@@ -73,3 +73,14 @@
 - **Continuidad:** las preguntas de seguimiento («¿y eso por qué?») siguen la
   conversación como en una respuesta normal; las órdenes locales siguen
   teniendo prioridad y cierran el contexto.
+
+## Fase 11.6 — IA más resistente
+
+- **Reintento con otro modelo.** Si el modelo configurado falla por un problema
+  de servicio (no por clave, cuota o bloqueo), se prueba una vez con el otro
+  modelo gratuito: `gemini-3.8-flash` o `gemini-3.5-flash-lite`.
+- **Errores más claros.** Los mensajes de la API incluyen el código HTTP y el
+  detalle devuelto por Google, para saber si es sobrecarga, cuota o permisos.
+- **Búsqueda degradada.** Si la búsqueda con grounding falla, se intenta el
+  resumen sin búsqueda con ambos modelos; si tampoco, se entrega el extracto
+  de Wikipedia con un aviso. Así la orden siempre da una respuesta útil.

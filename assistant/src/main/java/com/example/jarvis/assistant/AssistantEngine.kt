@@ -12,6 +12,7 @@ import com.example.jarvis.ai.AiProvider
 import com.example.jarvis.ai.AiRequest
 import com.example.jarvis.ai.AiResult
 import com.example.jarvis.ai.AiTurn
+import com.example.jarvis.ai.GeminiProvider
 import com.example.jarvis.data.JarvisRepository
 import com.example.jarvis.data.AlarmItem
 import com.example.jarvis.data.RoutineItem
@@ -342,58 +343,113 @@ class AssistantEngine(
             useGoogleSearch = true,
         )
 
-        when (val result = ai.complete(request)) {
-            is AiResult.Success -> {
-                val text = buildString {
-                    append(result.text.trim())
-                    if (result.sources.isNotEmpty()) {
+        val primary = ai.complete(request)
+        if (primary is AiResult.Success) {
+            val text = buildString {
+                append(primary.text.trim())
+                if (primary.sources.isNotEmpty()) {
+                    appendLine()
+                    appendLine()
+                    append("Fuentes:")
+                    primary.sources.take(3).forEachIndexed { index, source ->
+                        val host = source.url
+                            .substringAfter("://")
+                            .substringBefore("/")
+                            .removePrefix("www.")
                         appendLine()
-                        appendLine()
-                        append("Fuentes:")
-                        result.sources.take(3).forEachIndexed { index, source ->
-                            val host = source.url
-                                .substringAfter("://")
-                                .substringBefore("/")
-                                .removePrefix("www.")
-                            appendLine()
-                            append("${index + 1}. ${source.title} — $host")
-                        }
+                        append("${index + 1}. ${source.title} — $host")
                     }
                 }
-                return AssistantResponse(text.trim())
             }
-            is AiResult.Failure -> {
-                // Algunos modelos o cuotas no permiten grounding: se intenta
-                // igualmente con Wikipedia como apoyo y se avisa al usuario.
-                val wiki = Wikipedia.summary(clean)
-                val support = wiki?.let {
-                    "Datos de Wikipedia: ${Wikipedia.shorten(it, 700)}\n\n"
-                }.orEmpty()
-                val fallbackRequest = AiRequest(
-                    systemPrompt = AiPrompt.factualPrompt(basePrompt),
-                    turns = listOf(
-                        AiTurn(
-                            fromUser = true,
-                            text = "Haz un resumen en español de los puntos más importantes " +
-                                "sobre «$clean». $support" +
-                                "Usa titular, puntos con «• » y una frase final. " +
-                                "Si no tienes datos suficientes, dilo.",
-                        ),
-                    ),
-                    temperature = 0.2,
+            return AssistantResponse(text.trim())
+        }
+
+        val primaryError = (primary as AiResult.Failure).message
+        if (primaryError.contains("clave", ignoreCase = true)) {
+            return AssistantResponse("No he podido buscar en internet, señor. $primaryError")
+        }
+
+        // La búsqueda con grounding puede fallar: modelo no compatible,
+        // cuota agotada o servicio ocupado. Se prueba sin búsqueda con el
+        // otro modelo y, si tampoco, con el actual.
+        val wiki = Wikipedia.summary(clean)
+        val support = wiki?.let {
+            "Datos de Wikipedia: ${Wikipedia.shorten(it, 700)}\n\n"
+        }.orEmpty()
+        val fallbackTurn = "Haz un resumen en español de los puntos más importantes " +
+            "sobre «$clean». $support" +
+            "Usa titular, puntos con «• » y una frase final. " +
+            "Si no tienes datos suficientes, dilo."
+        val current = ai.currentModel()
+        val alternative = if (current == GeminiProvider.QUALITY_MODEL) {
+            GeminiProvider.DEFAULT_MODEL
+        } else {
+            GeminiProvider.QUALITY_MODEL
+        }
+        val attempts = listOf(
+            AiRequest(
+                systemPrompt = AiPrompt.factualPrompt(basePrompt),
+                turns = listOf(AiTurn(fromUser = true, text = fallbackTurn)),
+                temperature = 0.2,
+                model = alternative,
+            ),
+            AiRequest(
+                systemPrompt = AiPrompt.factualPrompt(basePrompt),
+                turns = listOf(AiTurn(fromUser = true, text = fallbackTurn)),
+                temperature = 0.2,
+                model = current,
+            ),
+        ).distinctBy { it.model }
+
+        for (attempt in attempts) {
+            when (val result = ai.complete(attempt)) {
+                is AiResult.Success -> return AssistantResponse(
+                    "${result.text.trim()}\n\n" +
+                        "(Nota: no he podido consultar la web en directo; " +
+                        "el resumen usa Wikipedia y lo que sé.)"
                 )
-                return when (val fallback = ai.complete(fallbackRequest)) {
-                    is AiResult.Success -> AssistantResponse(
-                        "${fallback.text.trim()}\n\n" +
-                            "(Nota: no he podido consultar la web en directo; " +
-                            "el resumen usa Wikipedia y lo que sé.)"
-                    )
-                    is AiResult.Failure -> AssistantResponse(
-                        "No he podido buscar en internet, señor. ${fallback.message}"
-                    )
-                }
+                is AiResult.Failure -> Unit
             }
         }
+
+        // Último recurso: resumen extractivo de lo que sí hemos podido leer.
+        val wikiText = support.removePrefix("Datos de Wikipedia: ").trim()
+        return if (wikiText.isNotBlank()) {
+            AssistantResponse(
+                "He encontrado esto en Wikipedia:\n\n$wikiText\n\n" +
+                    "(La IA no está disponible ahora mismo; este es el resumen que he podido consultar.)"
+            )
+        } else {
+            AssistantResponse(
+                "No he podido buscar en internet, señor. " +
+                    "La IA no está disponible ahora mismo. Inténtelo de nuevo en unos segundos."
+            )
+        }
+    }
+
+    /**
+     * Llama a la IA y, si el modelo actual falla por un problema de servicio,
+     * lo intenta una vez con el otro modelo gratuito. No reintenta errores de
+     * clave, cuota ni bloqueo: esos no se arreglan cambiando de modelo.
+     */
+    private suspend fun completeAi(request: AiRequest): AiResult {
+        val first = ai.complete(request)
+        if (first is AiResult.Success) return first
+        val message = (first as AiResult.Failure).message
+        if (message.contains("clave", ignoreCase = true) ||
+            message.contains("límite", ignoreCase = true) ||
+            message.contains("no existe", ignoreCase = true) ||
+            message.contains("bloqueado", ignoreCase = true)
+        ) {
+            return first
+        }
+        val current = ai.currentModel()
+        val alternative = if (current == GeminiProvider.QUALITY_MODEL) {
+            GeminiProvider.DEFAULT_MODEL
+        } else {
+            GeminiProvider.QUALITY_MODEL
+        }
+        return ai.complete(request.copy(model = alternative))
     }
 
     /**
@@ -438,7 +494,7 @@ class AssistantEngine(
             )
         }
 
-        return when (val result = ai.complete(request)) {
+        return when (val result = completeAi(request)) {
             is AiResult.Success -> AssistantResponse(result.text)
             is AiResult.Failure -> AssistantResponse("No he podido consultar la IA. ${result.message}")
         }

@@ -32,6 +32,8 @@ class GeminiProvider(
     override suspend fun isConfigured(): Boolean =
         withContext(Dispatchers.IO) { apiKey().isNotBlank() }
 
+    override suspend fun currentModel(): String = effectiveModel(model())
+
     override suspend fun complete(request: AiRequest): AiResult = withContext(Dispatchers.IO) {
         val key = apiKey().trim()
         if (key.isBlank()) {
@@ -40,7 +42,7 @@ class GeminiProvider(
             )
         }
 
-        val modelName = effectiveModel(model())
+        val modelName = effectiveModel(request.model ?: model())
         val body = GeminiJson.requestBody(request).toString()
         val httpRequest = Request.Builder()
             .url("$BASE_URL/models/$modelName:generateContent")
@@ -71,15 +73,18 @@ class GeminiProvider(
             return AiResult.Failure(
                 when (response.code) {
                     400, 401, 403 ->
-                        "La clave de IA no es válida o no tiene permisos. Revísela en Ajustes."
+                        "La clave de IA no es válida o no tiene permisos (${response.code}). " +
+                            (detail ?: "Revísela en Ajustes.")
                     404 ->
                         "El modelo «$modelName» no existe o ya no está disponible. " +
                             "Use «$DEFAULT_MODEL» en Ajustes."
                     429 ->
                         "He alcanzado el límite gratuito de la IA. Espere un minuto y vuelva a intentarlo."
                     in 500..599 ->
-                        "El servicio de IA no está disponible ahora mismo. Inténtelo más tarde."
-                    else -> detail ?: "La IA ha devuelto un error (${response.code})."
+                        "El servicio de IA no está disponible (${response.code}). " +
+                            (detail ?: "Inténtelo de nuevo en unos segundos.")
+                    else -> "La IA ha devuelto un error (${response.code}). " +
+                        (detail ?: "Inténtelo de nuevo.")
                 },
             )
         }
@@ -115,6 +120,9 @@ class GeminiProvider(
          * nivel gratuito que Flash; se puede cambiar en Ajustes.
          */
         const val DEFAULT_MODEL = "gemini-3.5-flash-lite"
+
+        /** Modelo de más calidad que se prueba si el actual falla. */
+        const val QUALITY_MODEL = "gemini-3.8-flash"
 
         /** Modelos que Google ya no sirve a claves nuevas: se migran solos. */
         private val RETIRED_MODELS = setOf(

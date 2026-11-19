@@ -131,3 +131,14 @@
   y «límite de IA», para saber qué cuota se ha agotado.
 - Con el uso normal (una búsqueda cada cierto tiempo) la búsqueda en directo
   vuelve a funcionar al restablecerse la cuota por minuto.
+
+## Fase 11.12 — dos claves con conmutación automática
+
+- **Ajustes → Inteligencia artificial** permite guardar una **clave de
+  respaldo** además de la principal, cifrada con el mismo Keystore.
+- Si la clave en uso devuelve 429 (cuota), 403 (permisos), error de servicio o
+  timeout, `GeminiProvider` **prueba la otra clave en la misma petición** y
+  recuerda cuál funcionó para usarla primero la próxima vez.
+- Esto no elimina el límite gratuito: para que dos claves tengan cuotas
+  independientes deben pertenecer a **proyectos distintos** de Google AI
+  Studio. Dos claves del mismo proyecto suelen compartir la cuota.

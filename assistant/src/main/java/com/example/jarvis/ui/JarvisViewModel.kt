@@ -99,9 +99,13 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     private val secure = app.secureSettings
 
-    /** ¿Hay una clave de Gemini guardada de forma cifrada? */
-    private val _aiConfigured = MutableStateFlow(secure.hasKey())
+    /** ¿Hay alguna clave de Gemini guardada de forma cifrada? */
+    private val _aiConfigured = MutableStateFlow(secure.hasAnyKey())
     val aiConfigured: StateFlow<Boolean> = _aiConfigured.asStateFlow()
+
+    /** ¿Hay una segunda clave lista para cuando falle la principal? */
+    private val _aiBackupConfigured = MutableStateFlow(secure.hasBackupKey())
+    val aiBackupConfigured: StateFlow<Boolean> = _aiBackupConfigured.asStateFlow()
 
     /** Modelo configurado, o el gratuito por defecto. */
     private val _aiModel = MutableStateFlow(
@@ -138,8 +142,40 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     fun clearAiKey() {
         viewModelScope.launch {
             runCatching { secure.setApiKey("") }
-            _aiConfigured.value = false
-            _aiStatus.value = "Clave de IA borrada."
+            _aiConfigured.value = secure.hasAnyKey()
+            _aiStatus.value = "Clave principal borrada."
+        }
+    }
+
+    fun saveAiBackupKey(key: String) {
+        val clean = key.trim()
+        if (clean.isBlank()) {
+            _aiStatus.value = "Pegue una segunda clave válida."
+            return
+        }
+        if (!secure.available) {
+            _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
+            return
+        }
+        viewModelScope.launch {
+            runCatching { secure.setBackupApiKey(clean) }
+                .onSuccess {
+                    _aiBackupConfigured.value = true
+                    _aiConfigured.value = true
+                    _aiStatus.value = "Clave de respaldo guardada de forma cifrada."
+                }
+                .onFailure {
+                    _aiStatus.value = "No se pudo guardar la clave de respaldo."
+                }
+        }
+    }
+
+    fun clearAiBackupKey() {
+        viewModelScope.launch {
+            runCatching { secure.setBackupApiKey("") }
+            _aiBackupConfigured.value = false
+            _aiConfigured.value = secure.hasAnyKey()
+            _aiStatus.value = "Clave de respaldo borrada."
         }
     }
 
@@ -153,8 +189,8 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun testAi() {
-        if (!secure.hasKey()) {
-            _aiStatus.value = "Configure primero la clave de IA."
+        if (!secure.hasAnyKey()) {
+            _aiStatus.value = "Configure primero una clave de IA."
             return
         }
         viewModelScope.launch {

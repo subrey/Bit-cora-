@@ -26,47 +26,80 @@ import kotlin.coroutines.resumeWithException
 class GeminiProvider(
     private val apiKey: () -> String,
     private val model: () -> String,
+    private val backupApiKey: () -> String = { "" },
     private val client: OkHttpClient = defaultClient(),
 ) : AiProvider {
 
+    /** Clave que funcionó por última vez, para probarla primero. */
+    private var preferredKeyIndex = 0
+
+    private fun configuredKeys(): List<String> =
+        listOf(apiKey(), backupApiKey())
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+
     override suspend fun isConfigured(): Boolean =
-        withContext(Dispatchers.IO) { apiKey().isNotBlank() }
+        withContext(Dispatchers.IO) { configuredKeys().isNotEmpty() }
 
     override suspend fun currentModel(): String = effectiveModel(model())
 
     override suspend fun complete(request: AiRequest): AiResult = withContext(Dispatchers.IO) {
-        val key = apiKey().trim()
-        if (key.isBlank()) {
+        val keys = configuredKeys()
+        if (keys.isEmpty()) {
             return@withContext AiResult.Failure(
                 "No hay ninguna clave de IA configurada. Añádala en Ajustes → Inteligencia artificial.",
             )
         }
 
+        val ordered = if (preferredKeyIndex == 0) keys else keys.reversed()
         val modelName = effectiveModel(request.model ?: model())
         val body = GeminiJson.requestBody(request).toString()
-        val httpRequest = Request.Builder()
-            .url("$BASE_URL/models/$modelName:generateContent")
-            .header("x-goog-api-key", key)
-            .header("Content-Type", "application/json")
-            .post(body.toRequestBody(JSON))
-            .build()
+        var lastFailure: AiResult.Failure? = null
 
-        val response = try {
-            client.newCall(httpRequest).await()
-        } catch (e: SocketTimeoutException) {
-            return@withContext AiResult.Failure(
-                "La IA ha tardado demasiado en responder (${e.javaClass.simpleName}: " +
-                    "${e.message.orEmpty()}). Inténtelo de nuevo.",
-            )
-        } catch (e: IOException) {
-            return@withContext AiResult.Failure(
-                "No hay conexión con el servicio de IA (${e.javaClass.simpleName}: " +
-                    "${e.message.orEmpty()}). Compruebe la red e inténtelo de nuevo.",
-            )
+        for (entry in ordered.withIndex()) {
+            val key = entry.value
+            val httpRequest = Request.Builder()
+                .url("$BASE_URL/models/$modelName:generateContent")
+                .header("x-goog-api-key", key)
+                .header("Content-Type", "application/json")
+                .post(body.toRequestBody(JSON))
+                .build()
+
+            val result = try {
+                val response = client.newCall(httpRequest).await()
+                response.use { parseResponse(it, modelName, request.useGoogleSearch) }
+            } catch (e: SocketTimeoutException) {
+                AiResult.Failure(
+                    "La IA ha tardado demasiado en responder (${e.javaClass.simpleName}: " +
+                        "${e.message.orEmpty()}). Inténtelo de nuevo.",
+                )
+            } catch (e: IOException) {
+                AiResult.Failure(
+                    "No hay conexión con el servicio de IA (${e.javaClass.simpleName}: " +
+                        "${e.message.orEmpty()}). Compruebe la red e inténtelo de nuevo.",
+                )
+            }
+
+            if (result is AiResult.Success) {
+                preferredKeyIndex = if (key == keys.first()) 0 else 1
+                return@withContext result
+            }
+            val failure = result as AiResult.Failure
+            lastFailure = failure
+            if (!isRetryableWithOtherKey(failure.message) || entry.index == ordered.lastIndex) {
+                return@withContext failure
+            }
         }
-
-        response.use { parseResponse(it, modelName, request.useGoogleSearch) }
+        return@withContext lastFailure ?: AiResult.Failure("La IA no ha devuelto ninguna respuesta.")
     }
+
+    /** Errores que pueden resolverse usando la otra clave. */
+    private fun isRetryableWithOtherKey(message: String): Boolean =
+        listOf(
+            "límite", "429", "clave", "no está disponible",
+            "No hay conexión", "tardado demasiado",
+        ).any { message.contains(it, ignoreCase = true) }
 
     private fun parseResponse(
         response: Response,

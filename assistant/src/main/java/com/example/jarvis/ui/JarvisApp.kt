@@ -80,6 +80,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val onDeviceVoice by viewModel.onDeviceVoice.collectAsStateWithLifecycle()
     val continuousVoice by viewModel.continuousVoice.collectAsStateWithLifecycle()
     val aiConfigured by viewModel.aiConfigured.collectAsStateWithLifecycle()
+    val aiBackupConfigured by viewModel.aiBackupConfigured.collectAsStateWithLifecycle()
     val aiModel by viewModel.aiModel.collectAsStateWithLifecycle()
     val aiStatus by viewModel.aiStatus.collectAsStateWithLifecycle()
     val city by viewModel.city.collectAsStateWithLifecycle()
@@ -284,6 +285,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         wakeWord = wakeWord,
                         onDeviceVoice = onDeviceVoice,
                         aiConfigured = aiConfigured,
+                        aiBackupConfigured = aiBackupConfigured,
                         aiModel = aiModel,
                         aiStatus = aiStatus,
                         city = city,
@@ -300,6 +302,8 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         onOnDeviceVoiceChange = viewModel::setOnDeviceVoice,
                         onSaveAiKey = viewModel::saveAiKey,
                         onClearAiKey = viewModel::clearAiKey,
+                        onSaveAiBackupKey = viewModel::saveAiBackupKey,
+                        onClearAiBackupKey = viewModel::clearAiBackupKey,
                         onSaveAiModel = viewModel::saveAiModel,
                         onTestAi = viewModel::testAi,
                         onSaveCity = viewModel::setCity,

@@ -40,6 +40,17 @@ class SecureSettings(context: Context) {
         prefs?.edit()?.putString(KEY_API, value.trim())?.apply()
     }
 
+    /** Segunda clave que se usa cuando la principal se queda sin cuota. */
+    fun backupApiKey(): String = prefs?.getString(KEY_API_BACKUP, "").orEmpty()
+
+    fun hasBackupKey(): Boolean = backupApiKey().isNotBlank()
+
+    fun setBackupApiKey(value: String) {
+        prefs?.edit()?.putString(KEY_API_BACKUP, value.trim())?.apply()
+    }
+
+    fun hasAnyKey(): Boolean = hasKey() || hasBackupKey()
+
     fun model(): String = prefs?.getString(KEY_MODEL, "").orEmpty()
 
     fun setModel(value: String) {
@@ -49,6 +60,7 @@ class SecureSettings(context: Context) {
     private companion object {
         const val FILE = "jarvis_secure"
         const val KEY_API = "gemini_api_key"
+        const val KEY_API_BACKUP = "gemini_api_key_backup"
         const val KEY_MODEL = "gemini_model"
     }
 }

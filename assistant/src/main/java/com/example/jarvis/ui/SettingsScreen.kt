@@ -39,6 +39,7 @@ fun SettingsScreen(
     wakeWord: String,
     onDeviceVoice: Boolean,
     aiConfigured: Boolean,
+    aiBackupConfigured: Boolean,
     aiModel: String,
     aiStatus: String?,
     city: String,
@@ -49,6 +50,8 @@ fun SettingsScreen(
     onOnDeviceVoiceChange: (Boolean) -> Unit,
     onSaveAiKey: (String) -> Unit,
     onClearAiKey: () -> Unit,
+    onSaveAiBackupKey: (String) -> Unit,
+    onClearAiBackupKey: () -> Unit,
     onSaveAiModel: (String) -> Unit,
     onTestAi: () -> Unit,
     onSaveCity: (String) -> Unit,
@@ -57,6 +60,7 @@ fun SettingsScreen(
 ) {
     var wordInput by remember(wakeWord) { mutableStateOf(wakeWord) }
     var keyInput by remember { mutableStateOf("") }
+    var backupKeyInput by remember { mutableStateOf("") }
     var modelInput by remember(aiModel) { mutableStateOf(aiModel) }
     var cityInput by remember(city) { mutableStateOf(city) }
     val uriHandler = LocalUriHandler.current
@@ -211,6 +215,42 @@ fun SettingsScreen(
                 }
             }
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Clave de respaldo (se usa si la principal se queda sin cuota):",
+            style = MaterialTheme.typography.bodySmall,
+            color = JarvisColors.Muted,
+        )
+        OutlinedTextField(
+            value = backupKeyInput,
+            onValueChange = { backupKeyInput = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Segunda clave de Gemini") },
+            placeholder = {
+                Text(if (aiBackupConfigured) "•••••••• (guardada)" else "AIza…")
+            },
+            visualTransformation = PasswordVisualTransformation(),
+            textStyle = TextStyle(fontFamily = FontFamily.Monospace, color = JarvisColors.Green),
+            colors = fieldColors(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(
+                onClick = {
+                    if (backupKeyInput.isNotBlank()) {
+                        onSaveAiBackupKey(backupKeyInput)
+                        backupKeyInput = ""
+                    }
+                },
+            ) {
+                Text("Guardar respaldo", color = JarvisColors.Green)
+            }
+            if (aiBackupConfigured) {
+                TextButton(onClick = onClearAiBackupKey) {
+                    Text("Borrar", color = JarvisColors.Amber)
+                }
+            }
+        }
         OutlinedTextField(
             value = modelInput,
             onValueChange = { modelInput = it },
@@ -289,7 +329,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · v2.0-fase11.11",
+            text = "JARVIS · v2.0-fase11.12",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

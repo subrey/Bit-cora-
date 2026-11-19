@@ -44,6 +44,7 @@ class JarvisApplication : Application() {
     val aiProvider: AiProvider by lazy {
         GeminiProvider(
             apiKey = { secureSettings.apiKey() },
+            backupApiKey = { secureSettings.backupApiKey() },
             model = { secureSettings.model() },
         )
     }

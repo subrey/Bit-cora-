@@ -7,6 +7,8 @@ data class AiTurn(val fromUser: Boolean, val text: String)
 data class AiRequest(
     val systemPrompt: String,
     val turns: List<AiTurn>,
+    /** Más bajo para preguntas factuales: menos invención y menos deriva. */
+    val temperature: Double = 0.7,
 )
 
 /** Resultado de una llamada a la IA, sin excepciones hacia la interfaz. */

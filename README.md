@@ -99,8 +99,13 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
   explicaciones y charla, además de las órdenes del teléfono.
 - **Clave cifrada**: se guarda con el Keystore de Android y se puede borrar desde
   Ajustes. Nunca se escribe en el historial ni en git.
-- **Contexto**: la IA recibe la personalidad de JARVIS, los últimos 12 turnos y
-  hasta 10 recuerdos guardados con «memoriza…».
+- **Contexto**: en conversación, la IA recibe la personalidad de JARVIS, los
+  últimos 12 turnos y hasta 10 recuerdos guardados con «memoriza…». En preguntas
+  factuales («qué es…») no se envía el historial y se baja la temperatura, para
+  que no mezcle el tema con la conversación anterior.
+- **Conocimiento local**: los temas frecuentes (revolución mexicana, Einstein,
+  agujero negro, lente gravitatoria…) se responden sin red; si no están en la
+  base local, se consulta Wikipedia y, como último recurso, la IA.
 - **Prioridad local**: música, tareas, temporizadores, hora, batería, linterna…
   se resuelven sin red; la IA solo entra cuando hace falta.
 - **Configuración**: Ajustes → Inteligencia artificial → pegar la clave gratuita

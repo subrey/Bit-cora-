@@ -19,6 +19,14 @@ class AiPromptTest {
     }
 
     @Test
+    fun `el prompt factual prohibe mezclar temas`() {
+        val prompt = AiPrompt.factualPrompt("base")
+        assertTrue(prompt.startsWith("base"))
+        assertTrue(prompt.contains("pregunta factual"))
+        assertTrue(prompt.contains("No mezcles temas"))
+    }
+
+    @Test
     fun `no duplica el mensaje actual`() {
         val history = listOf(
             AiTurn(fromUser = true, text = "hola"),

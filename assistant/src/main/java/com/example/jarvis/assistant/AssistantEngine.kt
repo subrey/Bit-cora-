@@ -241,7 +241,7 @@ class AssistantEngine(
             return AssistantResponse("$short\n\n(Fuente: Wikipedia en español)")
         }
 
-        if (ai.isConfigured()) return chat(raw)
+        if (ai.isConfigured()) return chat(raw, factual = true)
 
         return AssistantResponse(
             "No tengo ese tema en mi base local y no he podido consultar la red, señor. " +
@@ -254,8 +254,11 @@ class AssistantEngine(
      * Conversación libre con el modelo de lenguaje. Se envía la personalidad,
      * los recuerdos guardados y los últimos turnos; si no hay clave, se explica
      * cómo configurarla sin romper el resto del asistente.
+     *
+     * Para preguntas factuales no se envía el historial y se baja la
+     * temperatura: así el modelo responde a lo preguntado y no mezcla temas.
      */
-    private suspend fun chat(text: String): AssistantResponse {
+    private suspend fun chat(text: String, factual: Boolean = false): AssistantResponse {
         val clean = text.trim()
         if (clean.isBlank()) {
             return AssistantResponse("Dígame qué quiere que le responda, señor.")
@@ -268,15 +271,26 @@ class AssistantEngine(
             )
         }
 
-        val history = runCatching { repository.recentMessages(AiPrompt.MAX_TURNS) }
-            .getOrDefault(emptyList())
-            .map { AiTurn(fromUser = it.fromUser, text = it.text) }
-        val memories = runCatching { repository.observeMemories().first().map { it.text } }
-            .getOrDefault(emptyList())
-        val request = AiRequest(
-            systemPrompt = AiPrompt.systemPrompt(JarvisPersona.systemPromptForToday(), memories),
-            turns = AiPrompt.turns(history, clean),
-        )
+        val basePrompt = JarvisPersona.systemPromptForToday()
+        val request = if (factual) {
+            // Pregunta factual: sin historial y con temperatura baja. El
+            // historial puede contaminar la respuesta con el tema anterior.
+            AiRequest(
+                systemPrompt = AiPrompt.factualPrompt(basePrompt),
+                turns = listOf(AiTurn(fromUser = true, text = clean)),
+                temperature = 0.2,
+            )
+        } else {
+            val history = runCatching { repository.recentMessages(AiPrompt.MAX_TURNS) }
+                .getOrDefault(emptyList())
+                .map { AiTurn(fromUser = it.fromUser, text = it.text) }
+            val memories = runCatching { repository.observeMemories().first().map { it.text } }
+                .getOrDefault(emptyList())
+            AiRequest(
+                systemPrompt = AiPrompt.systemPrompt(basePrompt, memories),
+                turns = AiPrompt.turns(history, clean),
+            )
+        }
 
         return when (val result = ai.complete(request)) {
             is AiResult.Success -> AssistantResponse(result.text)

@@ -39,6 +39,21 @@ class GeminiJsonTest {
     }
 
     @Test
+    fun `usa la temperatura de la peticion`() {
+        val body = GeminiJson.requestBody(
+            AiRequest(
+                systemPrompt = "Eres JARVIS.",
+                turns = emptyList(),
+                temperature = 0.2,
+            ),
+        )
+        val temperature = body["generationConfig"]!!
+            .jsonObject["temperature"]!!
+            .jsonPrimitive.content
+        assertEquals("0.2", temperature)
+    }
+
+    @Test
     fun `extrae el texto de la respuesta`() {
         val json = """
             {"candidates":[{"content":{"parts":[{"text":"Hola, "},{"text":"señor."}]}}]}

@@ -353,11 +353,15 @@ object IntentParser {
     private fun stripQuestion(text: String): String {
         val prefixes = listOf(
             "dime que sabes de", "dime que sabes sobre", "que sabes de", "que sabes sobre",
-            "dime sobre", "dime de", "dime que", "dime", "sabes de", "sabes sobre",
-            "cuentame sobre", "cuentame de", "cuentame", "hablame de", "hablame sobre",
-            "hablame", "explicame", "informame de", "informame", "info de",
-            "de que va", "que es", "quien es", "que significa", "de donde viene",
-            "cual es", "cuales son", "por que", "que",
+            "explicame lo que es", "explicame lo que son", "dime lo que es", "dime lo que son",
+            "cuentame lo que es", "cuentame lo que son", "hablame de lo que es",
+            "hablame de lo que son", "que es lo que es", "que es lo que son",
+            "lo que es", "lo que son",
+            "dime sobre", "dime de", "dime que es", "dime que son", "dime que", "dime",
+            "sabes de", "sabes sobre", "cuentame sobre", "cuentame de", "cuentame",
+            "hablame de", "hablame sobre", "hablame", "explicame", "informame de",
+            "informame", "info de", "de que va", "que es", "que son", "quien es",
+            "que significa", "de donde viene", "cual es", "cuales son", "por que", "que ",
         )
         var result = text
         prefixes.forEach { prefix ->

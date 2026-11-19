@@ -34,6 +34,24 @@ class KnowledgeTest {
     }
 
     @Test
+    fun `distingue un agujero negro de una lente gravitatoria`() {
+        val blackHole = Knowledge.search("¿qué es un agujero negro?")
+        assertNotNull(blackHole)
+        assertEquals("Agujero negro", blackHole!!.title)
+
+        val lens = Knowledge.search("¿qué es una lente gravitatoria?")
+        assertNotNull(lens)
+        assertEquals("Lente gravitatoria", lens!!.title)
+    }
+
+    @Test
+    fun `entiende explicame lo que es un agujero negro`() {
+        val intent = IntentParser.parse("explícame lo que es un agujero negro")
+        assertEquals(IntentKind.KNOWLEDGE, intent.kind)
+        assertEquals("un agujero negro", intent.payload)
+    }
+
+    @Test
     fun `la pregunta sobre la revolucion se entiende`() {
         val intent = IntentParser.parse("dime qué sabes de la Revolución Mexicana")
         assertEquals(IntentKind.KNOWLEDGE, intent.kind)

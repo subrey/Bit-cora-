@@ -51,7 +51,7 @@ object GeminiJson {
         put(
             "generationConfig",
             buildJsonObject {
-                put("temperature", 0.7)
+                put("temperature", request.temperature)
                 // margen para los tokens de razonamiento de Gemini 3
                 put("maxOutputTokens", 2048)
             },

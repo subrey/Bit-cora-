@@ -33,6 +33,19 @@ object AiPrompt {
     }
 
     /**
+     * Prompt para preguntas factuales: se responde solo a la pregunta actual,
+     * sin arrastrar el tema de turnos anteriores. Así el modelo no mezcla
+     * conceptos parecidos (por ejemplo, agujero negro y lente gravitatoria).
+     */
+    fun factualPrompt(base: String): String = buildString {
+        append(base.trimEnd())
+        appendLine()
+        appendLine()
+        appendLine("Responde únicamente a la pregunta factual del usuario, de forma directa y precisa.")
+        appendLine("No mezcles temas de conversaciones anteriores. Si no estás seguro, dilo; no inventes.")
+    }.trimEnd()
+
+    /**
      * Recorta el historial y garantiza que termine en el mensaje actual del
      * usuario, sin duplicarlo si ya está guardado en la base de datos.
      */

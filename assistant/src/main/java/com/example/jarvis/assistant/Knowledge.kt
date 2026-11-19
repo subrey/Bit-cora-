@@ -88,6 +88,27 @@ object Knowledge {
                 "y los cometas.",
             keywords = listOf("sistema solar", "planetas", "mercurio", "neptuno", "cometa", "jupiter"),
         ),
+        Entry(
+            title = "Agujero negro",
+            text = "Un agujero negro es una región del espacio donde la materia está tan concentrada que su gravedad " +
+                "no deja escapar nada, ni siquiera la luz. Se forma, por ejemplo, cuando una estrella muy masiva " +
+                "agota su combustible y colapsa sobre sí misma. Su límite se llama horizonte de sucesos, y en su " +
+                "interior la gravedad se vuelve extremadamente intensa.",
+            keywords = listOf(
+                "agujero negro", "agujeros negros", "horizonte de sucesos", "singularidad",
+                "colapso gravitatorio", "estrella masiva",
+            ),
+        ),
+        Entry(
+            title = "Lente gravitatoria",
+            text = "Una lente gravitatoria es el efecto por el que la gravedad de un objeto muy masivo, como una " +
+                "galaxia o un agujero negro, curva la luz de objetos más lejanos. Eso puede deformar, ampliar o " +
+                "duplicar su imagen y permite estudiar materia que de otro modo no se vería.",
+            keywords = listOf(
+                "lente gravitatoria", "lentes gravitatorias", "lente gravitacional",
+                "curva la luz", "efecto lente",
+            ),
+        ),
     )
 
     /** Busca el tema que mejor encaja con el asunto consultado. */
@@ -97,9 +118,11 @@ object Knowledge {
         var best: Entry? = null
         var bestScore = 0
         entries.forEach { entry ->
-            val score = entry.keywords.count { keyword ->
-                keyword.length >= 4 && normalized.contains(keyword)
-            }
+            // Las palabras clave más largas son más específicas: así «lente
+            // gravitatoria» gana a «agujero negro» si aparecen las dos.
+            val score = entry.keywords
+                .filter { keyword -> keyword.length >= 4 && normalized.contains(keyword) }
+                .sumOf { it.length }
             if (score > bestScore) {
                 bestScore = score
                 best = entry

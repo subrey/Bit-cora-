@@ -95,3 +95,10 @@
   etc.), para distinguir DNS, certificados o falta de datos.
 - Permite saber si el fallo está en el móvil, en la restricción de datos de la
   app o en el servicio de Google, sin salir de JARVIS.
+
+## Fase 11.8 — permiso de estado de red
+
+- Se añade `ACCESS_NETWORK_STATE` al manifiesto: sin él, el diagnóstico no
+  podía consultar si había Wi-Fi o datos activos y fallaba con un
+  `SecurityException`. Con este permiso el diagnóstico muestra la red real y
+  las dos pruebas HTTP.

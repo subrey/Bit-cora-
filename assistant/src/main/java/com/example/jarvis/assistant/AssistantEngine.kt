@@ -2,6 +2,8 @@ package com.example.jarvis.assistant
 
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.BatteryManager
@@ -26,6 +28,8 @@ import com.example.jarvis.widget.JarvisWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.Locale
@@ -64,6 +68,8 @@ class AssistantEngine(
             IntentKind.CHAT -> chat(intent.raw)
 
             IntentKind.HELP -> AssistantResponse(helpText())
+
+            IntentKind.NETWORK_TEST -> networkTest()
 
             IntentKind.TIME -> AssistantResponse("Son las ${Tools.formatTime(now)}.")
 
@@ -997,7 +1003,50 @@ class AssistantEngine(
             "Inténtelo con: «pon música», «quita la música», «pon un temporizador de 10 minutos», " +
             "«recuérdame comprar pan a las 6 de la tarde», «despiértame a las 7», «qué alarmas tengo», " +
             "«qué tiempo hace», «qué recordatorios tengo», «calcula 12 * (3 + 4)», " +
-            "«explícame la fotosíntesis» o «busca en internet la fotosíntesis y resúmenmela»."
+            "«explícame la fotosíntesis» o «busca en internet la fotosíntesis y resúmenmela». " +
+            "Si algo falla, diga «diagnóstico de red»."
+
+    /**
+     * Prueba rápida de red para distinguir entre «sin internet», «la app no
+     * tiene permiso de datos» y «el servicio de IA está caído».
+     */
+    private fun networkTest(): AssistantResponse = runCatching {
+        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = manager.activeNetwork
+        val capabilities = network?.let { manager.getNetworkCapabilities(it) }
+        val transport = when {
+            capabilities == null -> "sin red activa"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "datos móviles"
+            else -> "otro tipo de red"
+        }
+        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        val lines = mutableListOf("Red: $transport (acceso a internet: ${if (hasInternet) "sí" else "no"})")
+
+        fun probe(name: String, url: String) {
+            val result = runCatching {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.connectTimeout = 8000
+                connection.readTimeout = 8000
+                connection.requestMethod = "GET"
+                val code = connection.responseCode
+                connection.disconnect()
+                "HTTP $code"
+            }.getOrElse { "${it.javaClass.simpleName}: ${it.message.orEmpty()}" }
+            lines += "$name: $result"
+        }
+
+        probe("Wikipedia", "https://es.wikipedia.org/api/rest_v1/page/summary/Gatos")
+        probe("Gemini", "https://generativelanguage.googleapis.com/v1beta/models")
+        val text = buildString {
+            append("Diagnóstico de red:\n")
+            lines.forEach { appendLine(it) }
+            appendLine()
+            append("Si el navegador funciona pero Wikipedia falla aquí, " +
+                "revise Ahorro de datos o las restricciones de datos de JARVIS en Ajustes del teléfono.")
+        }
+        AssistantResponse(text)
+    }.getOrElse { AssistantResponse("No he podido hacer el diagnóstico: ${it.message}") }
 
     // --- Conversación larga: entender continuaciones ------------------------
 

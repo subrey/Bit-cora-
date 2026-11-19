@@ -7,6 +7,7 @@ enum class IntentKind {
     GREETING,
     CHAT,
     HELP,
+    NETWORK_TEST,
     TIME,
     DATE,
     MUSIC_PLAY,
@@ -87,6 +88,14 @@ object IntentParser {
             n.startsWith("muestra ayuda") || n == "comandos"
         ) {
             return ParsedIntent(IntentKind.HELP, raw = raw)
+        }
+        if (has(
+                "diagnostico de red", "diagnostico de conexion", "prueba de conexion",
+                "test de red", "comprueba internet", "comprueba la conexion",
+                "comprueba el internet", "por que no hay conexion",
+            )
+        ) {
+            return ParsedIntent(IntentKind.NETWORK_TEST, raw = raw)
         }
         if (isPureGreeting(n)) {
             return ParsedIntent(IntentKind.GREETING, raw = raw)

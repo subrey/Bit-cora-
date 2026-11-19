@@ -84,3 +84,14 @@
 - **Búsqueda degradada.** Si la búsqueda con grounding falla, se intenta el
   resumen sin búsqueda con ambos modelos; si tampoco, se entrega el extracto
   de Wikipedia con un aviso. Así la orden siempre da una respuesta útil.
+
+## Fase 11.7 — diagnóstico de red
+
+- **Nueva orden «diagnóstico de red».** Comprueba la red activa (Wi-Fi o datos),
+  si el sistema la marca con acceso a internet y hace dos pruebas HTTP reales:
+  Wikipedia y el endpoint de Gemini.
+- **Errores de red con detalle.** Los fallos de conexión muestran la clase y el
+  mensaje de la excepción (`UnknownHostException`, `SSLHandshakeException`,
+  etc.), para distinguir DNS, certificados o falta de datos.
+- Permite saber si el fallo está en el móvil, en la restricción de datos de la
+  app o en el servicio de Google, sin salir de JARVIS.

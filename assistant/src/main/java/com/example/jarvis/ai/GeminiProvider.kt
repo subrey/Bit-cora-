@@ -55,11 +55,13 @@ class GeminiProvider(
             client.newCall(httpRequest).await()
         } catch (e: SocketTimeoutException) {
             return@withContext AiResult.Failure(
-                "La IA ha tardado demasiado en responder. Inténtelo de nuevo.",
+                "La IA ha tardado demasiado en responder (${e.javaClass.simpleName}: " +
+                    "${e.message.orEmpty()}). Inténtelo de nuevo.",
             )
         } catch (e: IOException) {
             return@withContext AiResult.Failure(
-                "No hay conexión con el servicio de IA. Compruebe la red e inténtelo de nuevo.",
+                "No hay conexión con el servicio de IA (${e.javaClass.simpleName}: " +
+                    "${e.message.orEmpty()}). Compruebe la red e inténtelo de nuevo.",
             )
         }
 

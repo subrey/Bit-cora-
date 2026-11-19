@@ -253,4 +253,10 @@ class IntentParserTest {
     fun `buscar musica no activa la busqueda en internet`() {
         assertEquals(IntentKind.MUSIC_PLAY, IntentParser.parse("busca la música").kind)
     }
+
+    @Test
+    fun `detecta el diagnostico de red`() {
+        assertEquals(IntentKind.NETWORK_TEST, IntentParser.parse("diagnóstico de red").kind)
+        assertEquals(IntentKind.NETWORK_TEST, IntentParser.parse("prueba de conexión").kind)
+    }
 }

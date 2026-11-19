@@ -111,3 +111,11 @@
 - Si la búsqueda con Google falla en el modelo configurado, se prueba una vez
   con el otro modelo antes de caer al resumen sin búsqueda. Así se aprovecha
   la búsqueda en directo siempre que algún modelo la admita.
+
+## Fase 11.10 — motivo de la búsqueda fallida
+
+- El aviso del modo de respaldo incluye ahora el error real de la búsqueda con
+  grounding (código y detalle de Google), para poder distinguir cuota,
+  permisos, tiempo de espera o sobrecarga.
+- El diagnóstico solo muestra el consejo de Ahorro de datos si Wikipedia
+  falla de verdad, no cuando devuelve HTTP 200.

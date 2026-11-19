@@ -394,13 +394,20 @@ class AssistantEngine(
             ),
         ).distinctBy { it.model }
 
+        val searchErrors = listOfNotNull(
+            primaryError.takeIf { it.isNotBlank() },
+            (groundingRetry as? AiResult.Failure)?.message?.takeIf { it.isNotBlank() },
+        ).joinToString(" | ").take(180)
+        val note = if (searchErrors.isBlank()) {
+            "(Nota: no he podido consultar la web en directo; " +
+                "el resumen usa Wikipedia y lo que sé.)"
+        } else {
+            "(Nota: búsqueda en directo no disponible: $searchErrors. " +
+                "El resumen usa Wikipedia y lo que sé.)"
+        }
         for (attempt in attempts) {
             when (val result = ai.complete(attempt)) {
-                is AiResult.Success -> return AssistantResponse(
-                    "${result.text.trim()}\n\n" +
-                        "(Nota: no he podido consultar la web en directo; " +
-                        "el resumen usa Wikipedia y lo que sé.)"
-                )
+                is AiResult.Success -> return AssistantResponse("${result.text.trim()}\n\n$note")
                 is AiResult.Failure -> Unit
             }
         }
@@ -1049,12 +1056,17 @@ class AssistantEngine(
 
             probe("Wikipedia", "https://es.wikipedia.org/api/rest_v1/page/summary/Gatos")
             probe("Gemini", "https://generativelanguage.googleapis.com/v1beta/models")
+            val wikiFailed = lines.any {
+                it.startsWith("Wikipedia:") && !it.contains("HTTP 2")
+            }
             val text = buildString {
                 append("Diagnóstico de red:\n")
                 lines.forEach { appendLine(it) }
-                appendLine()
-                append("Si el navegador funciona pero Wikipedia falla aquí, " +
-                    "revise Ahorro de datos o las restricciones de datos de JARVIS en Ajustes del teléfono.")
+                if (wikiFailed) {
+                    appendLine()
+                    append("Wikipedia falla aquí: revise Ahorro de datos o las " +
+                        "restricciones de datos de JARVIS en Ajustes del teléfono.")
+                }
             }
             AssistantResponse(text)
         }.getOrElse { AssistantResponse("No he podido hacer el diagnóstico: ${it.message}") }

@@ -174,3 +174,15 @@
   de nuevo (o se pulse el micrófono de la pantalla).
 - Así se evita que el micro siga abierto y se encadenen sesiones después de la
   primera orden.
+
+## Fase 11.18 — conversación continua desde el servicio
+
+- Se revierte el disparo único: con **Escucha permanente** encendida el micro
+  sigue abierto y vuelve a escuchar tras cada orden.
+- Con **Conversación continua** activa, el servicio abre una ventana de 90
+  segundos tras la primera orden: acepta las frases siguientes **sin repetir
+  «Jarvis»**. Cada nueva orden renueva la ventana; al expirar vuelve a exigir
+  la palabra clave.
+- Si la app está en pantalla, la conversación la lleva el micrófono de la app;
+  si está en segundo plano, la lleva el servicio de escucha permanente. Así no
+  se queda «apagado» después de la primera orden.

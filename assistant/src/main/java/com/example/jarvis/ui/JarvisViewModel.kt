@@ -817,20 +817,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { settings.setCity(city) }
     }
 
-    /**
-     * Envía al bus una orden detectada por el servicio de escucha permanente.
-     * El micrófono permanente es de un solo disparo: en cuanto oye una orden,
-     * se apaga y el switch vuelve a OFF. Para otra orden hay que volver a
-     * encenderlo (o pulsar el micrófono de la pantalla).
-     */
+    /** Envía al bus una orden detectada por el servicio de escucha permanente. */
     fun forwardFromBus(command: String) {
-        viewModelScope.launch {
-            if (alwaysListening.value) {
-                settings.setAlwaysListening(false)
-                AlwaysListeningService.stop(getApplication<Application>())
-            }
-            submit(command, fromVoice = true)
-        }
+        submit(command, fromVoice = true)
     }
 
     fun speak(text: String) {

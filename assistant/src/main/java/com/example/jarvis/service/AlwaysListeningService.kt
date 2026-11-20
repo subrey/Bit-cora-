@@ -49,7 +49,14 @@ class AlwaysListeningService : Service() {
     private var wakeWord = "jarvis"
     private var lastStartAt = 0L
     private var onDeviceVoice = false
+    private var continuousVoice = false
+    /** Hasta cuándo se aceptan frases sin repetir la palabra clave. */
+    private var conversationUntil = 0L
     private var appRef: JarvisApplication? = null
+
+    /** Ventana de conversación: tras una orden se sigue escuchando sin «Jarvis». */
+    private fun conversationActive(): Boolean =
+        continuousVoice && System.currentTimeMillis() < conversationUntil
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
@@ -156,7 +163,7 @@ class AlwaysListeningService : Service() {
                 .getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 .orEmpty()
-            if (WakeWordDetector.containsWakeWord(spoken, wakeWord)) {
+            if (conversationActive() || WakeWordDetector.containsWakeWord(spoken, wakeWord)) {
                 JarvisBus.listening.value = true
                 // La música baja para que se entienda la orden que viene.
                 duckMusic()
@@ -173,8 +180,14 @@ class AlwaysListeningService : Service() {
             ?.firstOrNull()
             .orEmpty()
         if (spoken.isBlank()) return false
-        val command = WakeWordDetector.extractCommand(spoken, wakeWord)
-        if (command == null) {
+        // En conversación continua no hace falta repetir la palabra clave.
+        val command = if (conversationActive()) {
+            spoken.trim()
+        } else {
+            WakeWordDetector.extractCommand(spoken, wakeWord)
+        }
+        val clean = command?.trim().orEmpty()
+        if (clean.isBlank()) {
             // Con música sonando el reconocedor oye la letra: no llenar el chat
             // de avisos falsos.
             if (!isMusicPlaying() && unheard < 3) {
@@ -192,7 +205,12 @@ class AlwaysListeningService : Service() {
             }
             return false
         }
-        JarvisBus.send(command)
+        if (continuousVoice) {
+            // Cada orden renueva la ventana: mientras se siga hablando no
+            // hará falta decir «Jarvis» otra vez.
+            conversationUntil = System.currentTimeMillis() + 90_000L
+        }
+        JarvisBus.send(clean)
         return true
     }
 
@@ -286,6 +304,17 @@ class AlwaysListeningService : Service() {
             scope.launch {
                 app.settings.wakeWord.collect { word ->
                     wakeWord = word.ifBlank { "jarvis" }.lowercase()
+                }
+            }
+            scope.launch {
+                app.settings.continuousVoice.collect { enabled ->
+                    continuousVoice = enabled
+                    if (!enabled) {
+                        conversationUntil = 0L
+                    } else if (conversationUntil > 0L) {
+                        // El usuario la acaba de activar: se abre una ventana.
+                        conversationUntil = System.currentTimeMillis() + 90_000L
+                    }
                 }
             }
         }

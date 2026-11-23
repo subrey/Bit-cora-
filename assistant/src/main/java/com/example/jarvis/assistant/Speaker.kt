@@ -4,7 +4,6 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.speech.tts.Voice
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -63,20 +62,14 @@ class Speaker(context: Context) {
             engine.setLanguage(Locale.getDefault())
         }
 
-        // Elige una voz española del género pedido. Si el motor no expone
-        // voces con género, se compensa con el tono.
+        // Android no expone el género de las voces: se elige la mejor voz
+        // española disponible y se ajusta el tono para masculine/femenino.
         val voices = runCatching { engine.voices?.toList().orEmpty() }.getOrDefault(emptyList())
         val spanish = voices.filter { it.locale.language.equals("es", ignoreCase = true) }
-        fun pick(gender: Int): Voice? {
-            val candidates = spanish.filter { it.gender == gender }
-            return candidates.firstOrNull { it.locale.country.equals("ES", ignoreCase = true) }
-                ?: candidates.firstOrNull()
-        }
-        val chosen = when (preferredGender) {
-            "male" -> pick(Voice.MALE)
-            "female" -> pick(Voice.FEMALE)
-            else -> null
-        }
+        val chosen = spanish
+            .sortedByDescending { it.quality }
+            .firstOrNull { it.locale.country.equals("ES", ignoreCase = true) }
+            ?: spanish.sortedByDescending { it.quality }.firstOrNull()
         if (chosen != null) {
             val applied = runCatching { engine.setVoice(chosen) }.getOrDefault(TextToSpeech.ERROR)
             if (applied != TextToSpeech.SUCCESS) engine.setLanguage(locale)

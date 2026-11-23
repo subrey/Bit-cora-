@@ -191,8 +191,8 @@
 
 - **Ajustes → Voz de Jarvis** permite elegir **Masculina**, **Femenina** o
   **Predeterminada**. La preferencia se guarda y se aplica al arrancar.
-- `Speaker` selecciona una voz española del género elegido con
-  `TextToSpeech.setVoice` (prefiriendo `es-ES`). Si el motor del teléfono no
-  expone voces con género, ajusta el tono: más grave para masculina, más agudo
-  para femenina.
+- `Speaker` elige la mejor voz española disponible (prefiriendo `es-ES`) y
+  ajusta el tono: más grave para masculina, más agudo para femenina. Android
+  no expone el género de las voces TTS, así que el tono es el mecanismo fiable
+  en todos los teléfonos.
 - Por defecto se usa la voz **masculina**.

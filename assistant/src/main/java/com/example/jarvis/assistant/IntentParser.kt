@@ -38,6 +38,7 @@ enum class IntentKind {
     HISTORY,
     EXPORT_HISTORY,
     KNOWLEDGE,
+    WHATSAPP_SEND,
     BATTERY,
     STORAGE,
     TORCH,
@@ -162,6 +163,23 @@ object IntentParser {
             return ParsedIntent(
                 IntentKind.WEB_SEARCH,
                 payload = searchSubject(n),
+                raw = raw,
+            )
+        }
+
+        // --- Mensaje de WhatsApp -------------------------------------------
+        if (has(
+                "manda un mensaje de whatsapp", "envia un mensaje de whatsapp",
+                "manda mensaje de whatsapp", "envia mensaje de whatsapp",
+                "manda un whatsapp", "envia un whatsapp",
+                "manda whatsapp", "envia whatsapp",
+                "manda por whatsapp", "envia por whatsapp",
+                "escribe por whatsapp",
+            )
+        ) {
+            return ParsedIntent(
+                IntentKind.WHATSAPP_SEND,
+                payload = whatsappPayload(n),
                 raw = raw,
             )
         }
@@ -688,6 +706,51 @@ object IntentParser {
             }
         }
         return body.trim().trim('?', '¿', '.', '!', ',', ';', ':').trim()
+    }
+
+    /** Codifica destinatario y mensaje en el payload con un separador seguro. */
+    private fun whatsappPayload(n: String): String {
+        val prefixes = listOf(
+            "manda un mensaje de whatsapp", "envia un mensaje de whatsapp",
+            "manda mensaje de whatsapp", "envia mensaje de whatsapp",
+            "manda un whatsapp", "envia un whatsapp",
+            "manda whatsapp", "envia whatsapp",
+            "manda por whatsapp", "envia por whatsapp", "escribe por whatsapp",
+        )
+        var body = n
+        for (prefix in prefixes) {
+            val i = body.indexOf(prefix)
+            if (i >= 0) {
+                body = body.substring(i + prefix.length).trim()
+                break
+            }
+        }
+        body = body.removePrefix("a ").removePrefix("al ").removePrefix("para ").trim()
+        val markers = listOf(
+            " diciendo ", " diciendole ", " que diga ", " que digas ",
+            " con el mensaje ", " con mensaje ", " con ", " mensaje: ", ": ",
+        )
+        var recipient = body
+        var message = ""
+        for (marker in markers) {
+            val i = body.indexOf(marker)
+            if (i >= 0) {
+                recipient = body.substring(0, i).trim()
+                message = body.substring(i + marker.length).trim()
+                break
+            }
+        }
+        return "$recipient\u0001$message"
+    }
+
+    /** Separa el payload de [IntentKind.WHATSAPP_SEND]. */
+    fun whatsappParts(payload: String): Pair<String, String> {
+        val i = payload.indexOf('\u0001')
+        return if (i >= 0) {
+            payload.substring(0, i) to payload.substring(i + 1)
+        } else {
+            payload to ""
+        }
     }
 
     /** Quita las frases de arranque para quedarse con el asunto de la pregunta. */

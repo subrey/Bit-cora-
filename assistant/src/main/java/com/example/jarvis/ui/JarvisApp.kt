@@ -150,6 +150,25 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
             viewModel.setAlwaysListening(true)
         }
 
+    val contactsPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                viewModel.onContactsPermissionGranted()
+            } else {
+                Toast.makeText(
+                    context,
+                    "Sin permiso de contactos, di el número de teléfono",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+
+    LaunchedEffect(Unit) {
+        viewModel.requestContacts.collect {
+            contactsPermissionLauncher.launch(android.Manifest.permission.READ_CONTACTS)
+        }
+    }
+
     fun enableAlwaysListening() {
         val micGranted = ContextCompat.checkSelfPermission(
             context,

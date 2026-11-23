@@ -196,3 +196,14 @@
   no expone el género de las voces TTS, así que el tono es el mecanismo fiable
   en todos los teléfonos.
 - Por defecto se usa la voz **masculina**.
+
+## Fase 11.20 — WhatsApp por voz
+
+- **Nueva orden:** «manda un WhatsApp a Juan diciendo llego tarde». Acepta nombres
+  (buscando en contactos) o un número directo.
+- **Confirmación obligatoria:** antes de abrir nada, JARVIS repite destinatario
+  y mensaje y espera un «sí». Con «no» cancela.
+- **No envía automáticamente:** abre WhatsApp con el chat y el texto ya
+  escritos; el usuario pulsa «enviar». Así se evita enviar por error.
+- Si falta el texto, pregunta «¿Qué mensaje le envío a …?». Si no hay permiso
+  de contactos, lo pide y reintenta la orden al concederlo.

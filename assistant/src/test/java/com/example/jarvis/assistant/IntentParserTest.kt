@@ -255,6 +255,24 @@ class IntentParserTest {
     }
 
     @Test
+    fun `detecta mandar un whatsapp y extrae destinatario y mensaje`() {
+        val intent = IntentParser.parse("Manda un WhatsApp a Juan diciendo llego tarde")
+        assertEquals(IntentKind.WHATSAPP_SEND, intent.kind)
+        val (recipient, message) = IntentParser.whatsappParts(intent.payload)
+        assertEquals("juan", recipient)
+        assertEquals("llego tarde", message)
+    }
+
+    @Test
+    fun `detecta whatsapp con numero de telefono`() {
+        val intent = IntentParser.parse("envía un whatsapp al 612345678 con hola")
+        assertEquals(IntentKind.WHATSAPP_SEND, intent.kind)
+        val (recipient, message) = IntentParser.whatsappParts(intent.payload)
+        assertEquals("612345678", recipient)
+        assertEquals("hola", message)
+    }
+
+    @Test
     fun `detecta el diagnostico de red`() {
         assertEquals(IntentKind.NETWORK_TEST, IntentParser.parse("diagnóstico de red").kind)
         assertEquals(IntentKind.NETWORK_TEST, IntentParser.parse("prueba de conexión").kind)

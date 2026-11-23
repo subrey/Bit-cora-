@@ -13,6 +13,7 @@ import com.example.jarvis.assistant.ReminderScheduler
 import com.example.jarvis.assistant.RoutineScheduler
 import com.example.jarvis.assistant.Speaker
 import com.example.jarvis.assistant.TimerScheduler
+import com.example.jarvis.assistant.WhatsAppSender
 import com.example.jarvis.data.JarvisDatabase
 import com.example.jarvis.data.JarvisRepository
 import com.example.jarvis.data.SecureSettings
@@ -71,6 +72,9 @@ class JarvisApplication : Application() {
     /** Fase 7: meteorología con Open-Meteo (gratis y sin clave). */
     val weatherProvider: WeatherProvider by lazy { OpenMeteoProvider() }
 
+    /** Prepara mensajes de WhatsApp; el envío final lo confirma el usuario. */
+    val whatsappSender: WhatsAppSender by lazy { WhatsAppSender(this) }
+
     val engine: AssistantEngine by lazy {
         AssistantEngine(
             context = this,
@@ -83,6 +87,7 @@ class JarvisApplication : Application() {
             alarmScheduler = alarmScheduler,
             weather = weatherProvider,
             cityProvider = { settings.city.first() },
+            whatsapp = whatsappSender,
         )
     }
 }

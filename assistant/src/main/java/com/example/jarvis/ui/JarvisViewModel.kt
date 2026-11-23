@@ -30,8 +30,11 @@ import com.example.jarvis.service.AlwaysListeningService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -281,6 +284,19 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     /** Identifica el turno actual: un envío nuevo invalida los avisos del anterior. */
     private var turnId = 0
 
+    /** Evento para pedir permiso de contactos desde la interfaz. */
+    private val _requestContacts = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val requestContacts: SharedFlow<Unit> = _requestContacts.asSharedFlow()
+
+    /** Orden que se repite automáticamente cuando se concede el permiso. */
+    private var pendingContactsCommand: String? = null
+
+    fun onContactsPermissionGranted() {
+        val command = pendingContactsCommand
+        pendingContactsCommand = null
+        if (!command.isNullOrBlank()) submit(command)
+    }
+
     init {
         // Aplica la voz guardada en cuanto el motor TTS esté disponible.
         app.speaker.setGender(voiceGender.value)
@@ -326,6 +342,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                 val intent = IntentParser.parse(clean)
                 val response = runCatching { engine.execute(intent) }.getOrElse {
                     AssistantResponse("Se me ha complicado la orden, señor. ¿Puede repetirla?")
+                }
+                if (response.needContacts) {
+                    pendingContactsCommand = clean
+                    _requestContacts.tryEmit(Unit)
                 }
                 runCatching { repository.addChat(response.text, fromUser = false) }
                 if (response.speak && ttsEnabled.value) {

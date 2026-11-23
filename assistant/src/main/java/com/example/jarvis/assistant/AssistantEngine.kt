@@ -35,7 +35,12 @@ import java.time.LocalDateTime
 import java.util.Locale
 import kotlin.math.roundToInt
 
-data class AssistantResponse(val text: String, val speak: Boolean = true)
+data class AssistantResponse(
+    val text: String,
+    val speak: Boolean = true,
+    /** true si la orden necesita permiso de contactos para resolver el nombre. */
+    val needContacts: Boolean = false,
+)
 
 /**
  * Motor del asistente: ejecuta la intención detectada y devuelve la respuesta.
@@ -51,9 +56,32 @@ class AssistantEngine(
     private val alarmScheduler: AlarmScheduler = AlarmScheduler(context),
     private val weather: WeatherProvider? = null,
     private val cityProvider: suspend () -> String = { "" },
+    private val whatsapp: WhatsAppSender? = null,
 ) {
 
     suspend fun execute(intent: ParsedIntent): AssistantResponse {
+        // Confirmación pendiente de un WhatsApp: «sí» abre el chat, «no» cancela.
+        pendingWhatsAppConfirmation?.let { pending ->
+            val n = IntentParser.normalize(intent.raw)
+            if (isAffirmative(n)) {
+                pendingWhatsAppConfirmation = null
+                lastKind = null
+                return sendWhatsApp(pending.first, pending.second)
+            }
+            if (isNegative(n)) {
+                pendingWhatsAppConfirmation = null
+                lastKind = null
+                return AssistantResponse("Mensaje cancelado, señor.")
+            }
+        }
+        // Falta el texto: el siguiente mensaje se usa como mensaje.
+        pendingWhatsAppRecipient?.let { recipient ->
+            if (intent.kind != IntentKind.WHATSAPP_SEND && intent.raw.isNotBlank()) {
+                pendingWhatsAppRecipient = null
+                return prepareWhatsApp(recipient, intent.raw.trim())
+            }
+        }
+
         val now = LocalDateTime.now()
         val conversational = conversationActive()
         val effective = resolve(intent)
@@ -207,6 +235,8 @@ class AssistantEngine(
                 intent.raw,
                 conversational = conversational,
             )
+
+            IntentKind.WHATSAPP_SEND -> whatsappCommand(effective.payload)
 
             IntentKind.BATTERY -> AssistantResponse(batteryText())
 
@@ -423,6 +453,74 @@ class AssistantEngine(
                 "No he podido buscar en internet, señor. " +
                     "La IA no está disponible ahora mismo. Inténtelo de nuevo en unos segundos."
             )
+        }
+    }
+
+    private fun isAffirmative(n: String): Boolean =
+        n in setOf("si", "vale", "ok", "de acuerdo", "confirmar", "adelante", "enviar", "mandar", "mandalo") ||
+            n.startsWith("si ")
+
+    private fun isNegative(n: String): Boolean =
+        n in setOf("no", "cancelar", "olvida", "olvidalo", "nope")
+
+    private fun looksLikePhone(recipient: String): Boolean =
+        recipient.count { it.isDigit() } >= 7
+
+    /** Interpreta la orden de WhatsApp y pide lo que falte. */
+    private fun whatsappCommand(payload: String): AssistantResponse {
+        val (recipient, message) = IntentParser.whatsappParts(payload)
+        if (recipient.isBlank()) {
+            return AssistantResponse("¿A quién quiere enviar el WhatsApp, señor?")
+        }
+        if (message.isBlank()) {
+            pendingWhatsAppRecipient = recipient
+            return AssistantResponse("¿Qué mensaje le envío a $recipient?")
+        }
+        return prepareWhatsApp(recipient, message)
+    }
+
+    /** Resuelve el número y pide confirmación antes de abrir WhatsApp. */
+    private fun prepareWhatsApp(recipient: String, message: String): AssistantResponse {
+        val sender = whatsapp
+        if (sender == null) {
+            return AssistantResponse("No puedo abrir WhatsApp en este dispositivo, señor.")
+        }
+        if (!sender.hasContactsPermission() && !looksLikePhone(recipient)) {
+            return AssistantResponse(
+                "Necesito permiso para leer sus contactos y encontrar a «$recipient». " +
+                    "Dígame el número de teléfono o conceda el permiso.",
+                needContacts = true,
+            )
+        }
+        val number = sender.resolveNumber(recipient)
+        if (number.isNullOrBlank()) {
+            return AssistantResponse("No encuentro a «$recipient». Dígame su número, señor.")
+        }
+        pendingWhatsAppConfirmation = recipient to message
+        return AssistantResponse(
+            "¿Preparo un WhatsApp para $recipient con el mensaje «$message»? " +
+                "Diga «sí» para abrirlo o «no» para cancelar.",
+        )
+    }
+
+    /** Abre el chat con el texto ya escrito; el envío final lo hace el usuario. */
+    private fun sendWhatsApp(recipient: String, message: String): AssistantResponse {
+        val sender = whatsapp
+        if (sender == null) {
+            return AssistantResponse("No puedo abrir WhatsApp en este dispositivo, señor.")
+        }
+        val number = sender.resolveNumber(recipient)
+        if (number.isNullOrBlank()) {
+            return AssistantResponse("No encuentro el número de «$recipient», señor.")
+        }
+        val opened = sender.openChat(number, message)
+        return if (opened) {
+            AssistantResponse(
+                "WhatsApp abierto con el mensaje preparado para $recipient. " +
+                    "Pulse «enviar» en WhatsApp, señor.",
+            )
+        } else {
+            AssistantResponse("No he podido abrir WhatsApp, señor.")
         }
     }
 
@@ -1013,7 +1111,8 @@ class AssistantEngine(
             "batería y del almacenamiento, encender la linterna, abrir aplicaciones, contar un chiste, " +
             "recordar lo que hemos hablado o darme un resumen. " +
             "Si configura una clave gratuita de Gemini en Ajustes, también puedo conversar, explicar " +
-            "temas, buscar en internet y resumir lo más importante de cualquier asunto. " +
+            "temas, buscar en internet, resumir lo más importante y preparar un WhatsApp " +
+            "diciendo a quién y qué mensaje (por ejemplo «manda un WhatsApp a Juan diciendo llego tarde»). " +
             "Inténtelo con: «pon música», «quita la música», «pon un temporizador de 10 minutos», " +
             "«recuérdame comprar pan a las 6 de la tarde», «despiértame a las 7», «qué alarmas tengo», " +
             "«qué tiempo hace», «qué recordatorios tengo», «calcula 12 * (3 + 4)», " +
@@ -1076,6 +1175,12 @@ class AssistantEngine(
 
     /** Última intención resuelta, para interpretar frases como «y sube el volumen». */
     private var lastKind: IntentKind? = null
+
+    /** Destinatario pendiente cuando falta el texto del mensaje. */
+    private var pendingWhatsAppRecipient: String? = null
+
+    /** Mensaje listo esperando confirmación explícita del usuario. */
+    private var pendingWhatsAppConfirmation: Pair<String, String>? = null
 
     /**
      * Marca del último turno conversacional. Durante unos minutos, las

@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,32 +30,73 @@ class Speaker(context: Context) {
     private var currentUtterance: String? = null
     private var counter = 0
 
+    /** "male", "female" o "default". Se aplica en cuanto el motor esté listo. */
+    @Volatile
+    private var preferredGender = "male"
+
     init {
         tts = TextToSpeech(context.applicationContext) { status ->
             val ok = status == TextToSpeech.SUCCESS
             if (ok) {
                 runCatching {
                     val engine = tts ?: return@runCatching
-                    val locale = Locale.forLanguageTag("es-ES")
-                    val language = engine.setLanguage(locale)
-                    if (language == TextToSpeech.LANG_MISSING_DATA ||
-                        language == TextToSpeech.LANG_NOT_SUPPORTED
-                    ) {
-                        engine.setLanguage(Locale.getDefault())
-                    }
-                    engine.setSpeechRate(1.0f)
-                    engine.setPitch(0.97f)
-                    engine.setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ASSISTANT)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                            .build(),
-                    )
-                    engine.setOnUtteranceProgressListener(listener)
+                    applyVoice(engine)
                 }
             }
             ready.complete(ok)
         }
+    }
+
+    /** Cambia el género de la voz en caliente desde Ajustes. */
+    fun setGender(gender: String) {
+        preferredGender = gender
+        val engine = tts ?: return
+        runCatching { applyVoice(engine) }
+    }
+
+    private fun applyVoice(engine: TextToSpeech) {
+        val locale = Locale.forLanguageTag("es-ES")
+        val language = engine.setLanguage(locale)
+        if (language == TextToSpeech.LANG_MISSING_DATA ||
+            language == TextToSpeech.LANG_NOT_SUPPORTED
+        ) {
+            engine.setLanguage(Locale.getDefault())
+        }
+
+        // Elige una voz española del género pedido. Si el motor no expone
+        // voces con género, se compensa con el tono.
+        val voices = runCatching { engine.voices?.toList().orEmpty() }.getOrDefault(emptyList())
+        val spanish = voices.filter { it.locale.language.equals("es", ignoreCase = true) }
+        fun pick(gender: Int): Voice? {
+            val candidates = spanish.filter { it.gender == gender }
+            return candidates.firstOrNull { it.locale.country.equals("ES", ignoreCase = true) }
+                ?: candidates.firstOrNull()
+        }
+        val chosen = when (preferredGender) {
+            "male" -> pick(Voice.MALE)
+            "female" -> pick(Voice.FEMALE)
+            else -> null
+        }
+        if (chosen != null) {
+            val applied = runCatching { engine.setVoice(chosen) }.getOrDefault(TextToSpeech.ERROR)
+            if (applied != TextToSpeech.SUCCESS) engine.setLanguage(locale)
+        }
+
+        engine.setSpeechRate(1.0f)
+        engine.setPitch(
+            when (preferredGender) {
+                "male" -> 0.85f
+                "female" -> 1.05f
+                else -> 0.97f
+            },
+        )
+        engine.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build(),
+        )
+        engine.setOnUtteranceProgressListener(listener)
     }
 
     /** Habla y espera al final de la locución. Devuelve true si llegó a iniciarse. */

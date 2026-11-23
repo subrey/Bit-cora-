@@ -87,12 +87,22 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val continuousVoice: StateFlow<Boolean> = settings.continuousVoice
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    /** Género de la voz: "male", "female" o "default". */
+    val voiceGender: StateFlow<String> = settings.voiceGender
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "male")
+
     fun setOnDeviceVoice(value: Boolean) {
         viewModelScope.launch { settings.setOnDeviceVoice(value) }
     }
 
     fun setContinuousVoice(value: Boolean) {
         viewModelScope.launch { settings.setContinuousVoice(value) }
+    }
+
+    fun setVoiceGender(value: String) {
+        val clean = if (value in setOf("male", "female", "default")) value else "male"
+        app.speaker.setGender(clean)
+        viewModelScope.launch { settings.setVoiceGender(clean) }
     }
 
     // --- IA conversacional (Fase 4) --------------------------------------
@@ -272,6 +282,8 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     private var turnId = 0
 
     init {
+        // Aplica la voz guardada en cuanto el motor TTS esté disponible.
+        app.speaker.setGender(voiceGender.value)
         viewModelScope.launch {
             runCatching {
                 if (repository.chatCount() == 0) {

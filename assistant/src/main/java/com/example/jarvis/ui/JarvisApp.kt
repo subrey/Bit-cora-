@@ -73,6 +73,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
     val reminders by viewModel.reminders.collectAsStateWithLifecycle()
     val routines by viewModel.routines.collectAsStateWithLifecycle()
     val ttsEnabled by viewModel.ttsEnabled.collectAsStateWithLifecycle()
+    val voiceGender by viewModel.voiceGender.collectAsStateWithLifecycle()
     val alwaysListening by viewModel.alwaysListening.collectAsStateWithLifecycle()
     val wakeWord by viewModel.wakeWord.collectAsStateWithLifecycle()
     val capturing by JarvisBus.listening.collectAsStateWithLifecycle()
@@ -281,6 +282,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                 composable(JarvisDestination.SETTINGS.route) {
                     SettingsScreen(
                         ttsEnabled = ttsEnabled,
+                        voiceGender = voiceGender,
                         alwaysListening = alwaysListening,
                         continuousVoice = continuousVoice,
                         wakeWord = wakeWord,
@@ -292,6 +294,7 @@ fun JarvisApp(viewModel: JarvisViewModel = viewModel()) {
                         aiStatus = aiStatus,
                         city = city,
                         onTtsChange = viewModel::setTtsEnabled,
+                        onVoiceGenderChange = viewModel::setVoiceGender,
                         onAlwaysListeningChange = { enabled ->
                             if (enabled) {
                                 enableAlwaysListening()

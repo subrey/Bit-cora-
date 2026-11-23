@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     ttsEnabled: Boolean,
+    voiceGender: String,
     alwaysListening: Boolean,
     continuousVoice: Boolean,
     wakeWord: String,
@@ -45,6 +46,7 @@ fun SettingsScreen(
     aiStatus: String?,
     city: String,
     onTtsChange: (Boolean) -> Unit,
+    onVoiceGenderChange: (String) -> Unit,
     onAlwaysListeningChange: (Boolean) -> Unit,
     onContinuousVoiceChange: (Boolean) -> Unit,
     onWakeWordChange: (String) -> Unit,
@@ -84,6 +86,31 @@ fun SettingsScreen(
             subtitle = "Jarvis lee sus respuestas en voz alta",
             checked = ttsEnabled,
             onCheckedChange = onTtsChange,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Voz de Jarvis",
+            style = MaterialTheme.typography.bodyMedium,
+            color = JarvisColors.Text,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            listOf(
+                "male" to "Masculina",
+                "female" to "Femenina",
+                "default" to "Predeterminada",
+            ).forEach { (value, label) ->
+                TextButton(onClick = { onVoiceGenderChange(value) }) {
+                    Text(
+                        label,
+                        color = if (voiceGender == value) JarvisColors.Green else JarvisColors.Muted,
+                    )
+                }
+            }
+        }
+        Text(
+            text = "Si el motor no tiene una voz de ese género en español, se ajusta el tono.",
+            style = MaterialTheme.typography.bodySmall,
+            color = JarvisColors.Muted,
         )
         SettingSwitch(
             title = "Escucha permanente",
@@ -380,7 +407,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "JARVIS · v2.0-fase11.18",
+            text = "JARVIS · v2.0-fase11.19",
             style = MaterialTheme.typography.bodySmall,
             color = JarvisColors.Outline,
         )

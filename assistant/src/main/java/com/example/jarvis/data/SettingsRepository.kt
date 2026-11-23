@@ -20,6 +20,7 @@ class SettingsRepository(private val context: Context) {
         val accent = stringPreferencesKey("accent")
         val onDeviceVoice = booleanPreferencesKey("on_device_voice")
         val continuousVoice = booleanPreferencesKey("continuous_voice")
+        val voiceGender = stringPreferencesKey("voice_gender")
         val city = stringPreferencesKey("city")
     }
 
@@ -44,6 +45,13 @@ class SettingsRepository(private val context: Context) {
      */
     val continuousVoice: Flow<Boolean> =
         context.jarvisDataStore.data.map { it[Keys.continuousVoice] ?: true }
+
+    /**
+     * Género de la voz de JARVIS: "male", "female" o "default". Si el motor
+     * no tiene una voz de ese género en español, se ajusta el tono.
+     */
+    val voiceGender: Flow<String> =
+        context.jarvisDataStore.data.map { it[Keys.voiceGender] ?: "male" }
 
     /** Ciudad para la meteorología. No hace falta permiso de ubicación. */
     val city: Flow<String> = context.jarvisDataStore.data.map { it[Keys.city].orEmpty() }
@@ -70,6 +78,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAccent(value: String) {
         context.jarvisDataStore.edit { it[Keys.accent] = value }
+    }
+
+    suspend fun setVoiceGender(value: String) {
+        context.jarvisDataStore.edit { it[Keys.voiceGender] = value }
     }
 
     suspend fun setCity(value: String) {

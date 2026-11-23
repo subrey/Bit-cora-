@@ -186,3 +186,13 @@
 - Si la app está en pantalla, la conversación la lleva el micrófono de la app;
   si está en segundo plano, la lleva el servicio de escucha permanente. Así no
   se queda «apagado» después de la primera orden.
+
+## Fase 11.19 — voz masculina
+
+- **Ajustes → Voz de Jarvis** permite elegir **Masculina**, **Femenina** o
+  **Predeterminada**. La preferencia se guarda y se aplica al arrancar.
+- `Speaker` selecciona una voz española del género elegido con
+  `TextToSpeech.setVoice` (prefiriendo `es-ES`). Si el motor del teléfono no
+  expone voces con género, ajusta el tono: más grave para masculina, más agudo
+  para femenina.
+- Por defecto se usa la voz **masculina**.

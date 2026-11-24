@@ -28,14 +28,14 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # La clave de depuración del runner es efímera: sin esto, cada compilación
-      # firma el APK con una clave distinta y Android obliga a desinstalar para
-      # actualizar. La caché conserva la misma clave entre ejecuciones.
-      - name: Conservar clave de firma de depuración
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: jarvis-debug-keystore-v1
+      # La clave de firma está versionada en assistant/debug.keystore. Así
+      # todas las compilaciones usan la misma y las actualizaciones se instalan
+      # encima sin desinstalar ni perder datos.
+      - name: Verificar clave de firma estable
+        run: |
+          test -f assistant/debug.keystore
+          keytool -list -v -keystore assistant/debug.keystore \
+            -storepass android -alias androiddebugkey | grep -E "SHA256|Valid"
 
       - name: Instalar Android SDK 35
         run: |

@@ -14,8 +14,21 @@ android {
         applicationId = "com.example.jarvis"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "2.0-fase11.21"
+        versionCode = 39
+        versionName = "2.0-fase11.22"
+    }
+
+    // Clave de depuración fija y versionada. Sin esto, cada ejecución de CI
+    // generaba una clave distinta y Android obligaba a desinstalar para
+    // actualizar (perdiendo los datos). Es una clave de depuración, no un
+    // secreto de producción.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {

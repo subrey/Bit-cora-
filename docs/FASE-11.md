@@ -223,3 +223,19 @@
 - Si ningún método abre el chat, el mensaje se copia al portapapeles y se abre
   WhatsApp para pegarlo a mano.
 - La confirmación caduca a los dos minutos para no abrir un mensaje antiguo.
+
+## Fase 11.22 — firma estable de las actualizaciones
+
+- **Causa del error al instalar encima:** el flujo de CI intentaba guardar la
+  clave de depuración en una caché, pero esa caché nunca se creaba (el archivo
+  no existía al terminar el trabajo). Cada compilación generaba una clave nueva
+  y Android rechazaba la actualización por firma distinta, obligando a
+  desinstalar.
+- **Solución:** la clave de depuración ahora está versionada en
+  `assistant/debug.keystore` y Gradle firma siempre con ella. Es una clave de
+  depuración, no un secreto de producción.
+- El flujo de CI verifica la clave antes de compilar e imprime su huella
+  SHA-256, para detectar cualquier cambio accidental.
+- **Una última desinstalación:** la versión instalada hasta ahora está firmada
+  con una clave aleatoria que ya no se puede recuperar. Tras instalar la 11.22,
+  todas las actualizaciones siguientes se instalarán encima sin borrar datos.

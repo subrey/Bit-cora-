@@ -48,6 +48,22 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug testDebugUnitTest --stacktrace
 
+      # Comprueba que el APK se ha firmado con la clave versionada y no con
+      # una clave efímera del runner. Así las actualizaciones se instalan encima.
+      - name: Verificar firma del APK
+        run: |
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$APKSIGNER" verify --print-certs assistant/build/outputs/apk/debug/assistant-debug.apk
+          EXPECTED=$(keytool -list -v -keystore assistant/debug.keystore \
+            -storepass android -alias androiddebugkey \
+            | grep "SHA256:" | head -1 | sed 's/.*SHA256: //' | tr -d ':' | tr 'A-F' 'a-f')
+          ACTUAL=$("$APKSIGNER" verify --print-certs \
+            assistant/build/outputs/apk/debug/assistant-debug.apk \
+            | grep -i "SHA-256" | head -1 | sed 's/.*: //' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "Huella esperada: $EXPECTED"
+          echo "Huella del APK:  $ACTUAL"
+          test "$EXPECTED" = "$ACTUAL"
+
       - name: Publicar APK de Bitácora
         uses: actions/upload-artifact@v4
         with:

@@ -61,12 +61,17 @@ class AssistantEngine(
 
     suspend fun execute(intent: ParsedIntent): AssistantResponse {
         // Confirmación pendiente de un WhatsApp: «sí» abre el chat, «no» cancela.
+        if (pendingWhatsAppConfirmation != null &&
+            System.currentTimeMillis() - pendingWhatsAppAt > 120_000L
+        ) {
+            pendingWhatsAppConfirmation = null
+        }
         pendingWhatsAppConfirmation?.let { pending ->
             val n = IntentParser.normalize(intent.raw)
             if (isAffirmative(n)) {
                 pendingWhatsAppConfirmation = null
                 lastKind = null
-                return sendWhatsApp(pending.first, pending.second)
+                return sendWhatsApp(pending.first, pending.second, pending.third)
             }
             if (isNegative(n)) {
                 pendingWhatsAppConfirmation = null
@@ -496,7 +501,8 @@ class AssistantEngine(
         if (number.isNullOrBlank()) {
             return AssistantResponse("No encuentro a «$recipient». Dígame su número, señor.")
         }
-        pendingWhatsAppConfirmation = recipient to message
+        pendingWhatsAppConfirmation = Triple(recipient, number, message)
+        pendingWhatsAppAt = System.currentTimeMillis()
         return AssistantResponse(
             "¿Preparo un WhatsApp para $recipient con el mensaje «$message»? " +
                 "Diga «sí» para abrirlo o «no» para cancelar.",
@@ -504,24 +510,38 @@ class AssistantEngine(
     }
 
     /** Abre el chat con el texto ya escrito; el envío final lo hace el usuario. */
-    private fun sendWhatsApp(recipient: String, message: String): AssistantResponse {
+    private fun sendWhatsApp(
+        recipient: String,
+        number: String,
+        message: String,
+    ): AssistantResponse {
         val sender = whatsapp
         if (sender == null) {
             return AssistantResponse("No puedo abrir WhatsApp en este dispositivo, señor.")
         }
-        val number = sender.resolveNumber(recipient)
-        if (number.isNullOrBlank()) {
+        val resolved = number.ifBlank { sender.resolveNumber(recipient).orEmpty() }
+        if (resolved.isBlank()) {
             return AssistantResponse("No encuentro el número de «$recipient», señor.")
         }
-        val opened = sender.openChat(number, message)
-        return if (opened) {
-            AssistantResponse(
+        if (sender.openChat(resolved, message)) {
+            return AssistantResponse(
                 "WhatsApp abierto con el mensaje preparado para $recipient. " +
                     "Pulse «enviar» en WhatsApp, señor.",
             )
-        } else {
-            AssistantResponse("No he podido abrir WhatsApp, señor.")
         }
+        // Último recurso: el mensaje queda copiado y se abre WhatsApp.
+        sender.copyMessage(message)
+        val appOpened = sender.openApp()
+        return AssistantResponse(
+            if (appOpened) {
+                "No he podido abrir el chat directamente, pero he abierto WhatsApp " +
+                    "y copiado el mensaje al portapapeles. Busque a $recipient y " +
+                    "péguelo con una pulsación larga, señor."
+            } else {
+                "No he podido abrir WhatsApp, señor. El mensaje «$message» está " +
+                    "copiado al portapapeles por si quiere pegarlo."
+            },
+        )
     }
 
     /** Da formato al resumen encontrado y añade hasta tres fuentes web. */
@@ -1179,8 +1199,11 @@ class AssistantEngine(
     /** Destinatario pendiente cuando falta el texto del mensaje. */
     private var pendingWhatsAppRecipient: String? = null
 
-    /** Mensaje listo esperando confirmación explícita del usuario. */
-    private var pendingWhatsAppConfirmation: Pair<String, String>? = null
+    /** Mensaje listo esperando confirmación: (destinatario, número, mensaje). */
+    private var pendingWhatsAppConfirmation: Triple<String, String, String>? = null
+
+    /** Momento en que se preparó el mensaje; caduca a los dos minutos. */
+    private var pendingWhatsAppAt: Long = 0L
 
     /**
      * Marca del último turno conversacional. Durante unos minutos, las

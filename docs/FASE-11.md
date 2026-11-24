@@ -207,3 +207,19 @@
   escritos; el usuario pulsa «enviar». Así se evita enviar por error.
 - Si falta el texto, pregunta «¿Qué mensaje le envío a …?». Si no hay permiso
   de contactos, lo pide y reintenta la orden al concederlo.
+
+## Fase 11.21 — WhatsApp fiable
+
+- Se declaran las consultas de **visibilidad de paquetes** para WhatsApp
+  (`com.whatsapp` y `com.whatsapp.w4b`) y para los enlaces `https`/`whatsapp`.
+  Sin ellas, Android 11+ oculta la app y JARVIS no podía abrirla.
+- Se prueban varios métodos en orden: esquema nativo `whatsapp://send`, enlace
+  `wa.me` y enlace `api.whatsapp.com`, con y sin paquete fijado.
+- El texto se codifica con `Uri.encode` (espacios como `%20`, no `+`).
+- Los números nacionales de 9 dígitos reciben el prefijo **34**; los contactos
+  se buscan sin distinguir acentos ni mayúsculas.
+- El número se resuelve **antes** de la confirmación y se conserva, de modo que
+  responder «sí» no depende de volver a leer los contactos.
+- Si ningún método abre el chat, el mensaje se copia al portapapeles y se abre
+  WhatsApp para pegarlo a mano.
+- La confirmación caduca a los dos minutos para no abrir un mensaje antiguo.

@@ -273,6 +273,26 @@ class IntentParserTest {
     }
 
     @Test
+    fun `acepta variantes de whatsapp del dictado`() {
+        val wasap = IntentParser.parse("Mándale un wasap a Juan diciendo hola")
+        assertEquals(IntentKind.WHATSAPP_SEND, wasap.kind)
+        val (recipient, message) = IntentParser.whatsappParts(wasap.payload)
+        assertEquals("juan", recipient)
+        assertEquals("hola", message)
+
+        val escribe = IntentParser.parse("Escríbele por WhatsApp a Ana que llego tarde")
+        assertEquals(IntentKind.WHATSAPP_SEND, escribe.kind)
+        val (ana, text) = IntentParser.whatsappParts(escribe.payload)
+        assertEquals("ana", ana)
+        assertEquals("llego tarde", text)
+
+        val sinMensaje = IntentParser.parse("Manda un mensaje de WhatsApp a mamá")
+        assertEquals(IntentKind.WHATSAPP_SEND, sinMensaje.kind)
+        assertEquals("mama", IntentParser.whatsappParts(sinMensaje.payload).first)
+        assertEquals("", IntentParser.whatsappParts(sinMensaje.payload).second)
+    }
+
+    @Test
     fun `detecta el diagnostico de red`() {
         assertEquals(IntentKind.NETWORK_TEST, IntentParser.parse("diagnóstico de red").kind)
         assertEquals(IntentKind.NETWORK_TEST, IntentParser.parse("prueba de conexión").kind)

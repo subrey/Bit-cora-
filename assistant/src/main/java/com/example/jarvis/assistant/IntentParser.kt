@@ -168,15 +168,16 @@ object IntentParser {
         }
 
         // --- Mensaje de WhatsApp -------------------------------------------
-        if (has(
-                "manda un mensaje de whatsapp", "envia un mensaje de whatsapp",
-                "manda mensaje de whatsapp", "envia mensaje de whatsapp",
-                "manda un whatsapp", "envia un whatsapp",
-                "manda whatsapp", "envia whatsapp",
-                "manda por whatsapp", "envia por whatsapp",
-                "escribe por whatsapp",
-            )
-        ) {
+        // Acepta las formas habituales y las que suele devolver el dictado:
+        // «manda un WhatsApp a Juan diciendo…», «envíale un wasap…».
+        val mentionsWhatsApp = has(
+            "whatsapp", "whatsap", "wassap", "wasap", "guasap", "wasapea",
+        )
+        val sendsMessage = has(
+            "manda", "mandale", "mandame", "envia", "enviale", "enviame",
+            "escribe", "escribele", "dile", "dila",
+        )
+        if (mentionsWhatsApp && sendsMessage) {
             return ParsedIntent(
                 IntentKind.WHATSAPP_SEND,
                 payload = whatsappPayload(n),
@@ -710,25 +711,28 @@ object IntentParser {
 
     /** Codifica destinatario y mensaje en el payload con un separador seguro. */
     private fun whatsappPayload(n: String): String {
-        val prefixes = listOf(
-            "manda un mensaje de whatsapp", "envia un mensaje de whatsapp",
-            "manda mensaje de whatsapp", "envia mensaje de whatsapp",
-            "manda un whatsapp", "envia un whatsapp",
-            "manda whatsapp", "envia whatsapp",
-            "manda por whatsapp", "envia por whatsapp", "escribe por whatsapp",
-        )
+        // Corta justo después de la mención de WhatsApp: lo que va delante es
+        // el verbo («manda», «envíale», «escríbele»…).
+        val appTokens = listOf("whatsapp", "whatsap", "wassap", "wasap", "guasap")
         var body = n
-        for (prefix in prefixes) {
-            val i = body.indexOf(prefix)
-            if (i >= 0) {
-                body = body.substring(i + prefix.length).trim()
-                break
+        val appIndex = appTokens.map { body.indexOf(it) }.filter { it >= 0 }.minOrNull()
+        if (appIndex != null) {
+            val token = appTokens.first { body.indexOf(it) == appIndex }
+            val after = body.substring(appIndex + token.length).trim()
+            body = if (after.isBlank() || after == "por" || after.startsWith("por ")) {
+                // El destinatario va antes: «envía un mensaje a Juan por WhatsApp».
+                val before = body.substring(0, appIndex).trim().removeSuffix(" por")
+                val at = before.lastIndexOf(" a ")
+                if (at >= 0) before.substring(at + 3).trim() else before
+            } else {
+                after
             }
         }
         body = body.removePrefix("a ").removePrefix("al ").removePrefix("para ").trim()
         val markers = listOf(
             " diciendo ", " diciendole ", " que diga ", " que digas ",
-            " con el mensaje ", " con mensaje ", " con ", " mensaje: ", ": ",
+            " con el mensaje ", " con mensaje ", " con ", " mensaje: ",
+            " dile ", " que ", ": ",
         )
         var recipient = body
         var message = ""

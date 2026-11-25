@@ -77,10 +77,17 @@ object IntentParser {
 
     fun parse(text: String): ParsedIntent {
         val raw = text.trim()
-        val n = normalize(raw)
+        val n = SpeechCorrections.apply(normalize(raw))
         if (n.isBlank()) return ParsedIntent(IntentKind.UNKNOWN, raw = raw)
 
         fun has(vararg words: String) = words.any { n.contains(it) }
+
+        // Coincidencia por palabra completa: «play» no debe activarse con
+        // «playa» ni «nota» con «notable».
+        fun hasWord(vararg words: String) = words.any { word ->
+            Regex("(?<![\\p{L}\\p{N}])${Regex.escape(word)}(?![\\p{L}\\p{N}])")
+                .containsMatchIn(n)
+        }
 
         // --- Ayuda y saludo -----------------------------------------------
         if (has("que sabes hacer", "que puedes hacer", "lista de comandos", "que comandos") ||
@@ -110,10 +117,18 @@ object IntentParser {
         }
 
         // --- Reloj -------------------------------------------------------
-        if (has("que hora es", "la hora", "dime la hora", "hora es ahora")) {
+        if (has(
+                "que hora es", "que hora tienes", "dime la hora", "hora actual",
+                "hora es ahora",
+            ) || n == "la hora"
+        ) {
             return ParsedIntent(IntentKind.TIME, raw = raw)
         }
-        if (has("que dia es", "que fecha", "fecha de hoy", "dia de hoy")) {
+        if (has(
+                "que dia es", "que fecha", "fecha de hoy", "dia de hoy",
+                "a que dia estamos", "fecha actual",
+            )
+        ) {
             return ParsedIntent(IntentKind.DATE, raw = raw)
         }
 
@@ -213,6 +228,11 @@ object IntentParser {
             )
         }
 
+        // --- Linterna (antes que la música: «apaga la linterna») -----------
+        if (hasWord("linterna", "flash") || has("luz del telefono", "luz del movil")) {
+            return ParsedIntent(IntentKind.TORCH, raw = raw)
+        }
+
         // --- Música ------------------------------------------------------
         // Una búsqueda concreta («algo de rock», «para estudiar», «de Coldplay»)
         // tiene prioridad sobre el simple «pon música».
@@ -232,54 +252,62 @@ object IntentParser {
             return ParsedIntent(IntentKind.MUSIC_SEARCH, payload = body.ifBlank { n }, raw = raw)
         }
         if (has(
-                "sube volumen", "sube el volumen", "subir volumen", "subir el volumen",
-                "aumenta el volumen", "aumentar el volumen", "volumen arriba", "mas alto", "sube",
-            )
+                "sube el volumen", "subir el volumen", "sube volumen", "subir volumen",
+                "aumenta el volumen", "aumentar el volumen", "volumen arriba",
+                "pon la musica mas alta", "pon la musica mas alto",
+                "sube la musica", "subir la musica", "sube la cancion", "subir la cancion",
+            ) || (hasWord("volumen") && hasWord("sube", "subes", "subir", "aumenta", "aumentas"))
         ) {
             return ParsedIntent(IntentKind.VOLUME_UP, raw = raw)
         }
         if (has(
-                "baja volumen", "baja el volumen", "bajar volumen", "bajar el volumen",
-                "reduce el volumen", "reducir el volumen", "volumen abajo", "mas bajo", "baja",
-                "silencia el volumen",
-            )
+                "baja el volumen", "bajar el volumen", "baja volumen", "bajar volumen",
+                "reduce el volumen", "reducir el volumen", "volumen abajo",
+                "pon la musica mas baja", "pon la musica mas bajo",
+                "baja la musica", "bajar la musica", "baja la cancion", "bajar la cancion",
+            ) || (hasWord("volumen") && hasWord("baja", "bajas", "bajar", "reduce", "reduces"))
         ) {
             return ParsedIntent(IntentKind.VOLUME_DOWN, raw = raw)
         }
+        // Parar va antes que pausar: «para la música» es parar, no pausar.
         if (has(
-                "pausa", "pause", "para la musica", "para la cancion",
-                "parar la musica", "parar la cancion",
-                "detener la musica", "detener la cancion",
-            )
-        ) {
-            return ParsedIntent(IntentKind.MUSIC_PAUSE, raw = raw)
-        }
-        if (has("siguiente", "next", "cambia de cancion", "otra cancion", "saltar adelante")) {
-            return ParsedIntent(IntentKind.MUSIC_NEXT, raw = raw)
-        }
-        if (has("anterior", "prev", "cancion anterior", "atras", "saltar atras")) {
-            return ParsedIntent(IntentKind.MUSIC_PREVIOUS, raw = raw)
-        }
-        if (has("repite", "repeat", "otra vez la cancion")) {
-            return ParsedIntent(IntentKind.MUSIC_REPEAT, raw = raw)
-        }
-        if (has("aleatoria", "shuffle", "mezcla", "al azar", "cambia la musica")) {
-            return ParsedIntent(IntentKind.MUSIC_SHUFFLE, raw = raw)
-        }
-        if (has(
-                "deten", "stop", "apaga la musica", "apaga el sonido", "corta la musica",
+                "apaga la musica", "apaga el sonido", "corta la musica",
                 "quita la musica", "quitar la musica", "quita el sonido", "quitar el sonido",
                 "silencia la musica", "silenciar la musica", "silencia el sonido",
                 "no mas musica", "no quiero musica", "sin musica", "termina la musica",
-                "fin de la musica", "para la musica", "para la cancion", "apaga", "silencia",
-            )
+                "fin de la musica", "para la musica", "para la cancion",
+                "parar la musica", "parar la cancion",
+                "deten la musica", "detener la musica", "detener la cancion",
+            ) || hasWord("deten", "stop") ||
+            (hasWord("apaga", "silencia") && hasWord("musica", "cancion", "sonido"))
         ) {
             return ParsedIntent(IntentKind.MUSIC_STOP, raw = raw)
         }
+        if (hasWord("pausa", "pause") ||
+            has("pausa la musica", "pausa la cancion", "pausar la musica", "pausar la cancion")
+        ) {
+            return ParsedIntent(IntentKind.MUSIC_PAUSE, raw = raw)
+        }
+        if (hasWord("siguiente", "next") || has("cambia de cancion", "otra cancion", "saltar adelante")) {
+            return ParsedIntent(IntentKind.MUSIC_NEXT, raw = raw)
+        }
+        if (hasWord("anterior", "prev") || has("cancion anterior", "saltar atras")) {
+            return ParsedIntent(IntentKind.MUSIC_PREVIOUS, raw = raw)
+        }
+        if (hasWord("repite", "repeat") || has("otra vez la cancion")) {
+            return ParsedIntent(IntentKind.MUSIC_REPEAT, raw = raw)
+        }
+        if (hasWord("aleatoria", "shuffle") || has("al azar", "modo aleatorio", "cambia la musica")) {
+            return ParsedIntent(IntentKind.MUSIC_SHUFFLE, raw = raw)
+        }
         if (has(
-                "pon musica", "ponme musica", "reproduce", "play", "pon una cancion",
-                "musica", "cancion", "suena",
-            )
+                "pon musica", "ponme musica", "poner musica", "pon la musica",
+                "pon una cancion", "ponme una cancion", "poner una cancion",
+                "reproduce", "pon algo de", "quiero escuchar", "quiero oir",
+                "quiero musica", "ponme algo", "que suene",
+            ) || hasWord("play") ||
+            (hasWord("musica", "cancion") &&
+                !n.startsWith("no ") && !n.contains(" no me ") && !n.contains(" sin "))
         ) {
             return ParsedIntent(IntentKind.MUSIC_PLAY, raw = raw)
         }
@@ -377,7 +405,9 @@ object IntentParser {
         }
         if (has(
                 "nueva tarea", "anade tarea", "anadir tarea", "anadir una tarea",
-                "agenda", "apunta tarea", "crea tarea", "tarea",
+                "agrega tarea", "agregar tarea", "agrega una tarea",
+                "apunta tarea", "apunta una tarea", "crea tarea", "crear tarea",
+                "pon una tarea", "ponme una tarea", "poner una tarea",
             )
         ) {
             val body = n.substringAfter("tarea", "")
@@ -390,15 +420,16 @@ object IntentParser {
         }
         if (has(
                 "memoriza", "memorizar", "recuerda que", "apunta que",
-                "guarda esta nota", "apunta", "nota",
+                "guarda esta nota", "toma nota", "anota", "apunta",
             )
         ) {
             val body = n.substringAfter("recuerda que", "")
                 .ifBlank { n.substringAfter("apunta que", "") }
                 .ifBlank { n.substringAfter("memorizar", "") }
                 .ifBlank { n.substringAfter("memoriza", "") }
+                .ifBlank { n.substringAfter("toma nota", "") }
+                .ifBlank { n.substringAfter("anota", "") }
                 .ifBlank { n.substringAfter("apunta", "") }
-                .ifBlank { n.substringAfter("nota", "") }
                 .trim()
                 .trim('?', '¿', '.', '!')
             if (body.isBlank() || body in setOf("esto", "eso", "aquello")) {
@@ -408,14 +439,14 @@ object IntentParser {
         }
 
         // --- Estado del dispositivo ---------------------------------------
-        if (has("bateria", "cuanta bateria", "carga")) {
+        if (hasWord("bateria") ||
+            has("cuanta bateria", "nivel de bateria", "carga del telefono",
+                "estado de la bateria", "como esta la bateria")
+        ) {
             return ParsedIntent(IntentKind.BATTERY, raw = raw)
         }
         if (has("almacenamiento", "espacio libre", "cuanto espacio", "memoria del telefono")) {
             return ParsedIntent(IntentKind.STORAGE, raw = raw)
-        }
-        if (has("linterna", "flash")) {
-            return ParsedIntent(IntentKind.TORCH, raw = raw)
         }
         if (has(
                 "que tiempo hace manana", "tiempo de manana", "el tiempo manana",
@@ -433,13 +464,20 @@ object IntentParser {
             return ParsedIntent(IntentKind.WEATHER_ADVICE, raw = raw)
         }
         if (has(
-                "clima", "que tiempo hace", "temperatura exterior", "el tiempo",
+                "clima", "que tiempo hace", "temperatura exterior",
                 "que temperatura", "cuanta calor hace", "tiempo en la ciudad",
+                "como esta el tiempo", "el tiempo en", "el tiempo esta",
+                "el tiempo hoy", "el tiempo de hoy",
             )
         ) {
             return ParsedIntent(IntentKind.WEATHER, raw = raw)
         }
-        if (has("resumen", "estado general", "informe")) {
+        if (has(
+                "dame un resumen", "haz un resumen", "hazme un resumen",
+                "me das un resumen", "dame el resumen", "resumen general",
+                "resumen del sistema", "estado general", "informe del sistema",
+            )
+        ) {
             return ParsedIntent(IntentKind.SUMMARY, raw = raw)
         }
         if (has(
@@ -490,7 +528,62 @@ object IntentParser {
             return ParsedIntent(IntentKind.KNOWLEDGE, payload = stripQuestion(n), raw = raw)
         }
 
+        // Último recurso: errores de dictado en palabras clave de órdenes
+        // claras («volumn», «linterna» mal dicha, «bateria»…).
+        fuzzyIntent(n)?.let { kind ->
+            val payload = if (kind == IntentKind.TIMER || kind == IntentKind.REMINDER) n else ""
+            return ParsedIntent(kind, payload = payload, raw = raw)
+        }
+
         return ParsedIntent(IntentKind.UNKNOWN, raw = raw)
+    }
+
+    /** Parecido suficiente para perdonar una letra mal oída. */
+    private fun fuzzyIntent(n: String): IntentKind? {
+        val tokens = n.split(Regex("\\s+")).filter { it.isNotBlank() }
+        fun near(target: String, minLength: Int = 5): Boolean = tokens.any { token ->
+            token.length >= minLength &&
+                kotlin.math.abs(token.length - target.length) <= 1 &&
+                editDistance(token, target) <= 1
+        }
+
+        val up = near("sube", 4) || near("subir") || near("aumenta")
+        val down = near("baja", 4) || near("bajar") || near("reduce")
+        if (near("volumen")) {
+            return when {
+                up -> IntentKind.VOLUME_UP
+                down -> IntentKind.VOLUME_DOWN
+                else -> null
+            }
+        }
+        if (near("linterna")) return IntentKind.TORCH
+        if (near("bateria")) return IntentKind.BATTERY
+        if (near("temporizador")) return IntentKind.TIMER
+        if (near("recordatorio")) return IntentKind.REMINDER
+        val rejectsMusic = n.startsWith("no ") || n.contains(" no me ") || n.contains(" sin ")
+        if (!rejectsMusic && (near("musica") || near("cancion"))) return IntentKind.MUSIC_PLAY
+        if (near("clima")) return IntentKind.WEATHER
+        return null
+    }
+
+    /** Distancia de Levenshtein, para el último recurso difuso. */
+    private fun editDistance(a: String, b: String): Int {
+        if (a == b) return 0
+        val previous = IntArray(b.length + 1) { it }
+        val current = IntArray(b.length + 1)
+        for (i in 1..a.length) {
+            current[0] = i
+            for (j in 1..b.length) {
+                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+                current[j] = minOf(
+                    current[j - 1] + 1,
+                    previous[j] + 1,
+                    previous[j - 1] + cost,
+                )
+            }
+            previous.indices.forEach { previous[it] = current[it] }
+        }
+        return previous[b.length]
     }
 
     /** Saludos puros; si traen una orden o una pregunta, no son solo un saludo. */
@@ -639,6 +732,8 @@ object IntentParser {
             "volumen arriba", "baja el volumen", "baja volumen", "bajar el volumen",
             "bajar volumen", "me bajas el volumen", "me bajas volumen",
             "bajame el volumen", "bajame volumen", "volumen abajo", "silencia el volumen",
+            "sube la musica", "subir la musica", "baja la musica", "bajar la musica",
+            "me subes la musica", "me bajas la musica",
             "pausa la musica", "pausar la musica", "pausa la cancion", "pausar la cancion",
             "puedes pausar", "puedes parar la musica", "puedes parar la cancion",
             "parar la musica", "parar la cancion", "detener la musica", "detener la cancion",

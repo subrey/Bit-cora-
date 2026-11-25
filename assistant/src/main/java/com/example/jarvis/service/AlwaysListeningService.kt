@@ -16,6 +16,8 @@ import androidx.core.content.ContextCompat
 import com.example.jarvis.JarvisApplication
 import com.example.jarvis.assistant.JarvisBus
 import com.example.jarvis.assistant.Notifications
+import com.example.jarvis.assistant.VoiceTranscriptSelector
+import com.example.jarvis.assistant.VoiceVocabulary
 import com.example.jarvis.assistant.WakeWordDetector
 import com.example.jarvis.widget.JarvisWidgetProvider
 import kotlinx.coroutines.CoroutineScope
@@ -126,10 +128,11 @@ class AlwaysListeningService : Service() {
             consecutiveFailures = 0
             micReleased = true
             restoreMusic()
-            val spoken = results
+            val candidates = results
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                ?.firstOrNull()
                 .orEmpty()
+            val requireWake = !conversationActive()
+            val spoken = VoiceTranscriptSelector.best(candidates, wakeWord, requireWake)
             if (spoken.isBlank()) {
                 emptyResults++
                 if (onDeviceVoice && emptyResults == 5) {
@@ -151,7 +154,7 @@ class AlwaysListeningService : Service() {
                 return
             }
             emptyResults = 0
-            val handled = handle(results)
+            val handled = handle(spoken)
             // Tras una orden se reabre rápido; si no hubo orden, se espera
             // para no encadenar sesiones (y por tanto pitidos).
             scheduleRestart(if (handled) 700L else 4_000L)
@@ -159,11 +162,12 @@ class AlwaysListeningService : Service() {
 
         override fun onPartialResults(partialResults: Bundle?) {
             if (partialResults == null) return
-            val spoken = partialResults
+            val candidates = partialResults
                 .getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                ?.firstOrNull()
                 .orEmpty()
-            if (conversationActive() || WakeWordDetector.containsWakeWord(spoken, wakeWord)) {
+            if (conversationActive() ||
+                candidates.any { WakeWordDetector.containsWakeWord(it, wakeWord) }
+            ) {
                 JarvisBus.listening.value = true
                 // La música baja para que se entienda la orden que viene.
                 duckMusic()
@@ -174,11 +178,7 @@ class AlwaysListeningService : Service() {
     }
 
     /** @return true si la orden se ha enviado al asistente. */
-    private fun handle(bundle: Bundle?): Boolean {
-        val spoken = bundle
-            ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-            ?.firstOrNull()
-            .orEmpty()
+    private fun handle(spoken: String): Boolean {
         if (spoken.isBlank()) return false
         // En conversación continua no hace falta repetir la palabra clave.
         val command = if (conversationActive()) {
@@ -269,11 +269,17 @@ class AlwaysListeningService : Service() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            // Sesiones largas: hay tiempo de hablar después de encender el micro.
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 8_000L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4_000L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_500L)
+            // Varias alternativas para poder elegir la que contenga «Jarvis»
+            // y se interprete como una orden.
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+            putStringArrayListExtra(
+                "android.speech.extra.BIASING_STRINGS",
+                ArrayList(VoiceVocabulary.commands),
+            )
+            // Sesiones largas, pero sin esperar eternamente al silencio.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4_000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2_500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_000L)
         }
         runCatching { engine.startListening(intent) }
             .onFailure {

@@ -239,3 +239,29 @@
 - **Una última desinstalación:** la versión instalada hasta ahora está firmada
   con una clave aleatoria que ya no se puede recuperar. Tras instalar la 11.22,
   todas las actualizaciones siguientes se instalarán encima sin borrar datos.
+
+## Fase 11.23 — entender mejor las órdenes
+
+- **Varias hipótesis del dictado.** El reconocedor devuelve hasta cinco
+  alternativas. Se usa la primera que se pueda interpretar como orden; si la
+  primera llega con ruido, se aprovecha otra que sí se entienda. En la escucha
+  permanente se prefiere la alternativa que contiene «Jarvis».
+- **Pistas de vocabulario.** Se envían las frases propias de JARVIS
+  («pon música», «temporizador», «WhatsApp»…) con `EXTRA_BIASING_STRINGS`
+  (Android 13+), para que el motor no las sustituya por palabras parecidas.
+- **Palabra clave partida.** «Jar vis» también se reconoce: se prueban parejas
+  de tokens consecutivos, además de la tolerancia a una letra cambiada.
+- **Silencios más cortos.** La app cierra la orden a los 3 s de silencio y la
+  escucha permanente a los 4 s (antes 6 s y 8 s). La respuesta llega antes y no
+  parece que JARVIS no haya entendido.
+- **Correcciones de dictado.** «muscia», «volumn», «literna», «wasap»,
+  «temporisador», «baterya»… se corrigen antes de interpretar. Si aun así no
+  encaja, un último recurso difuso perdona una letra en palabras clave de
+  órdenes claras.
+- **Menos falsos positivos.** Las palabras se comparan completas: «playa» ya no
+  activa la música, «no tengo tiempo» ya no consulta el tiempo, «carga la
+  compra» ya no lee la batería, «suena el teléfono» ya no reproduce nada y
+  «resumen de la película» ya no pide el informe del sistema. «Apaga la
+  linterna» gana a la música y «para la música» detiene en vez de pausar.
+- **Respuesta más útil.** Sin IA configurada, si no se entiende la orden JARVIS
+  repite lo que ha oído, para poder corregirlo.

@@ -214,8 +214,49 @@ class IntentParserTest {
     }
 
     @Test
-    fun `la pausa tiene prioridad sobre el silencio`() {
-        assertEquals(IntentKind.MUSIC_PAUSE, IntentParser.parse("para la música").kind)
+    fun `para la musica detiene en vez de pausar`() {
+        assertEquals(IntentKind.MUSIC_STOP, IntentParser.parse("para la música").kind)
+        assertEquals(IntentKind.MUSIC_STOP, IntentParser.parse("para la canción").kind)
+        assertEquals(IntentKind.MUSIC_PAUSE, IntentParser.parse("pausa la música").kind)
+    }
+
+    @Test
+    fun `no confunde palabras que contienen una orden`() {
+        assertEquals(IntentKind.UNKNOWN, IntentParser.parse("vamos a la playa").kind)
+        assertEquals(IntentKind.UNKNOWN, IntentParser.parse("no tengo tiempo").kind)
+        assertEquals(IntentKind.UNKNOWN, IntentParser.parse("carga la compra").kind)
+        assertEquals(IntentKind.UNKNOWN, IntentParser.parse("suena el teléfono").kind)
+        assertEquals(IntentKind.UNKNOWN, IntentParser.parse("resumen de la película").kind)
+        assertEquals(IntentKind.CHAT, IntentParser.parse("esa nota es importante").kind)
+    }
+
+    @Test
+    fun `la linterna gana a la musica`() {
+        assertEquals(IntentKind.TORCH, IntentParser.parse("apaga la linterna").kind)
+        assertEquals(IntentKind.TORCH, IntentParser.parse("enciende la linterna").kind)
+        assertEquals(IntentKind.TORCH, IntentParser.parse("apaga la luz del teléfono").kind)
+    }
+
+    @Test
+    fun `subir y bajar la musica cambia el volumen`() {
+        assertEquals(IntentKind.VOLUME_UP, IntentParser.parse("sube la música").kind)
+        assertEquals(IntentKind.VOLUME_DOWN, IntentParser.parse("baja la música").kind)
+    }
+
+    @Test
+    fun `entiende errores de dictado en ordenes claras`() {
+        assertEquals(IntentKind.VOLUME_UP, IntentParser.parse("sube el volumn").kind)
+        assertEquals(IntentKind.VOLUME_DOWN, IntentParser.parse("baja el bolumen").kind)
+        assertEquals(IntentKind.MUSIC_PLAY, IntentParser.parse("pon muscia").kind)
+        assertEquals(IntentKind.TORCH, IntentParser.parse("enciende la literna").kind)
+        assertEquals(IntentKind.BATTERY, IntentParser.parse("cuanta baterya queda").kind)
+    }
+
+    @Test
+    fun `toma nota guarda una memoria`() {
+        val intent = IntentParser.parse("toma nota de la matrícula")
+        assertEquals(IntentKind.MEMORY, intent.kind)
+        assertTrue(intent.payload.contains("matricula"))
     }
 
     @Test

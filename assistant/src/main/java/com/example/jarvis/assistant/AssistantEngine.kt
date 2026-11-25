@@ -271,8 +271,15 @@ class AssistantEngine(
                     lastKind = IntentKind.CHAT
                     chat(intent.raw)
                 } else {
+                    val heard = intent.raw.trim()
+                    val detail = if (heard.isBlank()) {
+                        ""
+                    } else {
+                        " He oído: «$heard»."
+                    }
                     AssistantResponse(
-                        "No he entendido esa orden, señor. Diga «ayuda» para ver lo que sé hacer."
+                        "No he entendido esa orden, señor.$detail " +
+                            "Diga «ayuda» para ver lo que sé hacer."
                     )
                 }
             }

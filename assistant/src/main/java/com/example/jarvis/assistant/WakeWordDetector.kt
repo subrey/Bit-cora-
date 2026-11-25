@@ -16,7 +16,7 @@ object WakeWordDetector {
     )
 
     /** ¿Este token es (casi) la palabra clave? */
-    fun isWakeWord(token: String, wakeWord: String): Boolean {
+    fun isWakeWord(token: String, wakeWord: String, strict: Boolean = false): Boolean {
         val candidate = clean(token)
         val target = clean(wakeWord)
         if (candidate.isBlank() || target.isBlank()) return false
@@ -27,8 +27,24 @@ object WakeWordDetector {
         if (diff == 1) return true
         // Con ruido el motor suele cambiar la primera letra («halvis» por
         // «jarvis»): dos diferencias valen si el final sigue sonando igual.
-        if (diff == 2 && candidate.endsWith(target.takeLast(2))) return true
+        // En modo estricto (tokens unidos) no se permite esta tolerancia.
+        if (!strict && diff == 2 && candidate.endsWith(target.takeLast(2))) return true
         return false
+    }
+
+    /**
+     * Posición de la palabra clave. A veces el motor la parte en dos tokens
+     * («jar vis»), así que también se prueban parejas consecutivas.
+     */
+    private fun wakeRange(tokens: List<String>, wakeWord: String): IntRange? {
+        val single = tokens.indexOfFirst { isWakeWord(it, wakeWord) }
+        if (single >= 0) return single..single
+        for (i in 0 until tokens.size - 1) {
+            if (isWakeWord(tokens[i] + tokens[i + 1], wakeWord, strict = true)) {
+                return i..(i + 1)
+            }
+        }
+        return null
     }
 
     /**
@@ -39,10 +55,9 @@ object WakeWordDetector {
         val tokens = spoken.split(Regex("\\s+")).filter { it.isNotBlank() }
         if (tokens.isEmpty()) return null
 
-        val wakeIndex = tokens.indexOfFirst { isWakeWord(it, wakeWord) }
-        if (wakeIndex < 0) return null
+        val wakeRange = wakeRange(tokens, wakeWord) ?: return null
 
-        val withoutWake = tokens.filterIndexed { index, _ -> index != wakeIndex }
+        val withoutWake = tokens.filterIndexed { index, _ -> index !in wakeRange }
         val cleaned = withoutWake
             .map { it.trimEnd('.', ',', '!', '?', ';', ':') }
             .dropWhile { clean(it) in fillers }
@@ -53,7 +68,7 @@ object WakeWordDetector {
 
     /** ¿La frase contiene la palabra clave (aunque esté mal reconhecida)? */
     fun containsWakeWord(spoken: String, wakeWord: String): Boolean =
-        spoken.split(Regex("\\s+")).any { isWakeWord(it, wakeWord) }
+        wakeRange(spoken.split(Regex("\\s+")).filter { it.isNotBlank() }, wakeWord) != null
 
     /** Normaliza un token: minúsculas, sin acentos y sin signos. */
     fun clean(text: String): String =

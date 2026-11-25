@@ -59,6 +59,15 @@ class WakeWordDetectorTest {
     }
 
     @Test
+    fun `reconoce la palabra clave partida en dos`() {
+        assertTrue(WakeWordDetector.containsWakeWord("jar vis pon música", "jarvis"))
+        assertEquals(
+            "pon música",
+            WakeWordDetector.extractCommand("jar vis pon música", "jarvis"),
+        )
+    }
+
+    @Test
     fun `la distancia de levenshtein funciona`() {
         assertEquals(0, WakeWordDetector.distance("jarvis", "jarvis"))
         assertEquals(2, WakeWordDetector.distance("jarvis", "halvis"))

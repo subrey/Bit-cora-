@@ -8,6 +8,8 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import com.example.jarvis.assistant.CrashReporter
+import com.example.jarvis.assistant.VoiceTranscriptSelector
+import com.example.jarvis.assistant.VoiceVocabulary
 
 /**
  * Micrófono del asistente dentro de la app.
@@ -60,14 +62,23 @@ class VoiceRecognizer(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            // Margen suficiente para que el usuario hable la orden con calma.
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 6_000L)
+            // Varias alternativas: si la primera llega con ruido, se puede usar
+            // otra que sí se entienda.
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+            // Pistas de vocabulario propias (Android 13+). La constante se
+            // escribe literal para que compile también con SDK antiguos.
+            putStringArrayListExtra(
+                "android.speech.extra.BIASING_STRINGS",
+                ArrayList(VoiceVocabulary.commands),
+            )
+            // Silencios más cortos: la orden se cierra antes y JARVIS responde
+            // sin esa sensación de que no ha entendido.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 3_000L)
             putExtra(
                 RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
-                3_000L,
+                1_800L,
             )
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_000L)
         }
 
         listening = true
@@ -155,12 +166,12 @@ class VoiceRecognizer(
             listening = false
             needsRecreate = false
             CrashReporter.markMicReady(context)
-            val text = firstResult(results)
+            val text = VoiceTranscriptSelector.best(allResults(results))
             safe("Callback onResults") { onResult(text) }
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
-            val text = firstResult(partialResults)
+            val text = allResults(partialResults).firstOrNull().orEmpty()
             if (text.isNotBlank()) {
                 safe("Callback onPartial") { onPartial(text) }
             }
@@ -169,9 +180,8 @@ class VoiceRecognizer(
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
     }
 
-    private fun firstResult(bundle: Bundle?): String = bundle
+    private fun allResults(bundle: Bundle?): List<String> = bundle
         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-        ?.firstOrNull()
         .orEmpty()
 
     /**

@@ -34,6 +34,12 @@ sealed interface AiResult {
  */
 interface AiProvider {
 
+    /**
+     * true si el proveedor puede buscar en la web con su propia herramienta,
+     * sin consumir la cuota de búsqueda de Gemini. Groq es el caso actual.
+     */
+    val supportsWebSearch: Boolean get() = false
+
     /** ¿Hay una clave configurada y utilizable? */
     suspend fun isConfigured(): Boolean
 

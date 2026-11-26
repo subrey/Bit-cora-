@@ -315,3 +315,14 @@ segundos). No cambia ninguna orden ni ningún dato.
   corchetes; las fuentes se muestran al final con sus títulos, sin numerarlas.
 - Al hablar, JARVIS tampoco lee el bloque de fuentes, las viñetas ni los enlaces:
   solo pronuncia el resumen.
+
+## Fase 11.27 — Groq busca antes que Gemini
+
+- Cuando la orden pide **buscar en internet**, se intenta primero Groq con su
+  herramienta `browser_search`, que corre en su propia infraestructura y no
+  consume la cuota gratuita de Google Search de Gemini.
+- La conversación normal sigue empezando por Gemini; si Groq no tiene clave o
+  falla, se sigue con Gemini como antes.
+- Para que funcione hay que guardar una clave gratuita de Groq en
+  **Ajustes → Inteligencia artificial**. Cerebras no se ha añadido: no trae
+  búsqueda web integrada y su plan gratuito es solo una prueba de 30 días.

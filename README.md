@@ -97,7 +97,10 @@ Recursos del widget: `res/layout/widget_bitacora.xml`, `res/xml/bitacora_widget_
 
 - **Conversación libre** con Google Gemini (nivel gratuito): cualquier frase que
   no sea una orden local se envía a la IA, que responde preguntas abiertas,
-  explica temas y charla.
+  explica temas y charla. Opcionalmente se puede añadir una clave de Groq:
+  Gemini sigue respondiendo primero en la conversación, pero **Groq busca
+  primero en internet** cuando se pide una búsqueda, para no depender de la
+  cuota de Google Search.
 - **Clave cifrada**: se guarda con el Keystore de Android y se puede borrar desde
   Ajustes. Nunca se escribe en el historial ni en git.
 - **Modo conversación**: durante 5 minutos, las preguntas de seguimiento

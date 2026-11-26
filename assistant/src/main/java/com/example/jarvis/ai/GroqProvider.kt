@@ -26,6 +26,10 @@ class GroqProvider(
     private val client: OkHttpClient = defaultClient(),
 ) : AiProvider {
 
+    // browser_search corre en la infraestructura de Groq: no gasta la cuota
+    // de Google Search de Gemini, así que va primero en las búsquedas.
+    override val supportsWebSearch: Boolean = true
+
     override suspend fun isConfigured(): Boolean =
         withContext(Dispatchers.IO) { apiKey().isNotBlank() }
 

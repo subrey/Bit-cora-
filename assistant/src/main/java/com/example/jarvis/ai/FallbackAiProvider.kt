@@ -2,8 +2,9 @@ package com.example.jarvis.ai
 
 /**
  * Proveedor compuesto: prueba los proveedores en orden y usa el primero que
- * responde. Así un agotamiento de cuota de Gemini no deja a JARVIS sin IA:
- * se pasa a Groq, que tiene cuota y búsqueda en navegador propias.
+ * responde. En conversación manda Gemini; en búsquedas manda Groq, porque su
+ * herramienta `browser_search` no comparte la cuota de Google Search de
+ * Gemini (que se agota y deja a JARVIS sin búsqueda en directo).
  */
 class FallbackAiProvider(
     private val providers: List<AiProvider>,
@@ -33,7 +34,7 @@ class FallbackAiProvider(
 
     override suspend fun complete(request: AiRequest): AiResult {
         val failures = mutableListOf<String>()
-        for (provider in providers) {
+        for (provider in ordered(request)) {
             if (!provider.isConfigured()) continue
             val name = when (provider) {
                 is GeminiProvider -> "Gemini"
@@ -57,10 +58,24 @@ class FallbackAiProvider(
         )
     }
 
+    /**
+     * Groq va delante solo en las peticiones de búsqueda; el resto mantiene
+     * el orden configurado (Gemini primero). Si Groq no tiene clave se omite
+     * y se sigue con Gemini, así que no se rompe nada.
+     */
+    private fun ordered(request: AiRequest): List<AiProvider> =
+        if (request.useGoogleSearch) {
+            providers.filter { it.supportsWebSearch } +
+                providers.filterNot { it.supportsWebSearch }
+        } else {
+            providers
+        }
+
     /** Errores que pueden resolverse probando el siguiente proveedor. */
     private fun isRetryable(message: String): Boolean =
         listOf(
             "límite", "cuota", "429", "clave", "no está disponible",
             "No hay conexión", "tardado demasiado", "quota", "plan",
+            "búsqueda", "browser", "herramienta", "no soportado",
         ).any { message.contains(it, ignoreCase = true) }
 }

@@ -34,10 +34,15 @@ object SpeechCorrections {
         "baterya" to "bateria",
     )
 
+    /** Patrones ya compilados: el parser se ejecuta en cada orden de voz. */
+    private val replacements = pairs.map { (wrong, right) ->
+        Regex("\\b${Regex.escape(wrong)}\\b") to right
+    }
+
     fun apply(normalized: String): String {
         var result = normalized
-        for ((wrong, right) in pairs) {
-            result = result.replace(Regex("\\b${Regex.escape(wrong)}\\b"), right)
+        for ((pattern, right) in replacements) {
+            result = result.replace(pattern, right)
         }
         return result
     }

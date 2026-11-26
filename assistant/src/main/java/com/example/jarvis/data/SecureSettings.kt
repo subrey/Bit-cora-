@@ -15,18 +15,24 @@ import androidx.security.crypto.MasterKey
  */
 class SecureSettings(context: Context) {
 
-    private val prefs: SharedPreferences? = runCatching {
-        val masterKey = MasterKey.Builder(context.applicationContext)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context.applicationContext,
-            FILE,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }.getOrNull()
+    /**
+     * Se abre en el primer uso, no al construir la clase: crear la clave del
+     * Keystore puede tardar y no debe hacerlo el hilo principal al arrancar.
+     */
+    private val prefs: SharedPreferences? by lazy {
+        runCatching {
+            val masterKey = MasterKey.Builder(context.applicationContext)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context.applicationContext,
+                FILE,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+        }.getOrNull()
+    }
 
     /** false si el Keystore del teléfono no ha podido abrirse. */
     val available: Boolean

@@ -42,7 +42,7 @@ object CrashReporter {
                         appendLine(error.stackTraceToString())
                     },
                 )
-                setMicOpen(app, false)
+                setMicOpen(app, false, sync = true)
             }
             // Se deja actuar al sistema para que muestre su diálogo habitual.
             if (previous != null) {
@@ -67,16 +67,21 @@ object CrashReporter {
     /** Anota un fallo que se ha podido capturar sin cerrar la aplicación. */
     fun note(context: Context, message: String, error: Throwable? = null) {
         Log.e(TAG, message, error)
-        runCatching {
-            File(context.applicationContext.filesDir, ERROR_FILE).writeText(
-                buildString {
-                    appendLine("Fecha: ${stamp()}")
-                    appendLine("Dispositivo: ${deviceLine()}")
-                    appendLine(message)
-                    if (error != null) appendLine(error.stackTraceToString())
-                },
-            )
-        }
+        val app = context.applicationContext
+        // Escribir en disco desde un callback de voz bloqueaba el hilo
+        // principal. El diagnóstico es best-effort: se guarda aparte.
+        Thread {
+            runCatching {
+                File(app.filesDir, ERROR_FILE).writeText(
+                    buildString {
+                        appendLine("Fecha: ${stamp()}")
+                        appendLine("Dispositivo: ${deviceLine()}")
+                        appendLine(message)
+                        if (error != null) appendLine(error.stackTraceToString())
+                    },
+                )
+            }
+        }.start()
     }
 
     /**
@@ -112,14 +117,15 @@ object CrashReporter {
     private fun micOpen(app: Context): Boolean =
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_MIC_OPEN, false)
 
-    private fun setMicOpen(app: Context, open: Boolean) {
+    private fun setMicOpen(app: Context, open: Boolean, sync: Boolean = false) {
         runCatching {
-            // commit(): la marca debe quedar escrita aunque la app muera justo
-            // después, así que no se puede dejar en segundo plano.
-            app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            // apply() evita bloquear el hilo principal en cada callback del
+            // micrófono. Solo el capturador de cierres usa commit(), porque
+            // necesita que la marca quede escrita antes de que muera el proceso.
+            val editor = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean(KEY_MIC_OPEN, open)
-                .commit()
+            if (sync) editor.commit() else editor.apply()
         }
     }
 

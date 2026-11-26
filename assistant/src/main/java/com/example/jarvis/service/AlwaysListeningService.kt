@@ -44,6 +44,11 @@ class AlwaysListeningService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var sessionActive = false
+    /**
+     * Momento del último cancel() pedido por nosotros (hablar o ceder el
+     * micrófono a la app). Los avisos que llegan justo después no son fallos.
+     */
+    private var intentionalStopAt = 0L
     private var consecutiveFailures = 0
     private var emptyResults = 0
     private var unheard = 0
@@ -59,6 +64,10 @@ class AlwaysListeningService : Service() {
     /** Ventana de conversación: tras una orden se sigue escuchando sin «Jarvis». */
     private fun conversationActive(): Boolean =
         continuousVoice && System.currentTimeMillis() < conversationUntil
+
+    /** true si el aviso del motor corresponde a un cancel() que pedimos nosotros. */
+    private fun wasIntentionalStop(): Boolean =
+        intentionalStopAt > 0L && System.currentTimeMillis() - intentionalStopAt < 3_000L
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
@@ -80,6 +89,11 @@ class AlwaysListeningService : Service() {
             sessionActive = false
             micReleased = true
             restoreMusic()
+            // cancel() produce ERROR_CLIENT aunque todo vaya bien. Ese aviso
+            // no debe destruir el reconocedor ni encadenar reinicios: destruir
+            // y volver a crear el motor en cada turno bloquea el hilo principal
+            // y es una causa habitual de «Jarvis no responde».
+            if (wasIntentionalStop()) return
             if (consecutiveFailures >= 3) {
                 // Un reconocedor que falla varias veces puede quedarse colgado:
                 // se destruye para que la siguiente sesión use uno limpio.
@@ -128,6 +142,9 @@ class AlwaysListeningService : Service() {
             consecutiveFailures = 0
             micReleased = true
             restoreMusic()
+            // Un cancel() puede entregar el resultado parcial como final: no
+            // debe convertirse en una orden ni reiniciar la sesión.
+            if (wasIntentionalStop()) return
             val candidates = results
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 .orEmpty()
@@ -292,6 +309,7 @@ class AlwaysListeningService : Service() {
 
     private fun stopListening() {
         handler.removeCallbacksAndMessages(null)
+        intentionalStopAt = System.currentTimeMillis()
         runCatching { recognizer?.cancel() }
         sessionActive = false
         JarvisBus.listening.value = false
@@ -346,9 +364,11 @@ class AlwaysListeningService : Service() {
                     if (speaking) {
                         paused = true
                         handler.removeCallbacksAndMessages(null)
+                        // Solo se cancela: destruir y recrear el reconocedor en
+                        // cada frase bloquea el hilo principal y puede colgar
+                        // la aplicación. La misma instancia se reutiliza luego.
+                        intentionalStopAt = System.currentTimeMillis()
                         runCatching { recognizer?.cancel() }
-                        runCatching { recognizer?.destroy() }
-                        recognizer = null
                         sessionActive = false
                         JarvisBus.listening.value = false
                         micReleased = true
@@ -374,9 +394,10 @@ class AlwaysListeningService : Service() {
                     if (active) {
                         paused = true
                         handler.removeCallbacksAndMessages(null)
+                        // Igual que al hablar: cancelar sin destruir evita el
+                        // coste de recrear el motor de voz en cada turno.
+                        intentionalStopAt = System.currentTimeMillis()
                         runCatching { recognizer?.cancel() }
-                        runCatching { recognizer?.destroy() }
-                        recognizer = null
                         sessionActive = false
                         JarvisBus.listening.value = false
                         micReleased = true
@@ -392,6 +413,7 @@ class AlwaysListeningService : Service() {
 
     /** Cambia entre el motor de red y el que vive en el dispositivo. */
     private fun switchRecognizer(onDevice: Boolean) {
+        intentionalStopAt = System.currentTimeMillis()
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = createRecognizer(onDevice)

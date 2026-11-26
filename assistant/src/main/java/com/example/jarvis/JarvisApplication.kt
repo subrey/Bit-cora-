@@ -20,7 +20,11 @@ import com.example.jarvis.data.SecureSettings
 import com.example.jarvis.data.SettingsRepository
 import com.example.jarvis.weather.OpenMeteoProvider
 import com.example.jarvis.weather.WeatherProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class JarvisApplication : Application() {
 
@@ -28,6 +32,9 @@ class JarvisApplication : Application() {
         super.onCreate()
         // Captura los cierres para poder explicarlos en el chat al reabrir.
         CrashReporter.install(this)
+        // Crear el motor de voz en segundo plano: enlazar con el servicio TTS
+        // del sistema al arrancar podía bloquear la interfaz.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { speaker }
     }
 
     val database: JarvisDatabase by lazy { JarvisDatabase.get(this) }

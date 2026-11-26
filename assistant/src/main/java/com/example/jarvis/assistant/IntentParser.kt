@@ -85,8 +85,21 @@ object IntentParser {
         // Coincidencia por palabra completa: «play» no debe activarse con
         // «playa» ni «nota» con «notable».
         fun hasWord(vararg words: String) = words.any { word ->
-            Regex("(?<![\\p{L}\\p{N}])${Regex.escape(word)}(?![\\p{L}\\p{N}])")
-                .containsMatchIn(n)
+            var from = 0
+            while (true) {
+                val index = n.indexOf(word, from)
+                if (index < 0) break
+                val before = if (index == 0) null else n[index - 1]
+                val afterIndex = index + word.length
+                val after = if (afterIndex >= n.length) null else n[afterIndex]
+                if ((before == null || !before.isLetterOrDigit()) &&
+                    (after == null || !after.isLetterOrDigit())
+                ) {
+                    return@any true
+                }
+                from = index + 1
+            }
+            false
         }
 
         // --- Ayuda y saludo -----------------------------------------------

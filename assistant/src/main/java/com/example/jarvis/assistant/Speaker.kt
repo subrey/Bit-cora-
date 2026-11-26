@@ -5,7 +5,10 @@ import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
@@ -20,6 +23,7 @@ import java.util.Locale
 class Speaker(context: Context) {
 
     private val ready = CompletableDeferred<Boolean>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var tts: TextToSpeech? = null
 
     @Volatile
@@ -33,14 +37,19 @@ class Speaker(context: Context) {
     @Volatile
     private var preferredGender = "male"
 
+    /** true cuando el motor TTS ha terminado de inicializarse. */
+    @Volatile
+    private var initialized = false
+
     init {
+        // JarvisApplication crea este objeto en un hilo de E/S: enlazar con el
+        // servicio TTS del sistema puede tardar y no debe hacerlo la interfaz.
         tts = TextToSpeech(context.applicationContext) { status ->
             val ok = status == TextToSpeech.SUCCESS
             if (ok) {
-                runCatching {
-                    val engine = tts ?: return@runCatching
-                    applyVoice(engine)
-                }
+                initialized = true
+                val engine = tts
+                if (engine != null) scope.launch { applyVoice(engine) }
             }
             ready.complete(ok)
         }
@@ -49,8 +58,12 @@ class Speaker(context: Context) {
     /** Cambia el género de la voz en caliente desde Ajustes. */
     fun setGender(gender: String) {
         preferredGender = gender
+        // Antes de inicializar solo se guarda la preferencia: el motor la
+        // aplicará en cuanto esté listo. En caliente, las consultas de voces
+        // y los cambios de voz son llamadas IPC: van a un hilo de E/S.
+        if (!initialized) return
         val engine = tts ?: return
-        runCatching { applyVoice(engine) }
+        scope.launch { applyVoice(engine) }
     }
 
     private fun applyVoice(engine: TextToSpeech) {

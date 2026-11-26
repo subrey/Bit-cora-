@@ -173,52 +173,66 @@ class MusicPlayer(private val context: Context) {
         return clean
     }
 
-    fun play(track: Track): Boolean {
-        releasePlayer()
-        return runCatching {
-            val player = MediaPlayer().apply {
-                setDataSource(context, track.uri)
-                // Si la música está bajada para escuchar una orden, la nueva
-                // pista también empieza bajada.
-                val startVolume = if (ducked) DUCK_VOLUME else _state.value.volume
-                setVolume(startVolume, startVolume)
-                setOnPreparedListener { prepared ->
-                    prepared.start()
-                    _state.value = _state.value.copy(
-                        isPlaying = true,
-                        trackTitle = track.title,
-                        trackArtist = track.artist,
-                        durationMs = track.durationMs,
-                        positionMs = 0,
-                    )
-                }
-                setOnCompletionListener {
-                    _state.value = _state.value.copy(isPlaying = false)
-                    if (_state.value.repeat) {
-                        play(track)
-                    } else {
-                        next()
-                    }
-                }
-                setOnErrorListener { _, _, _ ->
-                    _state.value = _state.value.copy(
-                        isPlaying = false,
-                        message = "No se pudo reproducir ${track.title}.",
-                    )
-                    true
-                }
-                prepareAsync()
-            }
-            mediaPlayer = player
-            index = playlist.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-            true
-        }.getOrElse {
+    fun play(track: Track) {
+        // Abrir el archivo (MediaStore, tarjeta SD o nube) puede tardar
+        // bastante. Si se hiciera en el hilo principal, Android mostraría
+        // «Jarvis no responde» al poner música.
+        val player = runCatching { MediaPlayer() }.getOrNull() ?: run {
             _state.value = _state.value.copy(message = "No se pudo reproducir el archivo.")
-            false
+            return
+        }
+        val previous = mediaPlayer
+        mediaPlayer = player
+        index = playlist.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        val startVolume = if (ducked) DUCK_VOLUME else _state.value.volume
+
+        player.setOnPreparedListener { prepared ->
+            prepared.start()
+            _state.value = _state.value.copy(
+                isPlaying = true,
+                trackTitle = track.title,
+                trackArtist = track.artist,
+                durationMs = track.durationMs,
+                positionMs = 0,
+            )
+        }
+        player.setOnCompletionListener {
+            _state.value = _state.value.copy(isPlaying = false)
+            if (_state.value.repeat) {
+                play(track)
+            } else {
+                next()
+            }
+        }
+        player.setOnErrorListener { _, _, _ ->
+            _state.value = _state.value.copy(
+                isPlaying = false,
+                message = "No se pudo reproducir ${track.title}.",
+            )
+            true
+        }
+
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    player.setDataSource(context, track.uri)
+                    // Si la música está bajada para escuchar una orden, la
+                    // pista nueva también empieza bajada.
+                    player.setVolume(startVolume, startVolume)
+                    player.prepareAsync()
+                }.isSuccess
+            }
+            if (!ok) {
+                _state.value = _state.value.copy(message = "No se pudo reproducir el archivo.")
+            }
+            // Liberar el reproductor anterior también puede bloquear.
+            if (previous != null && previous !== player) {
+                withContext(Dispatchers.IO) { releaseQuietly(previous) }
+            }
         }
     }
 
-    fun playRandom(): Boolean {
+    fun playRandom() {
         val tracks = playlist
         if (tracks.isEmpty()) {
             // La consulta de MediaStore puede tardar: fuera del hilo principal.
@@ -226,16 +240,16 @@ class MusicPlayer(private val context: Context) {
                 val scanned = withContext(Dispatchers.IO) { scanLibrary() }
                 if (scanned.isNotEmpty()) play(scanned.random())
             }
-            return false
+            return
         }
-        return play(tracks.random())
+        play(tracks.random())
     }
 
-    fun next(): Boolean {
+    fun next() {
         val tracks = playlist
         if (tracks.isEmpty()) {
             playRandom()
-            return false
+            return
         }
         val nextIndex = if (_state.value.shuffle) {
             tracks.indices.random()
@@ -243,18 +257,18 @@ class MusicPlayer(private val context: Context) {
             (index + 1) % tracks.size
         }
         index = nextIndex
-        return play(tracks[nextIndex])
+        play(tracks[nextIndex])
     }
 
-    fun previous(): Boolean {
+    fun previous() {
         val tracks = playlist
         if (tracks.isEmpty()) {
             playRandom()
-            return false
+            return
         }
         val previousIndex = if (index - 1 < 0) tracks.size - 1 else index - 1
         index = previousIndex
-        return play(tracks[previousIndex])
+        play(tracks[previousIndex])
     }
 
     fun toggle(): Boolean {
@@ -279,9 +293,13 @@ class MusicPlayer(private val context: Context) {
     }
 
     fun stop() {
-        releasePlayer()
+        val player = mediaPlayer
+        mediaPlayer = null
         ducked = false
         _state.value = _state.value.copy(isPlaying = false, positionMs = 0)
+        if (player != null) {
+            scope.launch { withContext(Dispatchers.IO) { releaseQuietly(player) } }
+        }
     }
 
     fun setVolume(value: Float) {
@@ -321,13 +339,12 @@ class MusicPlayer(private val context: Context) {
         _state.value = _state.value.copy(message = "Tono de prueba emitido.")
     }
 
-    private fun releasePlayer() {
-        mediaPlayer?.runCatching {
-            if (isPlaying) stop()
-            reset()
-            release()
+    private fun releaseQuietly(player: MediaPlayer) {
+        runCatching {
+            if (player.isPlaying) player.stop()
+            player.reset()
+            player.release()
         }
-        mediaPlayer = null
     }
 
     init {

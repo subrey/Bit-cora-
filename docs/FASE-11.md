@@ -265,3 +265,35 @@
   linterna» gana a la música y «para la música» detiene en vez de pausar.
 - **Respuesta más útil.** Sin IA configurada, si no se entiende la orden JARVIS
   repite lo que ha oído, para poder corregirlo.
+
+## Fase 11.24 — «la aplicación Jarvis no responde»
+
+Corrección de los bloqueos del hilo principal (el diálogo de Android
+*«Jarvis no responde»* aparece cuando la interfaz está ocupada más de unos
+segundos). No cambia ninguna orden ni ningún dato.
+
+- **Keystore fuera de la interfaz.** Abrir las preferencias cifradas donde se
+  guarda la clave de la IA podía tardar varios segundos al arrancar. Ahora se
+  abre en segundo plano y la interfaz muestra el estado en cuanto se lee.
+- **Agenda y aplicaciones en segundo plano.** Buscar un contacto para WhatsApp
+  y buscar una app por su nombre podían recorrer miles de entradas en el hilo
+  de la interfaz. Ambas consultas se hacen ahora en `Dispatchers.IO`.
+- **Diagnóstico sin disco en la interfaz.** Las marcas del micrófono usan
+  `apply()` en vez de `commit()`; el capturador de cierres sigue usando
+  `commit()` porque necesita escribir antes de que muera el proceso. Leer y
+  escribir los archivos de diagnóstico y exportar el historial también van en
+  segundo plano.
+- **Menos recreaciones del micrófono.** Al hablar o al ceder el micro a la app,
+  el servicio solo cancela la sesión y conserva el recognizer: antes lo
+  destruía y creaba de nuevo en cada frase, y esas operaciones pueden colgar
+  el motor de voz. Los avisos que llegan justo después de un `cancel()` se
+  ignoran, para no encadenar reinicios.
+- **Música sin bloqueos.** Abrir el archivo de una canción (`setDataSource`),
+  liberar el reproductor anterior y escanear la biblioteca se hacen en segundo
+  plano; la canción empieza en cuanto el archivo está listo.
+- **Parser más ligero.** Las expresiones regulares de las correcciones de
+  dictado se compilan una sola vez y la comprobación de palabras completas ya
+  no crea una expresión por palabra y por orden.
+- **Voz en segundo plano.** La inicialización del motor TTS y la lectura de la
+  preferencia de género ya no se hacen en el hilo de la interfaz al abrir la
+  app.

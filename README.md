@@ -307,7 +307,7 @@ Pasos:
 2. Abre la ejecución terminada y descarga los artefactos en la sección *Artifacts*.
 3. Instala los APK en el teléfono (permite instalar apps de origen desconocido).
 
-Los APK de depuración van firmados con la clave de debug generada en el runner, así que son instalables directamente. El flujo de trabajo guarda esa clave en la caché de Actions para que todas las compilaciones usen la misma firma y las actualizaciones se instalen encima sin desinstalar. Los artefactos se conservan 30 días.
+Los APK de depuración van firmados con la clave fija versionada en `assistant/debug.keystore` (huella verificada por CI), así que las actualizaciones se instalan encima sin desinstalar y conservan los datos. Los artefactos se conservan 30 días.
 
 ---
 

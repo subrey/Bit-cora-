@@ -104,31 +104,59 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setVoiceGender(value: String) {
         val clean = if (value in setOf("male", "female", "default")) value else "male"
-        app.speaker.setGender(clean)
-        viewModelScope.launch { settings.setVoiceGender(clean) }
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { app.speaker.setGender(clean) }
+            settings.setVoiceGender(clean)
+        }
     }
 
     // --- IA conversacional (Fase 4) --------------------------------------
 
-    private val secure = app.secureSettings
+    /** Se abre en segundo plano: el Keystore puede tardar varios segundos. */
+    private val secure by lazy { app.secureSettings }
 
     /** ¿Hay alguna clave de Gemini guardada de forma cifrada? */
-    private val _aiConfigured = MutableStateFlow(secure.hasAnyKey())
+    private val _aiConfigured = MutableStateFlow(false)
     val aiConfigured: StateFlow<Boolean> = _aiConfigured.asStateFlow()
 
     /** ¿Hay una segunda clave lista para cuando falle la principal? */
-    private val _aiBackupConfigured = MutableStateFlow(secure.hasBackupKey())
+    private val _aiBackupConfigured = MutableStateFlow(false)
     val aiBackupConfigured: StateFlow<Boolean> = _aiBackupConfigured.asStateFlow()
 
     /** ¿Hay una clave de Groq configurada como proveedor de respaldo? */
-    private val _groqConfigured = MutableStateFlow(secure.hasGroqKey())
+    private val _groqConfigured = MutableStateFlow(false)
     val groqConfigured: StateFlow<Boolean> = _groqConfigured.asStateFlow()
 
     /** Modelo configurado, o el gratuito por defecto. */
-    private val _aiModel = MutableStateFlow(
-        GeminiProvider.effectiveModel(secure.model()),
-    )
+    private val _aiModel = MutableStateFlow(GeminiProvider.effectiveModel(""))
     val aiModel: StateFlow<String> = _aiModel.asStateFlow()
+
+    private data class SecureSnapshot(
+        val configured: Boolean,
+        val backup: Boolean,
+        val groq: Boolean,
+        val model: String,
+    )
+
+    /** Lee las claves cifradas sin bloquear la interfaz. */
+    private suspend fun readSecure(): SecureSnapshot? = withContext(Dispatchers.IO) {
+        runCatching {
+            SecureSnapshot(
+                configured = secure.hasAnyKey(),
+                backup = secure.hasBackupKey(),
+                groq = secure.hasGroqKey(),
+                model = secure.model(),
+            )
+        }.getOrNull()
+    }
+
+    private suspend fun refreshSecureFlags() {
+        val snapshot = readSecure() ?: return
+        _aiConfigured.value = snapshot.configured
+        _aiBackupConfigured.value = snapshot.backup
+        _groqConfigured.value = snapshot.groq
+        _aiModel.value = GeminiProvider.effectiveModel(snapshot.model)
+    }
 
     /** Resultado legible del último guardado o prueba de conexión. */
     private val _aiStatus = MutableStateFlow<String?>(null)
@@ -140,26 +168,28 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             _aiStatus.value = "Pegue una clave de API válida."
             return
         }
-        if (!secure.available) {
-            _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
-            return
-        }
         viewModelScope.launch {
-            runCatching { secure.setApiKey(clean) }
-                .onSuccess {
-                    _aiConfigured.value = true
-                    _aiStatus.value = "Clave guardada de forma cifrada."
-                }
-                .onFailure {
-                    _aiStatus.value = "No se pudo guardar la clave de forma cifrada."
-                }
+            val available = withContext(Dispatchers.IO) { secure.available }
+            if (!available) {
+                _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
+                return@launch
+            }
+            val ok = withContext(Dispatchers.IO) {
+                runCatching { secure.setApiKey(clean) }.isSuccess
+            }
+            if (ok) {
+                refreshSecureFlags()
+                _aiStatus.value = "Clave guardada de forma cifrada."
+            } else {
+                _aiStatus.value = "No se pudo guardar la clave de forma cifrada."
+            }
         }
     }
 
     fun clearAiKey() {
         viewModelScope.launch {
-            runCatching { secure.setApiKey("") }
-            _aiConfigured.value = secure.hasAnyKey()
+            withContext(Dispatchers.IO) { runCatching { secure.setApiKey("") } }
+            refreshSecureFlags()
             _aiStatus.value = "Clave principal borrada."
         }
     }
@@ -170,28 +200,28 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             _aiStatus.value = "Pegue una segunda clave válida."
             return
         }
-        if (!secure.available) {
-            _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
-            return
-        }
         viewModelScope.launch {
-            runCatching { secure.setBackupApiKey(clean) }
-                .onSuccess {
-                    _aiBackupConfigured.value = true
-                    _aiConfigured.value = true
-                    _aiStatus.value = "Clave de respaldo guardada de forma cifrada."
-                }
-                .onFailure {
-                    _aiStatus.value = "No se pudo guardar la clave de respaldo."
-                }
+            val available = withContext(Dispatchers.IO) { secure.available }
+            if (!available) {
+                _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
+                return@launch
+            }
+            val ok = withContext(Dispatchers.IO) {
+                runCatching { secure.setBackupApiKey(clean) }.isSuccess
+            }
+            if (ok) {
+                refreshSecureFlags()
+                _aiStatus.value = "Clave de respaldo guardada de forma cifrada."
+            } else {
+                _aiStatus.value = "No se pudo guardar la clave de respaldo."
+            }
         }
     }
 
     fun clearAiBackupKey() {
         viewModelScope.launch {
-            runCatching { secure.setBackupApiKey("") }
-            _aiBackupConfigured.value = false
-            _aiConfigured.value = secure.hasAnyKey()
+            withContext(Dispatchers.IO) { runCatching { secure.setBackupApiKey("") } }
+            refreshSecureFlags()
             _aiStatus.value = "Clave de respaldo borrada."
         }
     }
@@ -202,28 +232,28 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
             _aiStatus.value = "Pegue una clave de Groq válida."
             return
         }
-        if (!secure.available) {
-            _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
-            return
-        }
         viewModelScope.launch {
-            runCatching { secure.setGroqApiKey(clean) }
-                .onSuccess {
-                    _groqConfigured.value = true
-                    _aiConfigured.value = true
-                    _aiStatus.value = "Clave de Groq guardada de forma cifrada."
-                }
-                .onFailure {
-                    _aiStatus.value = "No se pudo guardar la clave de Groq."
-                }
+            val available = withContext(Dispatchers.IO) { secure.available }
+            if (!available) {
+                _aiStatus.value = "El almacenamiento cifrado no está disponible en este teléfono."
+                return@launch
+            }
+            val ok = withContext(Dispatchers.IO) {
+                runCatching { secure.setGroqApiKey(clean) }.isSuccess
+            }
+            if (ok) {
+                refreshSecureFlags()
+                _aiStatus.value = "Clave de Groq guardada de forma cifrada."
+            } else {
+                _aiStatus.value = "No se pudo guardar la clave de Groq."
+            }
         }
     }
 
     fun clearGroqKey() {
         viewModelScope.launch {
-            runCatching { secure.setGroqApiKey("") }
-            _groqConfigured.value = false
-            _aiConfigured.value = secure.hasAnyKey()
+            withContext(Dispatchers.IO) { runCatching { secure.setGroqApiKey("") } }
+            refreshSecureFlags()
             _aiStatus.value = "Clave de Groq borrada."
         }
     }
@@ -231,18 +261,21 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     fun saveAiModel(value: String) {
         val clean = GeminiProvider.effectiveModel(value)
         viewModelScope.launch {
-            runCatching { secure.setModel(clean) }
+            withContext(Dispatchers.IO) { runCatching { secure.setModel(clean) } }
             _aiModel.value = clean
             _aiStatus.value = "Modelo guardado: $clean."
         }
     }
 
     fun testAi() {
-        if (!secure.hasAnyKey()) {
-            _aiStatus.value = "Configure primero una clave de IA."
-            return
-        }
         viewModelScope.launch {
+            val configured = withContext(Dispatchers.IO) {
+                runCatching { secure.hasAnyKey() }.getOrDefault(false)
+            }
+            if (!configured) {
+                _aiStatus.value = "Configure primero una clave de IA."
+                return@launch
+            }
             _aiStatus.value = "Probando conexión con la IA…"
             val result = runCatching { app.aiProvider.test() }
                 .getOrElse { AiResult.Failure("Error inesperado al probar la IA.") }
@@ -298,8 +331,18 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     init {
-        // Aplica la voz guardada en cuanto el motor TTS esté disponible.
-        app.speaker.setGender(voiceGender.value)
+        // La voz se aplica en cuanto se conozca la preferencia guardada. Crear
+        // el motor TTS en el hilo principal al arrancar puede bloquear la
+        // interfaz; se hace en segundo plano y el motor aplica el género al
+        // terminar de inicializarse.
+        viewModelScope.launch {
+            settings.voiceGender.collect { gender ->
+                withContext(Dispatchers.IO) { app.speaker.setGender(gender) }
+            }
+        }
+        // Las claves cifradas y el diagnóstico se leen fuera del hilo principal:
+        // el Keystore y el disco pueden tardar y provocar «Jarvis no responde».
+        viewModelScope.launch { refreshSecureFlags() }
         viewModelScope.launch {
             runCatching {
                 if (repository.chatCount() == 0) {
@@ -310,9 +353,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
                 // Si la sesión anterior terminó con un cierre, se explica aquí.
-                CrashReporter.consume(getApplication<Application>())?.let { report ->
-                    repository.addChat(report, fromUser = false)
+                val report = withContext(Dispatchers.IO) {
+                    CrashReporter.consume(getApplication<Application>())
                 }
+                report?.let { repository.addChat(it, fromUser = false) }
             }
         }
     }
@@ -743,7 +787,9 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
             val context = getApplication<Application>()
-            val ok = ChatExporter.saveAndShare(context, ChatExporter.format(messages))
+            val ok = withContext(Dispatchers.IO) {
+                ChatExporter.saveAndShare(context, ChatExporter.format(messages))
+            }
             systemMessage(
                 if (ok) {
                     "Historial guardado en un archivo de texto. Elija cómo compartirlo."

@@ -479,7 +479,7 @@ class AssistantEngine(
         recipient.count { it.isDigit() } >= 7
 
     /** Interpreta la orden de WhatsApp y pide lo que falte. */
-    private fun whatsappCommand(payload: String): AssistantResponse {
+    private suspend fun whatsappCommand(payload: String): AssistantResponse {
         val (recipient, message) = IntentParser.whatsappParts(payload)
         if (recipient.isBlank()) {
             return AssistantResponse("¿A quién quiere enviar el WhatsApp, señor?")
@@ -492,7 +492,7 @@ class AssistantEngine(
     }
 
     /** Resuelve el número y pide confirmación antes de abrir WhatsApp. */
-    private fun prepareWhatsApp(recipient: String, message: String): AssistantResponse {
+    private suspend fun prepareWhatsApp(recipient: String, message: String): AssistantResponse {
         val sender = whatsapp
         if (sender == null) {
             return AssistantResponse("No puedo abrir WhatsApp en este dispositivo, señor.")
@@ -504,7 +504,9 @@ class AssistantEngine(
                 needContacts = true,
             )
         }
-        val number = sender.resolveNumber(recipient)
+        // Leer la agenda puede tardar segundos con muchos contactos: nunca en
+        // el hilo principal, o Android muestra «Jarvis no responde».
+        val number = withContext(Dispatchers.IO) { sender.resolveNumber(recipient) }
         if (number.isNullOrBlank()) {
             return AssistantResponse("No encuentro a «$recipient». Dígame su número, señor.")
         }
@@ -517,7 +519,7 @@ class AssistantEngine(
     }
 
     /** Abre el chat con el texto ya escrito; el envío final lo hace el usuario. */
-    private fun sendWhatsApp(
+    private suspend fun sendWhatsApp(
         recipient: String,
         number: String,
         message: String,
@@ -526,11 +528,15 @@ class AssistantEngine(
         if (sender == null) {
             return AssistantResponse("No puedo abrir WhatsApp en este dispositivo, señor.")
         }
-        val resolved = number.ifBlank { sender.resolveNumber(recipient).orEmpty() }
+        val resolved = number.ifBlank {
+            withContext(Dispatchers.IO) { sender.resolveNumber(recipient) }.orEmpty()
+        }
         if (resolved.isBlank()) {
             return AssistantResponse("No encuentro el número de «$recipient», señor.")
         }
-        if (sender.openChat(resolved, message)) {
+        // Resolver paquetes y abrir la app también consulta al sistema.
+        val opened = withContext(Dispatchers.IO) { sender.openChat(resolved, message) }
+        if (opened) {
             return AssistantResponse(
                 "WhatsApp abierto con el mensaje preparado para $recipient. " +
                     "Pulse «enviar» en WhatsApp, señor.",
@@ -538,7 +544,7 @@ class AssistantEngine(
         }
         // Último recurso: el mensaje queda copiado y se abre WhatsApp.
         sender.copyMessage(message)
-        val appOpened = sender.openApp()
+        val appOpened = withContext(Dispatchers.IO) { sender.openApp() }
         return AssistantResponse(
             if (appOpened) {
                 "No he podido abrir el chat directamente, pero he abierto WhatsApp " +
@@ -974,7 +980,7 @@ class AssistantEngine(
             return AssistantResponse("Todavía no hay conversación que exportar, señor.")
         }
         val text = ChatExporter.format(messages)
-        val ok = ChatExporter.saveAndShare(context, text)
+        val ok = withContext(Dispatchers.IO) { ChatExporter.saveAndShare(context, text) }
         return if (ok) {
             AssistantResponse(
                 "He guardado el historial en un archivo de texto y he abierto la ventana " +
@@ -1068,27 +1074,35 @@ class AssistantEngine(
 
     private var torchState = false
 
-    private fun openApp(name: String): String {
-        if (name.isBlank()) return "¿Qué aplicación wishes que abra?"
-        val pm = context.packageManager
-        val target = name.trim().lowercase(Locale.forLanguageTag("es"))
-        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN)
-            .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
-        val apps = runCatching { pm.queryIntentActivities(intent, 0) }.getOrElse { emptyList() }
-        val match = apps.firstOrNull { info ->
-            val label = runCatching { info.loadLabel(pm).toString() }.getOrElse { "" }.lowercase(Locale.forLanguageTag("es"))
-            label.contains(target)
-        }
-        return if (match == null) {
-            "No encuentro ninguna aplicación llamada $name."
-        } else {
-            val launch = match.activityInfo?.packageName?.let { pm.getLaunchIntentForPackage(it) }
-            if (launch == null) {
-                "No he podido abrir $name."
+    private suspend fun openApp(name: String): String {
+        if (name.isBlank()) return "¿Qué aplicación quiere que abra?"
+        // Consultar y cargar las etiquetas de todas las apps puede tardar:
+        // se hace fuera del hilo principal.
+        return withContext(Dispatchers.IO) {
+            val pm = context.packageManager
+            val target = name.trim().lowercase(Locale.forLanguageTag("es"))
+            val intent = android.content.Intent(android.content.Intent.ACTION_MAIN)
+                .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+            val apps = runCatching { pm.queryIntentActivities(intent, 0) }
+                .getOrElse { emptyList() }
+            val match = apps.firstOrNull { info ->
+                val label = runCatching { info.loadLabel(pm).toString() }
+                    .getOrElse { "" }
+                    .lowercase(Locale.forLanguageTag("es"))
+                label.contains(target)
+            }
+            if (match == null) {
+                "No encuentro ninguna aplicación llamada $name."
             } else {
-                launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                runCatching { context.startActivity(launch) }
-                "Abriendo $name."
+                val launch = match.activityInfo?.packageName
+                    ?.let { pm.getLaunchIntentForPackage(it) }
+                if (launch == null) {
+                    "No he podido abrir $name."
+                } else {
+                    launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    runCatching { context.startActivity(launch) }
+                    "Abriendo $name."
+                }
             }
         }
     }

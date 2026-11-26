@@ -383,6 +383,7 @@ class AssistantEngine(
             appendLine("- Después, de 4 a 6 puntos clave, uno por línea, cada uno empezando por «• ».")
             appendLine("- Por último, una frase de cierre con lo esencial.")
             appendLine("Usa solo información de las fuentes encontradas. No inventes datos ni fechas.")
+            appendLine("No escribas citas ni números entre corchetes: la app añadirá las fuentes al final.")
         }
         val request = AiRequest(
             systemPrompt = AiPrompt.factualPrompt(basePrompt),
@@ -564,15 +565,18 @@ class AssistantEngine(
             if (result.sources.isNotEmpty()) {
                 appendLine()
                 appendLine()
-                append("Fuentes:")
-                result.sources.take(3).forEachIndexed { index, source ->
-                    val host = source.url
-                        .substringAfter("://")
-                        .substringBefore("/")
-                        .removePrefix("www.")
-                    appendLine()
-                    append("${index + 1}. ${source.title} — $host")
-                }
+                // Sin números: las citas del modelo ya se han quitado y una
+                // lista numerada volvería a llenar la respuesta de cifras.
+                append("Fuentes: ")
+                append(
+                    result.sources.take(3).joinToString(" · ") { source ->
+                        val host = source.url
+                            .substringAfter("://")
+                            .substringBefore("/")
+                            .removePrefix("www.")
+                        "${source.title} — $host"
+                    },
+                )
             }
         }
         return AssistantResponse(text.trim())

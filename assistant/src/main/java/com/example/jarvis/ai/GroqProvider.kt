@@ -77,7 +77,7 @@ class GroqProvider(
         }
         val text = GroqJson.parseText(body)
             ?: return AiResult.Failure("Groq no ha devuelto ninguna respuesta.")
-        return AiResult.Success(text)
+        return AiResult.Success(AiText.clean(text))
     }
 
     /** OkHttp bloquea el hilo; se envuelve para poder cancelar con la corrutina. */

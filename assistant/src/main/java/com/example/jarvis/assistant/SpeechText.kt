@@ -1,5 +1,7 @@
 package com.example.jarvis.assistant
 
+import com.example.jarvis.ai.AiText
+
 /**
  * Prepara el texto antes de llevárselo al motor de voz.
  *
@@ -36,11 +38,19 @@ object SpeechText {
     private val signed = Regex("(^|[\\s:()-])-(\\d+)")
     private val digits = Regex("\\d+")
     private val spaces = Regex("\\s+")
+    private val sourcesBlock = Regex("(?s)\\n\\s*Fuentes\\s*:.*")
+    private val urls = Regex("https?://\\S+")
 
     /** Texto listo para pronunciar. */
     fun forSpeech(text: String): String {
-        var result = text.trim()
+        var result = AiText.clean(text.trim())
         if (result.isEmpty()) return result
+
+        // Las fuentes y las marcas de formato se ven en pantalla, pero no se
+        // leen: dichas en voz alta suenan a números y letras sueltas.
+        result = sourcesBlock.replace(result, "")
+        result = urls.replace(result, "")
+        result = result.replace("**", "").replace("•", "").replace("#", "")
 
         // Unidades que el TTS suele deletrear letra a letra.
         result = result.replace(Regex("\\bGB\\b", RegexOption.IGNORE_CASE), "gigabytes")

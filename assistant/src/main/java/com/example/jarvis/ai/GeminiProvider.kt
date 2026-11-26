@@ -146,7 +146,9 @@ class GeminiProvider(
 
         val text = GeminiJson.parseText(body)
             ?: return AiResult.Failure("La IA no ha devuelto ninguna respuesta. Inténtelo de nuevo.")
-        return AiResult.Success(text, GeminiJson.parseSources(body))
+        // Las citas de grounding se muestran como fuentes al final; dentro del
+        // texto solo añaden números que suenan mal al leerlos en voz alta.
+        return AiResult.Success(AiText.clean(text), GeminiJson.parseSources(body))
     }
 
     /** OkHttp bloquea el hilo; se envuelve para poder cancelar con la corrutina. */

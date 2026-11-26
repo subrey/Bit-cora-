@@ -47,4 +47,15 @@ class SpeechTextTest {
         val text = "La batería está al ochenta por ciento y se está cargando."
         assertEquals(text, SpeechText.forSpeech(text))
     }
+
+    @Test
+    fun `las citas y las fuentes no se leen`() {
+        val text = "La fotosíntesis produce oxígeno【1†L14-L19】.\n\n" +
+            "• Ocurre en los cloroplastos.\n\n" +
+            "Fuentes:\n1. Wikipedia — es.wikipedia.org"
+        assertEquals(
+            "La fotosíntesis produce oxígeno. Ocurre en los cloroplastos.",
+            SpeechText.forSpeech(text),
+        )
+    }
 }

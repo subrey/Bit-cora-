@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.jarvis"
         minSdk = 26
         targetSdk = 35
-        versionCode = 42
-        versionName = "2.0-fase11.25"
+        versionCode = 43
+        versionName = "2.0-fase11.26"
     }
 
     // Clave de depuración fija y versionada. Sin esto, cada ejecución de CI

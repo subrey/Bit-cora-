@@ -306,3 +306,12 @@ segundos). No cambia ninguna orden ni ningún dato.
   `-3°` se dice «menos tres grados».
 - El cambio afecta **solo a la voz**: el historial del chat sigue mostrando los
   números tal como se escribieron.
+
+## Fase 11.26 — sin citas numeradas en las respuestas
+
+- Gemini añadía marcas de cita como `【1†L14-L19】` al buscar en internet. Esas
+  marcas se quitan ahora del texto antes de mostrarlo y de leerlo en voz alta.
+- La búsqueda pide explícitamente al modelo que no escriba citas entre
+  corchetes; las fuentes se muestran al final con sus títulos, sin numerarlas.
+- Al hablar, JARVIS tampoco lee el bloque de fuentes, las viñetas ni los enlaces:
+  solo pronuncia el resumen.

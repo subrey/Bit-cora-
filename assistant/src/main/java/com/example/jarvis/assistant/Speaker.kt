@@ -116,8 +116,10 @@ class Speaker(context: Context) {
         pending = done
         currentUtterance = id
 
+        // Solo cambia lo que se dice: el chat conserva el texto original.
+        val spoken = SpeechText.forSpeech(text)
         val result = withContext(Dispatchers.Main) {
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
+            tts?.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, id)
         }
         if (result != TextToSpeech.SUCCESS) {
             if (pending === done) {

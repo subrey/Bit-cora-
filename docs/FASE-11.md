@@ -297,3 +297,12 @@ segundos). No cambia ninguna orden ni ningún dato.
 - **Voz en segundo plano.** La inicialización del motor TTS y la lectura de la
   preferencia de género ya no se hacen en el hilo de la interfaz al abrir la
   app.
+
+## Fase 11.25 — pronunciación de cifras
+
+- Antes de hablar, el texto se prepara para que el motor de voz no lea las
+  cifras como balbuceos: `07:30` se dice «siete y media», `1234` se dice «mil
+  doscientos treinta y cuatro», `12.5 GB` se dice «doce coma cinco gigabytes» y
+  `-3°` se dice «menos tres grados».
+- El cambio afecta **solo a la voz**: el historial del chat sigue mostrando los
+  números tal como se escribieron.
